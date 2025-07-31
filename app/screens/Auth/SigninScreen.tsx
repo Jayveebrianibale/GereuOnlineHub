@@ -23,7 +23,7 @@ export default function SigninScreen() {
     // Handle sign in logic
     console.log('Sign in:', { email, password });
     // Navigate to main app after successful sign in
-    router.push('/(tabs)');
+    router.push('/admin-dashboard');
   };
 
   const handleSignUp = () => {

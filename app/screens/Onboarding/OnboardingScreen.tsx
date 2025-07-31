@@ -27,13 +27,13 @@ const onboardingData = [
     id: 2,
     title: 'Everything in One Place',
     description: 'Access available apartment units, laundry options, and hardware services with real-time updates and transparent pricing — all from your phone.',
-    image: require('../../../assets/images/onboarding1.png'),
+    image: require('../../../assets/images/onboarding2.png'),
   },
   {
     id: 3,
     title: 'Stay Informed, Stay Connected',
     description: 'Get notified when your laundry is ready, book apartments, or connect with hardware service providers. All without waiting in line.',
-    image: require('../../../assets/images/onboarding1.png'),
+    image: require('../../../assets/images/onboarding3.png'),
   },
 ];
 
