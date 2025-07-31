@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
 
@@ -45,21 +46,31 @@ const modules = [
   },
 ];
 
-const quickActions = [
-  { name: 'Add New', icon: 'add-circle-outline', screen: 'AddListing' },
-  { name: 'Analytics', icon: 'analytics', screen: 'Analytics' },
-  { name: 'Users', icon: 'people-outline', screen: 'Users' },
-  { name: 'Notifications', icon: 'notifications-none', screen: 'Notifications' },
-];
-
 export default function AdminDashboard() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
+  const router = useRouter();
   const isDark = colorScheme === 'dark';
   const cardBackground = isDark ? '#181818' : '#fff'; // Cards: dark gray in dark mode
   const pageBackground = isDark ? '#000' : '#fff';    // Page: pure black in dark mode
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const iconColor = isDark ? colorPalette.primaryLight : colorPalette.primaryDark;
+
+  const handleModulePress = (moduleKey: string) => {
+    switch (moduleKey) {
+      case 'apartment':
+        router.push('/apartment-list');
+        break;
+      case 'laundry':
+        router.push('/laundry-list');
+        break;
+      case 'car':
+        router.push('/auto-list');
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: pageBackground }]}>
@@ -83,7 +94,7 @@ export default function AdminDashboard() {
               /> */}
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton}>
-              <MaterialIcons name="account-circle" size={32} color={iconColor} />
+              <MaterialIcons name="notifications-none" size={32} color={iconColor} />
             </TouchableOpacity>
           </View>
         </View>
@@ -108,27 +119,6 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-          Quick Actions
-        </ThemedText>
-        <View style={styles.quickActionsGrid}>
-          {quickActions.map((action, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={[
-                styles.quickAction, 
-                { backgroundColor: cardBackground }
-              ]}
-            >
-              <MaterialIcons name={action.icon as any} size={24} color={iconColor} />
-              <ThemedText type="default" style={[styles.quickActionText, { color: textColor }]}>
-                {action.name}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Main Services */}
         <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
           Manage Services
@@ -145,6 +135,7 @@ export default function AdminDashboard() {
                   shadowColor: isDark ? '#222' : colorPalette.dark, // lighter shadow in dark mode
                 }
               ]}
+              onPress={() => handleModulePress(mod.key)}
             >
               <View style={styles.cardHeader}>
                 <MaterialIcons name={mod.icon as any} size={24} color={mod.color} />

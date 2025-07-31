@@ -45,10 +45,10 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="reservations"
         options={{
-          title: 'Analytics',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="analytics" size={size} color={color} />,
+          title: 'Reservations',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -56,6 +56,13 @@ export default function AdminTabLayout() {
         options={{
           title: 'Users',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={size} color={color} />,
+        }}
+      />
+       <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="message" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
