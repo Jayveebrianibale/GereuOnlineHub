@@ -54,7 +54,12 @@ const quickActions = [
 
 export default function AdminDashboard() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
-  
+  const isDark = colorScheme === 'dark';
+  const cardBackground = isDark ? colorPalette.darkest : '#fff';
+  const textColor = isDark ? '#fff' : colorPalette.darkest;
+  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+  const iconColor = isDark ? colorPalette.primaryLight : colorPalette.primaryDark;
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: '#fff' }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -191,7 +196,6 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   iconButton: {
     width: 40,
