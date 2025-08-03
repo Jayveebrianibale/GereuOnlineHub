@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -52,6 +53,8 @@ const quickActions = [
 ];
 
 export default function AdminDashboard() {
+  const { colorScheme, toggleColorScheme } = useColorScheme();
+  
   return (
     <ThemedView style={[styles.container, { backgroundColor: '#fff' }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -65,33 +68,42 @@ export default function AdminDashboard() {
               Welcome back, Admin
             </ThemedText>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
-            <MaterialIcons name="account-circle" size={32} color={colorPalette.dark} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.iconButton} onPress={toggleColorScheme}>
+              <MaterialIcons 
+                name={colorScheme === 'dark' ? 'light-mode' : 'dark-mode'} 
+                size={24} 
+                color={colorPalette.dark} 
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileButton}>
+              <MaterialIcons name="account-circle" size={32} color={colorPalette.dark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats Overview */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: '#fff' }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: colorPalette.darkest }]}>
+          <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
               Total Services
             </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: colorPalette.darker }]}>
+            <ThemedText type="title" style={[styles.statValue, { color: isDark ? colorPalette.primary : colorPalette.darker }]}>
               49
             </ThemedText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#fff' }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: colorPalette.darkest }]}>
+          <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
               Active Bookings
             </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: colorPalette.darker }]}>
+            <ThemedText type="title" style={[styles.statValue, { color: isDark ? colorPalette.primary : colorPalette.darker }]}>
               32
             </ThemedText>
           </View>
         </View>
 
         {/* Quick Actions */}
-        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colorPalette.darker }]}>
+        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
           Quick Actions
         </ThemedText>
         <View style={styles.quickActionsGrid}>
@@ -101,12 +113,12 @@ export default function AdminDashboard() {
               style={[
                 styles.quickAction, 
                 { 
-                  backgroundColor: '#fff',
+                  backgroundColor: cardBackground,
                 }
               ]}
             >
-              <MaterialIcons name={action.icon} size={24} color={colorPalette.darkest} />
-              <ThemedText type="default" style={[styles.quickActionText, { color: colorPalette.darkest }]}>
+              <MaterialIcons name={action.icon} size={24} color={iconColor} />
+              <ThemedText type="default" style={[styles.quickActionText, { color: textColor }]}>
                 {action.name}
               </ThemedText>
             </TouchableOpacity>
@@ -114,7 +126,7 @@ export default function AdminDashboard() {
         </View>
 
         {/* Main Services */}
-        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colorPalette.darker }]}>
+        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
           Manage Services
         </ThemedText>
         <View style={styles.cardGrid}>
@@ -124,27 +136,27 @@ export default function AdminDashboard() {
               style={[
                 styles.card, 
                 { 
-                  backgroundColor: '#ffffff',
+                  backgroundColor: cardBackground,
                   borderTopColor: mod.color,
-                  shadowColor: colorPalette.dark,
+                  shadowColor: isDark ? '#000' : colorPalette.dark,
                 }
               ]}
             >
               <View style={styles.cardHeader}>
                 <MaterialIcons name={mod.icon} size={24} color={mod.color} />
-                <ThemedText type="subtitle" style={[styles.cardTitle, { color: colorPalette.darker }]}>
+                <ThemedText type="subtitle" style={[styles.cardTitle, { color: textColor }]}>
                   {mod.title}
                 </ThemedText>
               </View>
               <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
-              <ThemedText style={[styles.cardDescription, { color: colorPalette.dark }]}>
+              <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
                 {mod.description}
               </ThemedText>
               <View style={styles.cardFooter}>
                 <ThemedText type="default" style={[styles.cardStats, { color: colorPalette.primaryDark }]}>
                   {mod.stats}
                 </ThemedText>
-                <MaterialIcons name="arrow-forward" size={20} color={colorPalette.dark} />
+                <MaterialIcons name="arrow-forward" size={20} color={iconColor} />
               </View>
             </TouchableOpacity>
           ))}
@@ -167,6 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 24,
   },
   headerTitle: {
     fontSize: 28,
@@ -174,6 +187,18 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileButton: {
     width: 40,

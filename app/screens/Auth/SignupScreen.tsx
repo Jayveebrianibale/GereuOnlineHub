@@ -26,8 +26,8 @@ export default function SignupScreen() {
   const handleSignUp = () => {
     // Handle sign up logic
     console.log('Sign up:', { fullName, email, password, confirmPassword });
-    // Navigate to main app after successful sign up
-    router.push('/(tabs)');
+    // Navigate to admin tabs after successful sign up
+    router.push('/(admin-tabs)');
   };
 
   const handleSignIn = () => {

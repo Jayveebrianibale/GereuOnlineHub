@@ -2,14 +2,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 
@@ -22,8 +22,8 @@ export default function SigninScreen() {
   const handleSignIn = () => {
     // Handle sign in logic
     console.log('Sign in:', { email, password });
-    // Navigate to main app after successful sign in
-    router.push('/admin-dashboard');
+    // Navigate to admin tabs after successful sign in
+    router.push('/(admin-tabs)');
   };
 
   const handleSignUp = () => {

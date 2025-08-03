@@ -13,9 +13,7 @@ import {
     View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
-
 const { width, height } = Dimensions.get('window');
-
 const onboardingData = [
   {
     id: 1,
