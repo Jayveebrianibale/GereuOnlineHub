@@ -1,8 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useColorScheme } from '../components/ColorSchemeContext';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -19,7 +19,7 @@ const modules = [
   {
     key: 'apartment',
     title: 'Apartment Rentals',
-    image: require('@/assets/images/onboarding1.png'),
+    image: require('@/assets/images/apartment1.webp'),
     description: 'Manage room listings, availability, and reservations',
     stats: '24 Active Listings',
     icon: 'apartment',
@@ -28,8 +28,8 @@ const modules = [
   {
     key: 'laundry',
     title: 'Laundry Services',
-    image: require('@/assets/images/onboarding2.png'),
-    description: 'Track orders and manage laundry status',
+    image: require('@/assets/images/laundry1.webp'),
+    description: 'Manage laundry status',
     stats: '18 In Progress',
     icon: 'local-laundry-service',
     color: colorPalette.primary,
@@ -37,7 +37,7 @@ const modules = [
   {
     key: 'car',
     title: 'Auto Services',
-    image: require('@/assets/images/onboarding3.png'),
+    image: require('@/assets/images/auto1.jpg'),
     description: 'Manage car parts and service requests',
     stats: '7 Bookings Today',
     icon: 'directions-car',
@@ -55,21 +55,22 @@ const quickActions = [
 export default function AdminDashboard() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const cardBackground = isDark ? colorPalette.darkest : '#fff';
+  const cardBackground = isDark ? '#181818' : '#fff'; // Cards: dark gray in dark mode
+  const pageBackground = isDark ? '#000' : '#fff';    // Page: pure black in dark mode
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const iconColor = isDark ? colorPalette.primaryLight : colorPalette.primaryDark;
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: '#fff' }]}>
+    <ThemedView style={[styles.container, { backgroundColor: pageBackground }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <ThemedText type="title" style={[styles.headerTitle, { color: colorPalette.darkest }]}>
+            <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
               Dashboard
             </ThemedText>
-            <ThemedText type="default" style={[styles.headerSubtitle, { color: colorPalette.dark }]}>
+            <ThemedText type="default" style={[styles.headerSubtitle, { color: subtitleColor }]}>
               Welcome back, Admin
             </ThemedText>
           </View>
@@ -78,11 +79,11 @@ export default function AdminDashboard() {
               <MaterialIcons 
                 name={colorScheme === 'dark' ? 'light-mode' : 'dark-mode'} 
                 size={24} 
-                color={colorPalette.dark} 
+                color={iconColor} 
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton}>
-              <MaterialIcons name="account-circle" size={32} color={colorPalette.dark} />
+              <MaterialIcons name="account-circle" size={32} color={iconColor} />
             </TouchableOpacity>
           </View>
         </View>
@@ -90,18 +91,18 @@ export default function AdminDashboard() {
         {/* Stats Overview */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
               Total Services
             </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: isDark ? colorPalette.primary : colorPalette.darker }]}>
+            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
               49
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
               Active Bookings
             </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: isDark ? colorPalette.primary : colorPalette.darker }]}>
+            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
               32
             </ThemedText>
           </View>
@@ -117,9 +118,7 @@ export default function AdminDashboard() {
               key={index} 
               style={[
                 styles.quickAction, 
-                { 
-                  backgroundColor: cardBackground,
-                }
+                { backgroundColor: cardBackground }
               ]}
             >
               <MaterialIcons name={action.icon} size={24} color={iconColor} />
@@ -143,7 +142,7 @@ export default function AdminDashboard() {
                 { 
                   backgroundColor: cardBackground,
                   borderTopColor: mod.color,
-                  shadowColor: isDark ? '#000' : colorPalette.dark,
+                  shadowColor: isDark ? '#222' : colorPalette.dark, // lighter shadow in dark mode
                 }
               ]}
             >
@@ -158,7 +157,7 @@ export default function AdminDashboard() {
                 {mod.description}
               </ThemedText>
               <View style={styles.cardFooter}>
-                <ThemedText type="default" style={[styles.cardStats, { color: colorPalette.primaryDark }]}>
+                <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
                   {mod.stats}
                 </ThemedText>
                 <MaterialIcons name="arrow-forward" size={20} color={iconColor} />

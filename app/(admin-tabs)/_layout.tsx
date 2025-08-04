@@ -1,3 +1,4 @@
+import { useColorScheme } from '@/components/ColorSchemeContext'; // or your correct path
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -14,16 +15,19 @@ const colorPalette = {
 };
 
 export default function AdminTabLayout() {
+  const { colorScheme } = useColorScheme(); // <-- FIXED
+  const isDark = colorScheme === 'dark';
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colorPalette.primary,
-        tabBarInactiveTintColor: colorPalette.dark,
+        tabBarActiveTintColor: isDark ? colorPalette.primaryLight : colorPalette.primary,
+        tabBarInactiveTintColor: isDark ? colorPalette.lightest : colorPalette.dark,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: isDark ? '#000' : '#fff',
           borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
+          borderTopColor: isDark ? '#222' : '#e5e7eb',
           height: 60,
           paddingBottom: 8,
           paddingTop: 8,
@@ -63,4 +67,4 @@ export default function AdminTabLayout() {
       />
     </Tabs>
   );
-} 
+}

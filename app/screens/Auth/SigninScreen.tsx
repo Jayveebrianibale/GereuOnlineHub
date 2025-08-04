@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 
@@ -38,10 +39,17 @@ export default function SigninScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          <View style={styles.header}>
+            <View style={styles.header}>
+            {/* Logo or Image */}
+            <View >
+              <Image
+              source={require('../../../assets/images/logo.png')}
+              style={{ width: 120, height: 120, resizeMode: 'contain' }}
+              />
+            </View>
             <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
             <Text style={[styles.subtitle, { color: colors.icon }]}>Sign in to your Gereu Smart Services account</Text>
-          </View>
+            </View>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>

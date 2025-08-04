@@ -4,32 +4,36 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+// ✅ Import your custom color scheme provider
+import { ColorSchemeProvider } from '../components/ColorSchemeContext';
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
   if (!loaded) {
-    // Async font loading only occurs in development.
     return null;
   }
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="signin" options={{ headerShown: false }} />
-        <Stack.Screen name="signup" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(admin-tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
-        <Stack.Screen name="admin-navigation" options={{ headerShown: false }} />
-        <Stack.Screen name="test-admin" options={{ headerShown: false }} />
-        <Stack.Screen name="debug-tabs" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ColorSchemeProvider>
+      <ThemeProvider value={DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="signin" options={{ headerShown: false }} />
+          <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(admin-tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-navigation" options={{ headerShown: false }} />
+          <Stack.Screen name="test-admin" options={{ headerShown: false }} />
+          <Stack.Screen name="debug-tabs" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </ColorSchemeProvider>
   );
 }

@@ -11,6 +11,7 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    Image,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 
@@ -42,8 +43,15 @@ export default function SignupScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.content}>
+            <View style={styles.content}>
             <View style={styles.header}>
+              {/* Logo/Image */}
+              <View>
+              <Image
+                source={require('../../../assets/images/logo.png')}
+                style={{ width: 120, height: 120, resizeMode: 'contain' }}
+              />
+              </View>
               <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
               <Text style={[styles.subtitle, { color: colors.icon }]}>Join Gereu Smart Services today</Text>
             </View>

@@ -3,10 +3,13 @@ import { useEffect } from 'react';
 
 export default function Index() {
   useEffect(() => {
-    // Automatically redirect to onboarding
-    router.replace('/onboarding');
+    // Delay navigation to ensure layout is mounted
+    const timeout = setTimeout(() => {
+      router.replace('/onboarding');
+    }, 0);
+    return () => clearTimeout(timeout);
   }, []);
 
   // Return null since we're redirecting immediately
   return null;
-} 
+}
