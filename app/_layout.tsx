@@ -30,6 +30,8 @@ export default function RootLayout() {
           <Stack.Screen name="admin-navigation" options={{ headerShown: false }} />
           <Stack.Screen name="test-admin" options={{ headerShown: false }} />
           <Stack.Screen name="debug-tabs" options={{ headerShown: false }} />
+          <Stack.Screen name="user-dashboard" options={{ headerShown: false }} />
+          <Stack.Screen name="(user-tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />

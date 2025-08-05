@@ -1,9 +1,10 @@
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View, TouchableOpacity, Switch } from 'react-native';
+import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -19,6 +20,7 @@ const colorPalette = {
 export default function SettingsScreen() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -29,6 +31,19 @@ export default function SettingsScreen() {
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
+
+  const handleLogout = () => {
+    console.log('Logout button pressed');
+    
+    // Simple direct logout without confirmation for now
+    console.log('Directly navigating to signin');
+    try {
+      router.replace('/signin' as any);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      router.push('/signin' as any);
+    }
+  };
 
   const settingsSections = [
     {
@@ -159,7 +174,7 @@ export default function SettingsScreen() {
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name={section.icon} size={20} color={colorPalette.primary} />
+              <MaterialIcons name={section.icon as any} size={20} color={colorPalette.primary} />
               <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
                 {section.title}
               </ThemedText>
@@ -175,7 +190,7 @@ export default function SettingsScreen() {
                   ]}
                 >
                   <View style={styles.settingLeft}>
-                    <MaterialIcons name={item.icon} size={20} color={colorPalette.primary} style={styles.itemIcon} />
+                    <MaterialIcons name={item.icon as any} size={20} color={colorPalette.primary} style={styles.itemIcon} />
                     <ThemedText style={[styles.itemTitle, { color: textColor }]}>
                       {item.title}
                     </ThemedText>
@@ -195,7 +210,10 @@ export default function SettingsScreen() {
         ))}
 
         {/* Logout Button */}
-        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: cardBgColor }]}>
+        <TouchableOpacity 
+          style={[styles.logoutButton, { backgroundColor: cardBgColor }]}
+          onPress={handleLogout}
+        >
           <MaterialIcons name="logout" size={20} color="#EF4444" />
           <ThemedText style={[styles.logoutText, { color: '#EF4444' }]}>
             Log Out

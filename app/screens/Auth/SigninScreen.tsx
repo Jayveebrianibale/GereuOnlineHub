@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -10,30 +11,56 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Image,
 } from 'react-native';
+import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 
 export default function SigninScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const colors = Colors.light;
   const router = useRouter();
 
   const handleSignIn = () => {
     // Handle sign in logic
     console.log('Sign in:', { email, password });
-    // Navigate to admin tabs after successful sign in
-    router.push('/(admin-tabs)');
+    
+    // Check for admin credentials
+    if (email === 'Admin' && password === 'Admin123') {
+      setToast({ visible: true, message: 'Admin login successful!', type: 'success' });
+      setTimeout(() => {
+        router.push('/(admin-tabs)' as any);
+      }, 1000);
+      return;
+    }
+    
+    // Check for user credentials
+    if (email === 'User' && password === 'User123') {
+      setToast({ visible: true, message: 'User login successful!', type: 'success' });
+      setTimeout(() => {
+        router.push('/(user-tabs)' as any);
+      }, 1000);
+      return;
+    }
+    
+    // Invalid credentials
+    setToast({ visible: true, message: 'Invalid credentials. Please try again.', type: 'error' });
   };
 
   const handleSignUp = () => {
-    router.push('/signup');
+    router.push('/signup' as any);
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
+      <Toast 
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast({ ...toast, visible: false })}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
