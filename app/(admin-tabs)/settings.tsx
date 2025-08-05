@@ -152,7 +152,7 @@ export default function SettingsScreen() {
               Manage your account and preferences
             </ThemedText>
           </View>
-          <View style={[styles.profileCard, { backgroundColor: cardBgColor }]}>
+          <View style={[styles.profileCard, { backgroundColor: cardBgColor, borderColor }]}>
             <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
               <MaterialIcons name="person" size={24} color={colorPalette.darkest} />
             </View>
@@ -211,13 +211,11 @@ export default function SettingsScreen() {
 
         {/* Logout Button */}
         <TouchableOpacity 
-          style={[styles.logoutButton, { backgroundColor: cardBgColor }]}
+          style={[styles.logoutButton, { backgroundColor: '#F44336' }]}
           onPress={handleLogout}
         >
-          <MaterialIcons name="logout" size={20} color="#EF4444" />
-          <ThemedText style={[styles.logoutText, { color: '#EF4444' }]}>
-            Log Out
-          </ThemedText>
+          <MaterialIcons name="logout" size={20} color="#fff" />
+          <ThemedText style={styles.logoutText}>Sign Out</ThemedText>
         </TouchableOpacity>
       </ScrollView>
     </ThemedView>
@@ -230,8 +228,8 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 50,
-    marginTop: 30,
+    paddingBottom: 40,
+    marginTop: 20,
   },
   header: {
     marginBottom: 24,
@@ -239,6 +237,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
@@ -247,29 +246,31 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     marginTop: 20,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   profileInfo: {
     flex: 1,
   },
   profileName: {
-    fontSize: 16,
-    marginBottom: 2,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
@@ -280,29 +281,29 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     paddingLeft: 8,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     marginLeft: 8,
   },
   sectionItems: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -317,6 +318,7 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
+    fontWeight: '600',
   },
   itemValue: {
     fontSize: 14,
@@ -326,18 +328,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
     borderRadius: 12,
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    paddingVertical: 16,
+    marginTop: 20,
   },
   logoutText: {
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: 8,
   },
 });

@@ -76,11 +76,11 @@ export default function AdminDashboard() {
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity style={styles.iconButton} onPress={toggleColorScheme}>
-              <MaterialIcons 
+              {/* <MaterialIcons 
                 name={colorScheme === 'dark' ? 'light-mode' : 'dark-mode'} 
                 size={24} 
                 color={iconColor} 
-              />
+              /> */}
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton}>
               <MaterialIcons name="account-circle" size={32} color={iconColor} />
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                 { backgroundColor: cardBackground }
               ]}
             >
-              <MaterialIcons name={action.icon} size={24} color={iconColor} />
+              <MaterialIcons name={action.icon as any} size={24} color={iconColor} />
               <ThemedText type="default" style={[styles.quickActionText, { color: textColor }]}>
                 {action.name}
               </ThemedText>
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
               ]}
             >
               <View style={styles.cardHeader}>
-                <MaterialIcons name={mod.icon} size={24} color={mod.color} />
+                <MaterialIcons name={mod.icon as any} size={24} color={mod.color} />
                 <ThemedText type="subtitle" style={[styles.cardTitle, { color: textColor }]}>
                   {mod.title}
                 </ThemedText>

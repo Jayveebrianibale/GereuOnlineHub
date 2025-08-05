@@ -23,7 +23,7 @@ const apartmentData = [
   {
     id: '1',
     title: 'Luxury Studio Apartment',
-    price: '$1,200/mo',
+    price: 'P1,200/mo',
     location: 'Downtown',
     image: require('@/assets/images/apartment1.webp'),
     rating: 4.8,
@@ -32,18 +32,18 @@ const apartmentData = [
   {
     id: '2',
     title: 'Modern 1-Bedroom',
-    price: '$1,500/mo',
+    price: 'P1,500/mo',
     location: 'Midtown',
-    image: require('@/assets/images/apartment1.webp'),
+    image: require('@/assets/images/apartment2.webp'),
     rating: 4.6,
     amenities: ['Pool', 'Laundry', 'Balcony'],
   },
   {
     id: '3',
     title: 'Cozy Studio Loft',
-    price: '$950/mo',
+    price: 'P950/mo',
     location: 'Arts District',
-    image: require('@/assets/images/apartment1.webp'),
+    image: require('@/assets/images/apartment3.avif'),
     rating: 4.7,
     amenities: ['Pet-friendly', 'Workspace', 'AC'],
   },
@@ -53,23 +53,23 @@ const laundryData = [
   {
     id: '1',
     title: 'Premium Wash & Fold',
-    price: '$1.50/lb',
+    price: 'P250/lb',
     turnaround: '24-hour',
     image: require('@/assets/images/laundry1.webp'),
   },
   {
     id: '2',
     title: 'Express Dry Cleaning',
-    price: 'From $5.99',
+    price: 'From P200',
     turnaround: 'Same day',
-    image: require('@/assets/images/laundry1.webp'),
+    image: require('@/assets/images/laundry2.webp'),
   },
   {
     id: '3',
     title: 'Bulk Laundry Service',
-    price: '$25/bag',
+    price: 'P100/bag',
     turnaround: '48-hour',
-    image: require('@/assets/images/laundry1.webp'),
+    image: require('@/assets/images/laundry3.webp'),
   },
 ];
 
@@ -77,21 +77,21 @@ const autoData = [
   {
     id: '1',
     title: 'Oil Change Service',
-    price: '$49.99',
+    price: 'P300',
     duration: '30 min',
-    image: require('@/assets/images/auto1.jpg'),
+    image: require('@/assets/images/auto2.avif'),
   },
   {
     id: '2',
     title: 'Tire Rotation',
-    price: '$29.99',
+    price: 'P500',
     duration: '45 min',
-    image: require('@/assets/images/auto1.jpg'),
+    image: require('@/assets/images/auto3.avif'),
   },
   {
     id: '3',
     title: 'Full Detail Package',
-    price: '$149.99',
+    price: 'P1000',
     duration: '2 hours',
     image: require('@/assets/images/auto1.jpg'),
   },
@@ -198,9 +198,14 @@ export default function UserHome() {
               Find the best services for your needs
             </ThemedText>
           </View>
-          <TouchableOpacity>
-            <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}>
+              <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton}>
+              <MaterialIcons name="account-circle" size={28} color={colorPalette.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -373,6 +378,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginLeft: 5,
   },
   title: {
     fontSize: 24,

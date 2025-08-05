@@ -28,7 +28,7 @@ export default function SigninScreen() {
     console.log('Sign in:', { email, password });
     
     // Check for admin credentials
-    if (email === 'Admin' && password === 'Admin123') {
+    if (email === 'admin' && password === 'Admin123') {
       setToast({ visible: true, message: 'Admin login successful!', type: 'success' });
       setTimeout(() => {
         router.push('/(admin-tabs)' as any);
@@ -37,7 +37,7 @@ export default function SigninScreen() {
     }
     
     // Check for user credentials
-    if (email === 'User' && password === 'User123') {
+    if (email === 'user' && password === 'User123') {
       setToast({ visible: true, message: 'User login successful!', type: 'success' });
       setTimeout(() => {
         router.push('/(user-tabs)' as any);
