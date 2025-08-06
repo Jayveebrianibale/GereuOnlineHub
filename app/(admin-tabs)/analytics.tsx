@@ -340,7 +340,7 @@ export default function AnalyticsScreen() {
                 Laundry
               </ThemedText>
             </View>
-            <View style={styles.legendItem}>
+            <View style={styles.legendIte}>
               <View style={[styles.legendColor, { backgroundColor: colorPalette.primaryDark }]} />
               <ThemedText style={[
                 styles.legendText, 

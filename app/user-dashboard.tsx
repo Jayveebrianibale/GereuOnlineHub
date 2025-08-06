@@ -2,6 +2,7 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -99,6 +100,7 @@ const autoData = [
 
 export default function UserHome() {
   const { colorScheme } = useColorScheme();
+  const router = useRouter();
   const isDark = colorScheme === 'dark';
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -223,7 +225,10 @@ export default function UserHome() {
             <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
               Apartment Rentals
             </ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push('/apartment-list')}
+            >
               <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
                 See All
               </ThemedText>
@@ -271,7 +276,10 @@ export default function UserHome() {
             <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
               Laundry Services
             </ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push('/laundry-list')}
+            >
               <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
                 See All
               </ThemedText>
@@ -319,7 +327,10 @@ export default function UserHome() {
             <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
               Auto Services
             </ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push('/auto-list')}
+            >
               <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
                 See All
               </ThemedText>
