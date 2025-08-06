@@ -2,9 +2,9 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -131,6 +131,23 @@ export default function ApartmentListScreen() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedApartment, setSelectedApartment] = useState<any>(null);
+
+  // Handle navigation parameters
+  const params = useLocalSearchParams();
+  
+  useEffect(() => {
+    if (params.selectedItem) {
+      try {
+        const selectedItem = JSON.parse(params.selectedItem as string);
+        setSelectedApartment(selectedItem);
+        setDetailModalVisible(true);
+      } catch (error) {
+        console.error('Error parsing selected item:', error);
+      }
+    }
+  }, [params.selectedItem]);
 
   const filters = [
     { id: 'all', label: 'All' },
@@ -266,7 +283,13 @@ export default function ApartmentListScreen() {
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
             {item.price}
           </ThemedText>
-          <TouchableOpacity style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}>
+          <TouchableOpacity 
+            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => {
+              setSelectedApartment(item);
+              setDetailModalVisible(true);
+            }}
+          >
             <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
@@ -359,6 +382,114 @@ export default function ApartmentListScreen() {
             >
               <ThemedText style={styles.searchButtonText}>Done</ThemedText>
             </TouchableOpacity>
+          </View>
+                 </View>
+       </Modal>
+
+       {/* Detail Modal */}
+       <Modal
+         visible={detailModalVisible}
+         animationType="slide"
+         transparent={true}
+         onRequestClose={() => setDetailModalVisible(false)}
+       >
+         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+           <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+             {selectedApartment && (
+               <>
+                 <View style={styles.detailHeader}>
+                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
+                     {selectedApartment.title}
+                   </ThemedText>
+                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                     <MaterialIcons name="close" size={24} color={textColor} />
+                   </TouchableOpacity>
+                 </View>
+                 
+                                   <ScrollView 
+                    style={styles.detailScrollView}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.detailScrollContent}
+                  >
+                    <Image source={selectedApartment.image} style={styles.detailImage} resizeMode="cover" />
+                    
+                    <View style={styles.detailContent}>
+                   <View style={styles.detailRatingRow}>
+                     <View style={styles.ratingContainer}>
+                       <MaterialIcons name="star" size={16} color="#FFD700" />
+                       <ThemedText style={styles.ratingText}>{selectedApartment.rating}</ThemedText>
+                       <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
+                         ({selectedApartment.reviews} reviews)
+                       </ThemedText>
+                     </View>
+                     <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                       {selectedApartment.price}
+                     </ThemedText>
+                   </View>
+                   
+                   <View style={styles.locationRow}>
+                     <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+                     <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                       {selectedApartment.address}
+                     </ThemedText>
+                   </View>
+                   
+                   <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                     {selectedApartment.description}
+                   </ThemedText>
+                   
+                   <View style={styles.detailSpecs}>
+                     <View style={styles.specItem}>
+                       <MaterialIcons name="bed" size={20} color={subtitleColor} />
+                       <ThemedText style={[styles.specText, { color: textColor }]}>
+                         {selectedApartment.bedrooms} Bedroom{selectedApartment.bedrooms > 1 ? 's' : ''}
+                       </ThemedText>
+                     </View>
+                     <View style={styles.specItem}>
+                       <MaterialIcons name="bathroom" size={20} color={subtitleColor} />
+                       <ThemedText style={[styles.specText, { color: textColor }]}>
+                         {selectedApartment.bathrooms} Bathroom{selectedApartment.bathrooms > 1 ? 's' : ''}
+                       </ThemedText>
+                     </View>
+                     <View style={styles.specItem}>
+                       <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
+                       <ThemedText style={[styles.specText, { color: textColor }]}>
+                         {selectedApartment.size}
+                       </ThemedText>
+                     </View>
+                   </View>
+                   
+                   <View style={styles.amenitiesSection}>
+                     <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                       Amenities
+                     </ThemedText>
+                     <View style={styles.amenitiesGrid}>
+                       {selectedApartment.amenities.map((amenity: string, index: number) => (
+                         <View key={index} style={styles.amenityItem}>
+                           <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                           <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
+                             {amenity}
+                           </ThemedText>
+                         </View>
+                       ))}
+                     </View>
+                   </View>
+                   
+                   <View style={styles.detailActions}>
+                     <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
+                       <MaterialIcons name="phone" size={20} color="#fff" />
+                       <ThemedText style={styles.contactButtonText}>Contact Owner</ThemedText>
+                     </TouchableOpacity>
+                     <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
+                       <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
+                         Book Now
+                       </ThemedText>
+                     </TouchableOpacity>
+                                       </View>
+                  </View>
+                </ScrollView>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -569,5 +700,123 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
+  },
+  detailModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  detailScrollView: {
+    // flex: 1, // Removed to fix modal content visibility
+  },
+  detailScrollContent: {
+    paddingBottom: 20,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
+  },
+  detailImage: {
+    width: '100%',
+    height: 250,
+  },
+  detailContent: {
+    padding: 20,
+  },
+  detailRatingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  detailPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  detailDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  detailSpecs: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  specText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  amenitiesSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  amenitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  amenityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '50%',
+    marginBottom: 8,
+  },
+  amenityItemText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  bookButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookButtonText: {
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 }); 

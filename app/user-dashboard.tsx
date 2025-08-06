@@ -146,7 +146,13 @@ export default function UserHome() {
             </View>
           ))}
         </View>
-        <TouchableOpacity style={[styles.bookButton, { backgroundColor: colorPalette.primary }]}>
+        <TouchableOpacity 
+          style={[styles.bookButton, { backgroundColor: colorPalette.primary }]}
+          onPress={() => router.push({
+            pathname: '/apartment-list',
+            params: { selectedItem: JSON.stringify(item) }
+          })}
+        >
           <ThemedText style={styles.bookButtonText}>View Details</ThemedText>
         </TouchableOpacity>
       </View>
@@ -178,9 +184,24 @@ export default function UserHome() {
             </ThemedText>
           </View>
         </View>
-        <TouchableOpacity style={[styles.serviceButton, { backgroundColor: colorPalette.primary }]}>
+        <TouchableOpacity 
+          style={[styles.serviceButton, { backgroundColor: colorPalette.primary }]}
+          onPress={() => {
+            if (serviceType === 'laundry') {
+              router.push({
+                pathname: '/laundry-list',
+                params: { selectedItem: JSON.stringify(item) }
+              });
+            } else {
+              router.push({
+                pathname: '/auto-list',
+                params: { selectedItem: JSON.stringify(item) }
+              });
+            }
+          }}
+        >
           <ThemedText style={styles.serviceButtonText}>
-            {serviceType === 'laundry' ? 'Schedule Pickup' : 'Book Service'}
+            View Details
           </ThemedText>
         </TouchableOpacity>
       </View>

@@ -2,9 +2,9 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -125,6 +125,23 @@ export default function LaundryListScreen() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
+
+  // Handle navigation parameters
+  const params = useLocalSearchParams();
+  
+  useEffect(() => {
+    if (params.selectedItem) {
+      try {
+        const selectedItem = JSON.parse(params.selectedItem as string);
+        setSelectedLaundryService(selectedItem);
+        setDetailModalVisible(true);
+      } catch (error) {
+        console.error('Error parsing selected item:', error);
+      }
+    }
+  }, [params.selectedItem]);
 
   const filters = [
     { id: 'all', label: 'All Services' },
@@ -273,8 +290,14 @@ export default function LaundryListScreen() {
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
             {item.price}
           </ThemedText>
-          <TouchableOpacity style={[styles.scheduleButton, { backgroundColor: colorPalette.primary }]}>
-            <ThemedText style={styles.scheduleButtonText}>Schedule Pickup</ThemedText>
+          <TouchableOpacity 
+            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => {
+              setSelectedLaundryService(item);
+              setDetailModalVisible(true);
+            }}
+          >
+            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
               </View>
@@ -367,11 +390,142 @@ export default function LaundryListScreen() {
               <ThemedText style={styles.searchButtonText}>Done</ThemedText>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </ThemedView>
-  );
-}
+                 </View>
+       </Modal>
+
+       {/* Detail Modal */}
+       <Modal
+         visible={detailModalVisible}
+         animationType="slide"
+         transparent={true}
+         onRequestClose={() => setDetailModalVisible(false)}
+       >
+         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+           <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+             {selectedLaundryService && (
+               <>
+                 <View style={styles.detailHeader}>
+                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
+                     {selectedLaundryService.title}
+                   </ThemedText>
+                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                     <MaterialIcons name="close" size={24} color={textColor} />
+                   </TouchableOpacity>
+                 </View>
+                 
+                 <ScrollView 
+                   style={styles.detailScrollView}
+                   showsVerticalScrollIndicator={false}
+                   contentContainerStyle={styles.detailScrollContent}
+                 >
+                   <Image source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
+                   
+                   <View style={styles.detailContent}>
+                     <View style={styles.detailRatingRow}>
+                       <View style={styles.ratingContainer}>
+                         <MaterialIcons name="star" size={16} color="#FFD700" />
+                         <ThemedText style={styles.ratingText}>{selectedLaundryService.rating}</ThemedText>
+                         <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
+                           ({selectedLaundryService.reviews} reviews)
+                         </ThemedText>
+                       </View>
+                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                         {selectedLaundryService.price}
+                       </ThemedText>
+                     </View>
+                     
+                     <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                       {selectedLaundryService.description}
+                     </ThemedText>
+                     
+                     <View style={styles.detailSpecs}>
+                       <View style={styles.detailItem}>
+                         <FontAwesome name="money" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.price}
+                         </ThemedText>
+                       </View>
+                       <View style={styles.detailItem}>
+                         <MaterialIcons name="schedule" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.turnaround}
+                         </ThemedText>
+                       </View>
+                       <View style={styles.detailItem}>
+                         <MaterialIcons name="local-shipping" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.pickup}
+                         </ThemedText>
+                       </View>
+                     </View>
+                     
+                     <View style={styles.servicesSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Services Included
+                       </ThemedText>
+                       <View style={styles.servicesGrid}>
+                         {selectedLaundryService.services.map((service: string, index: number) => (
+                           <View key={index} style={styles.serviceItem}>
+                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                             <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                               {service}
+                             </ThemedText>
+                           </View>
+                         ))}
+                       </View>
+                     </View>
+                     
+                     <View style={styles.infoSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Service Details
+                       </ThemedText>
+                       <View style={styles.infoGrid}>
+                         <View style={styles.infoItem}>
+                           <MaterialIcons name="delivery-dining" size={16} color={colorPalette.primary} />
+                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
+                             {selectedLaundryService.delivery}
+                           </ThemedText>
+                         </View>
+                         <View style={styles.infoItem}>
+                           <MaterialIcons name="scale" size={16} color={colorPalette.primary} />
+                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
+                             {selectedLaundryService.minOrder}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     </View>
+                     
+                     <View style={styles.detailActions}>
+                       <TouchableOpacity
+                         style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
+                         onPress={() => {
+                           // TODO: Implement contact service logic
+                           alert('Contact Service feature coming soon!');
+                         }}
+                       >
+                         <MaterialIcons name="phone" size={20} color="#fff" />
+                         <ThemedText style={styles.contactButtonText}>Contact Service</ThemedText>
+                       </TouchableOpacity>
+                       <TouchableOpacity
+                         style={[styles.bookButton, { borderColor: colorPalette.primary }]}
+                         onPress={() => {
+                           // TODO: Implement schedule pickup logic
+                           alert('Schedule Pickup feature coming soon!');
+                         }}
+                       >
+                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>Schedule Pickup</ThemedText>
+                       </TouchableOpacity>
+                     </View>
+                   </View>
+                 </ScrollView>
+               </>
+             )}
+           </View>
+         </View>
+       </Modal>
+     </ThemedView>
+   );
+ }
 
 const styles = StyleSheet.create({
   container: {
@@ -518,11 +672,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   scheduleButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleButtonText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  viewButton: {
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  scheduleButtonText: {
+  viewButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
@@ -575,5 +742,121 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
+  },
+  detailModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  detailScrollView: {
+    // flex: 1, // Removed to fix modal content visibility
+  },
+  detailScrollContent: {
+    paddingBottom: 20,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
+  },
+  detailImage: {
+    width: '100%',
+    height: 250,
+  },
+  detailContent: {
+    padding: 20,
+  },
+  detailRatingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  detailPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  detailDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  detailSpecs: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  servicesSection: {
+    marginBottom: 24,
+  },
+  infoSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  serviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '50%',
+    marginBottom: 8,
+  },
+  serviceItemText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  bookButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookButtonText: {
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 }); 

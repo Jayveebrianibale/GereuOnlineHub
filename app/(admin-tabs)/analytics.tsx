@@ -140,7 +140,7 @@ export default function AnalyticsScreen() {
                 }
               ]}
             >
-              <MaterialIcons name={item.icon} size={24} color={colorPalette.primary} />
+              <MaterialIcons name={item.icon as any} size={24} color={colorPalette.primary} />
               <ThemedText type="default" style={[
                 styles.summaryLabel, 
                 { color: subtitleColor, fontSize: subtitleSize }
@@ -184,7 +184,7 @@ export default function AnalyticsScreen() {
             { 
               backgroundColor: cardBgColor,
               width: isPortrait ? '100%' : '48%',
-              marginRight: !isPortrait && 15
+              marginRight: !isPortrait ? 15 : undefined
             }
           ]}>
             <View style={styles.chartHeader}>
@@ -340,7 +340,7 @@ export default function AnalyticsScreen() {
                 Laundry
               </ThemedText>
             </View>
-            <View style={styles.legendIte}>
+            <View style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: colorPalette.primaryDark }]} />
               <ThemedText style={[
                 styles.legendText, 
