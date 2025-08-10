@@ -1,15 +1,14 @@
-import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { AuthGuard } from './components/AuthGuard';
+import { useAuth } from './hooks/useAuth';
 
 export default function Index() {
-  useEffect(() => {
-    // Delay navigation to ensure layout is mounted
-    const timeout = setTimeout(() => {
-      router.replace('/onboarding');
-    }, 0);
-    return () => clearTimeout(timeout);
-  }, []);
+  const { isLoading } = useAuth();
 
-  // Return null since we're redirecting immediately
-  return null;
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return null;
+  }
+
+  // AuthGuard will handle the routing logic
+  return <AuthGuard />;
 }

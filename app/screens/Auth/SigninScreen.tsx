@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
   Image,
@@ -10,43 +12,62 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
+import { auth } from '../../firebaseConfig';
 
 export default function SigninScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const [isLoading, setIsLoading] = useState(false);
   const colors = Colors.light;
   const router = useRouter();
 
-  const handleSignIn = () => {
-    // Handle sign in logic
-    console.log('Sign in:', { email, password });
-    
-    // Check for admin credentials
-    if (email === 'admin' && password === 'Admin123') {
-      setToast({ visible: true, message: 'Admin login successful!', type: 'success' });
-      setTimeout(() => {
-        router.push('/(admin-tabs)' as any);
-      }, 1000);
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
       return;
     }
-    
-    // Check for user credentials
-    if (email === 'user' && password === 'User123') {
-      setToast({ visible: true, message: 'User login successful!', type: 'success' });
+
+    setIsLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Role will be determined by email address in the auth context
+      setToast({ visible: true, message: 'Login successful!', type: 'success' });
+      
+      // Manual navigation based on user role
       setTimeout(() => {
-        router.push('/(user-tabs)' as any);
-      }, 1000);
-      return;
+        if (user.email && user.email.toLowerCase() === 'jayveebriani@gmail.com') {
+          router.replace('/(admin-tabs)');
+        } else {
+          router.replace('/(user-tabs)');
+        }
+      }, 1500); // Wait for toast to show
+    } catch (error: any) {
+      let errorMessage = 'Sign in failed. Please try again.';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setToast({ visible: true, message: errorMessage, type: 'error' });
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Invalid credentials
-    setToast({ visible: true, message: 'Invalid credentials. Please try again.', type: 'error' });
   };
 
   const handleSignUp = () => {
@@ -104,7 +125,11 @@ export default function SigninScreen() {
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIcon}
               >
-                <Text style={{ color: colors.icon }}>{showPassword ? '🙈' : '👁️'}</Text>
+                <Ionicons 
+                  name={showPassword ? "eye-off" : "eye"} 
+                  size={20} 
+                  color={colors.icon} 
+                />
               </TouchableOpacity>
             </View>
 
@@ -113,14 +138,21 @@ export default function SigninScreen() {
             </TouchableOpacity>
 
             {/* Gradient Sign In Button */}
-            <TouchableOpacity style={styles.signInButtonWrapper} onPress={handleSignIn} activeOpacity={0.85}>
+            <TouchableOpacity 
+              style={[styles.signInButtonWrapper, isLoading && styles.disabledButton]} 
+              onPress={handleSignIn} 
+              activeOpacity={0.85}
+              disabled={isLoading}
+            >
               <LinearGradient
                 colors={['#00B2FF', '#007BE5', '#002F87']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.signInButton}
               >
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                <Text style={styles.signInButtonText}>
+                  {isLoading ? 'Signing In...' : 'Sign In'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -218,5 +250,8 @@ const styles = StyleSheet.create({
   signUpText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
