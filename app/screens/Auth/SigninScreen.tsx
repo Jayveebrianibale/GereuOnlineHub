@@ -126,7 +126,7 @@ export default function SigninScreen() {
                 style={styles.eyeIcon}
               >
                 <Ionicons 
-                  name={showPassword ? "eye-off" : "eye"} 
+                  name={showPassword ? "eye" : "eye-off"}
                   size={20} 
                   color={colors.icon} 
                 />
