@@ -3,8 +3,9 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { getAuth } from 'firebase/auth';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -18,7 +19,6 @@ const colorPalette = {
 };
 
 const { width: screenWidth } = Dimensions.get('window');
-
 // Sample data for carousels
 const apartmentData = [
   {
@@ -98,10 +98,21 @@ const autoData = [
   },
 ];
 
+
+
 export default function UserHome() {
+  const [firstName, setFirstName] = useState('');
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
+
+   useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user?.displayName) {
+      setFirstName(user.displayName.split(' ')[0]);
+    }
+  }, []);
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -215,7 +226,7 @@ export default function UserHome() {
         <View style={styles.header}>
           <View>
             <ThemedText type="title" style={[styles.title, { color: textColor }]}>
-              Welcome Back!
+              {`Welcome${firstName ? `, ${firstName}` : ''}!`}
             </ThemedText>
             <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
               Find the best services for your needs
@@ -402,8 +413,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 40,
-    marginTop: 20,
   },
   header: {
     flexDirection: 'row',

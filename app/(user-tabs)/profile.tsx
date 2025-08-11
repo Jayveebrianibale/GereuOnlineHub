@@ -4,6 +4,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -20,10 +22,6 @@ const colorPalette = {
 const userData = {
   name: 'John Doe',
   email: 'john.doe@example.com',
-  phone: '+1 (555) 123-4567',
-  memberSince: 'January 2024',
-  totalBookings: 12,
-  totalSpent: '$2,450',
   avatar: require('@/assets/images/logo.png'), // Using logo as placeholder avatar
 };
 
@@ -76,6 +74,27 @@ export default function Profile() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+
+   const [userData, setUserData] = useState({
+    name: "",
+    email: "",
+    avatar: null,
+  });
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserData({
+          name: user.displayName || "No Name",
+          email: user.email || "No Email",
+          avatar: require('@/assets/images/logo.png'),
+        });
+      }
+    });
+
+    return unsubscribe; // cleanup
+  }, []);
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -112,7 +131,7 @@ export default function Profile() {
         {/* User Info Card */}
         <View style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
           <View style={styles.userHeader}>
-            <Image source={userData.avatar} style={styles.avatar} />
+            <Image source={userData.avatar as any} style={styles.avatar} />
             <View style={styles.userInfo}>
               <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
                 {userData.name}
@@ -120,45 +139,13 @@ export default function Profile() {
               <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
                 {userData.email}
               </ThemedText>
-              <ThemedText style={[styles.userPhone, { color: subtitleColor }]}>
-                {userData.phone}
-              </ThemedText>
+             
             </View>
             <TouchableOpacity style={styles.editButton}>
               <MaterialIcons name="edit" size={20} color={colorPalette.primary} />
             </TouchableOpacity>
           </View>
-          
-          <View style={styles.userStats}>
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statNumber, { color: colorPalette.primary }]}>
-                {userData.totalBookings}
-              </ThemedText>
-              <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>
-                Total Bookings
-              </ThemedText>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statNumber, { color: colorPalette.primary }]}>
-                {userData.totalSpent}
-              </ThemedText>
-              <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>
-                Total Spent
-              </ThemedText>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statNumber, { color: colorPalette.primary }]}>
-                {userData.memberSince}
-              </ThemedText>
-              <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>
-                Member Since
-              </ThemedText>
-            </View>
-          </View>
         </View>
-
         {/* Theme Toggle */}
         <View style={[styles.themeCard, { backgroundColor: cardBgColor, borderColor }]}>
           <View style={styles.themeHeader}>
@@ -230,8 +217,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 40,
-    marginTop: 20,
   },
   header: {
     marginBottom: 24,
@@ -259,7 +244,6 @@ const styles = StyleSheet.create({
   userHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
   },
   avatar: {
     width: 60,
@@ -273,11 +257,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 4,
+    marginTop: 20,
   },
   userEmail: {
     fontSize: 14,
-    marginBottom: 2,
   },
   userPhone: {
     fontSize: 14,
@@ -296,7 +279,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
+
   },
   statLabel: {
     fontSize: 12,

@@ -264,12 +264,14 @@ export default function LaundryListScreen() {
         </View>
         
         <View style={styles.servicesContainer}>
-          {item.services.map((service: string, index: number) => (
-            <View key={index} style={styles.serviceBadge}>
-              <ThemedText style={styles.serviceText}>{service}</ThemedText>
-            </View>
-          ))}
+          {Array.isArray(item.services) &&
+            item.services.map((service: string, index: number) => (
+              <View key={index} style={styles.serviceBadge}>
+                <ThemedText style={styles.serviceText}>{service}</ThemedText>
+              </View>
+            ))}
         </View>
+
         
         <View style={styles.infoRow}>
           <View style={styles.infoItem}>
@@ -464,15 +466,15 @@ export default function LaundryListScreen() {
                          Services Included
                        </ThemedText>
                        <View style={styles.servicesGrid}>
-                         {selectedLaundryService.services.map((service: string, index: number) => (
-                           <View key={index} style={styles.serviceItem}>
-                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                             <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
-                               {service}
-                             </ThemedText>
-                           </View>
-                         ))}
-                       </View>
+                        {selectedLaundryService?.services?.map((service: string, index: number) => (
+                          <View key={index} style={styles.serviceItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                              {service}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
                      </View>
                      
                      <View style={styles.infoSection}>
@@ -538,7 +540,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    marginTop: 20,
   },
   backButton: {
     padding: 4,

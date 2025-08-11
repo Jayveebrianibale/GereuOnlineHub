@@ -258,20 +258,21 @@ export default function AutoListScreen() {
           </View>
         </View>
         
-        <View style={styles.servicesContainer}>
-          {item.services.map((service: string, index: number) => (
-            <View key={index} style={styles.serviceBadge}>
-              <ThemedText style={styles.serviceText}>{service}</ThemedText>
-            </View>
-          ))}
-        </View>
+       <View style={styles.servicesContainer}>
+        {item?.services?.map((service: string, index: number) => (
+          <View key={index} style={styles.serviceBadge}>
+            <ThemedText style={styles.serviceText}>{service}</ThemedText>
+          </View>
+        ))}
+      </View>
+
         
         <View style={styles.includesContainer}>
           <ThemedText style={[styles.includesTitle, { color: textColor }]}>
             Includes:
           </ThemedText>
           <View style={styles.includesList}>
-            {item.includes.map((include: string, index: number) => (
+            {(item.includes || []).map((include: string, index: number) => (
               <View key={index} style={styles.includeItem}>
                 <MaterialIcons name="check-circle" size={14} color={colorPalette.primary} />
                 <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
@@ -460,15 +461,16 @@ export default function AutoListScreen() {
                          Services Included
                        </ThemedText>
                        <View style={styles.servicesGrid}>
-                         {selectedAutoService.services.map((service: string, index: number) => (
-                           <View key={index} style={styles.serviceItem}>
-                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                             <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
-                               {service}
-                             </ThemedText>
-                           </View>
-                         ))}
-                       </View>
+                        {selectedAutoService?.services?.map((service: string, index: number) => (
+                          <View key={index} style={styles.serviceItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                              {service}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+
                      </View>
                      
                      <View style={styles.includesSection}>
@@ -476,15 +478,16 @@ export default function AutoListScreen() {
                          What's Included
                        </ThemedText>
                        <View style={styles.includesGrid}>
-                         {selectedAutoService.includes.map((include: string, index: number) => (
-                           <View key={index} style={styles.includeItem}>
-                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                             <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
-                               {include}
-                             </ThemedText>
-                           </View>
-                         ))}
-                       </View>
+                        {selectedAutoService?.includes?.map((include: string, index: number) => (
+                          <View key={index} style={styles.includeItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
+                              {include}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+
                      </View>
                      
                      <View style={styles.detailActions}>
@@ -520,7 +523,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    marginTop: 20,
   },
   backButton: {
     padding: 4,
