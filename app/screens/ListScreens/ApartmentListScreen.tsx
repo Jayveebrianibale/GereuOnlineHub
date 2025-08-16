@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -120,6 +120,7 @@ const apartmentData = [
 export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isDark = colorScheme === 'dark';
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -127,16 +128,31 @@ export default function ApartmentListScreen() {
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
-
+  
+  const [apartments, setApartments] = useState(apartmentData);
+  const [filteredApartments, setFilteredApartments] = useState(apartmentData);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchVisible, setSearchVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<any>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingApartment, setEditingApartment] = useState<any>(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newApartment, setNewApartment] = useState({
+    title: '',
+    price: '',
+    location: '',
+    address: '',
+    description: '',
+    size: '',
+    bedrooms: 1,
+    bathrooms: 1,
+    amenities: [''],
+    available: true,
+  });
 
   // Handle navigation parameters
-  const params = useLocalSearchParams();
-  
   useEffect(() => {
     if (params.selectedItem) {
       try {
@@ -215,6 +231,76 @@ export default function ApartmentListScreen() {
     return filteredData;
   };
 
+  const handleEdit = (apartment: any) => {
+    setEditingApartment({ ...apartment });
+    setEditModalVisible(true);
+  };
+
+  const handleDelete = (apartment: any) => {
+    Alert.alert(
+      'Delete Apartment',
+      `Are you sure you want to delete "${apartment.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedApartments = apartments.filter(apt => apt.id !== apartment.id);
+            setApartments(updatedApartments);
+            setFilteredApartments(updatedApartments);
+            if (selectedApartment?.id === apartment.id) {
+              setDetailModalVisible(false);
+              setSelectedApartment(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSaveEdit = () => {
+    if (editingApartment) {
+      const updatedApartments = apartments.map(apt => 
+        apt.id === editingApartment.id ? editingApartment : apt
+      );
+      setApartments(updatedApartments);
+      setFilteredApartments(updatedApartments);
+      setEditModalVisible(false);
+      setEditingApartment(null);
+    }
+  };
+
+  const handleCreate = () => {
+    if (newApartment.title && newApartment.price && newApartment.location) {
+      const newId = (apartments.length + 1).toString();
+      const apartmentToAdd = {
+        ...newApartment,
+        id: newId,
+        rating: 4.5,
+        reviews: 0,
+        image: require('@/assets/images/apartment1.webp'),
+      };
+      
+      const updatedApartments = [...apartments, apartmentToAdd];
+      setApartments(updatedApartments);
+      setFilteredApartments(updatedApartments);
+      setCreateModalVisible(false);
+      setNewApartment({
+        title: '',
+        price: '',
+        location: '',
+        address: '',
+        description: '',
+        size: '',
+        bedrooms: 1,
+        bathrooms: 1,
+        amenities: [''],
+        available: true,
+      });
+    }
+  };
+
   const renderApartmentItem = ({ item }: { item: any }) => (
     <View
       style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
@@ -283,35 +369,55 @@ export default function ApartmentListScreen() {
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
             {item.price}
           </ThemedText>
-          <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
-            onPress={() => {
-              setSelectedApartment(item);
-              setDetailModalVisible(true);
-            }}
-          >
-            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+              onPress={() => {
+                setSelectedApartment(item);
+                setDetailModalVisible(true);
+              }}
+            >
+              <MaterialIcons name="visibility" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colorPalette.primaryDark }]}
+              onPress={() => handleEdit(item)}
+            >
+              <MaterialIcons name="edit" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#dc2626' }]}
+              onPress={() => handleDelete(item)}
+            >
+              <MaterialIcons name="delete" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
-              </View>
       </View>
-    );
+    </View>
+  );
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Header */}
+      {/* Header with Create Button */}
       <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
-        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Apartment Rentals
-        </ThemedText>
+        <View>
+          <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+            Apartment Rentals
+          </ThemedText>
+          <ThemedText type="default" style={[styles.headerSubtitle, { color: subtitleColor }]}>
+            Manage apartment listings and availability
+          </ThemedText>
+        </View>
         <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => setSearchVisible(true)}
+          style={[styles.createButton, { backgroundColor: colorPalette.primary }]}
+          onPress={() => setCreateModalVisible(true)}
         >
-          <MaterialIcons name="search" size={24} color={colorPalette.primary} />
+          <MaterialIcons name="add" size={24} color="#fff" />
+          <ThemedText style={styles.createButtonText}>Add New</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -383,114 +489,306 @@ export default function ApartmentListScreen() {
               <ThemedText style={styles.searchButtonText}>Done</ThemedText>
             </TouchableOpacity>
           </View>
-                 </View>
-       </Modal>
+        </View>
+      </Modal>
 
-       {/* Detail Modal */}
-       <Modal
-         visible={detailModalVisible}
-         animationType="slide"
-         transparent={true}
-         onRequestClose={() => setDetailModalVisible(false)}
-       >
-         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-           <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
-             {selectedApartment && (
-               <>
-                 <View style={styles.detailHeader}>
-                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
-                     {selectedApartment.title}
-                   </ThemedText>
-                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                     <MaterialIcons name="close" size={24} color={textColor} />
-                   </TouchableOpacity>
-                 </View>
-                 
-                                   <ScrollView 
-                    style={styles.detailScrollView}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.detailScrollContent}
-                  >
-                    <Image source={selectedApartment.image} style={styles.detailImage} resizeMode="cover" />
+      {/* Detail Modal */}
+      <Modal
+        visible={detailModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDetailModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+            {selectedApartment && (
+              <>
+                <View style={styles.detailHeader}>
+                  <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
+                    {selectedApartment.title}
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                
+                <ScrollView 
+                  style={styles.detailScrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.detailScrollContent}
+                >
+                  <Image source={selectedApartment.image} style={styles.detailImage} resizeMode="cover" />
+                  
+                  <View style={styles.detailContent}>
+                    <View style={styles.detailRatingRow}>
+                      <View style={styles.ratingContainer}>
+                        <MaterialIcons name="star" size={16} color="#FFD700" />
+                        <ThemedText style={styles.ratingText}>{selectedApartment.rating}</ThemedText>
+                        <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
+                          ({selectedApartment.reviews} reviews)
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                        {selectedApartment.price}
+                      </ThemedText>
+                    </View>
                     
-                    <View style={styles.detailContent}>
-                   <View style={styles.detailRatingRow}>
-                     <View style={styles.ratingContainer}>
-                       <MaterialIcons name="star" size={16} color="#FFD700" />
-                       <ThemedText style={styles.ratingText}>{selectedApartment.rating}</ThemedText>
-                       <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-                         ({selectedApartment.reviews} reviews)
-                       </ThemedText>
-                     </View>
-                     <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                       {selectedApartment.price}
-                     </ThemedText>
-                   </View>
-                   
-                   <View style={styles.locationRow}>
-                     <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-                     <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
-                       {selectedApartment.address}
-                     </ThemedText>
-                   </View>
-                   
-                   <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
-                     {selectedApartment.description}
-                   </ThemedText>
-                   
-                   <View style={styles.detailSpecs}>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="bed" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.bedrooms} Bedroom{selectedApartment.bedrooms > 1 ? 's' : ''}
-                       </ThemedText>
-                     </View>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="bathroom" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.bathrooms} Bathroom{selectedApartment.bathrooms > 1 ? 's' : ''}
-                       </ThemedText>
-                     </View>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.size}
-                       </ThemedText>
-                     </View>
-                   </View>
-                   
-                   <View style={styles.amenitiesSection}>
-                     <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                       Amenities
-                     </ThemedText>
-                     <View style={styles.amenitiesGrid}>
-                       {selectedApartment.amenities.map((amenity: string, index: number) => (
-                         <View key={index} style={styles.amenityItem}>
-                           <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                           <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
-                             {amenity}
-                           </ThemedText>
-                         </View>
-                       ))}
-                     </View>
-                   </View>
-                   
-                   <View style={styles.detailActions}>
-                     <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
-                       <MaterialIcons name="phone" size={20} color="#fff" />
-                       <ThemedText style={styles.contactButtonText}>Contact Owner</ThemedText>
-                     </TouchableOpacity>
-                     <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
-                       <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                         Book Now
-                       </ThemedText>
-                     </TouchableOpacity>
-                                       </View>
+                    <View style={styles.locationRow}>
+                      <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+                      <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                        {selectedApartment.address}
+                      </ThemedText>
+                    </View>
+                    
+                    <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                      {selectedApartment.description}
+                    </ThemedText>
+                    
+                    <View style={styles.detailSpecs}>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="bed" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.bedrooms} Bedroom{selectedApartment.bedrooms > 1 ? 's' : ''}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="bathroom" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.bathrooms} Bathroom{selectedApartment.bathrooms > 1 ? 's' : ''}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.size}
+                        </ThemedText>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.amenitiesSection}>
+                      <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                        Amenities
+                      </ThemedText>
+                      <View style={styles.amenitiesGrid}>
+                        {selectedApartment.amenities.map((amenity: string, index: number) => (
+                          <View key={index} style={styles.amenityItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
+                              {amenity}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    
+                    <View style={styles.detailActions}>
+                      <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
+                        <MaterialIcons name="phone" size={20} color="#fff" />
+                        <ThemedText style={styles.contactButtonText}>Contact Owner</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
+                        <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
+                          Book Now
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </ScrollView>
               </>
             )}
           </View>
+        </View>
+      </Modal>
+
+      {/* Create Modal */}
+      <Modal
+        visible={createModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: bgColor }]}>
+          <View style={[styles.modalHeader, { backgroundColor: cardBgColor }]}>
+            <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+              Add New Apartment
+            </ThemedText>
+            <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Title</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newApartment.title}
+                onChangeText={(text) => setNewApartment({...newApartment, title: text})}
+                placeholder="Enter apartment title"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Price</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newApartment.price}
+                onChangeText={(text) => setNewApartment({...newApartment, price: text})}
+                placeholder="Enter price (e.g., P1,200/mo)"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Location</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newApartment.location}
+                onChangeText={(text) => setNewApartment({...newApartment, location: text})}
+                placeholder="Enter location"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Address</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newApartment.address}
+                onChangeText={(text) => setNewApartment({...newApartment, address: text})}
+                placeholder="Enter full address"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Description</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor, height: 80 }]}
+                value={newApartment.description}
+                onChangeText={(text) => setNewApartment({...newApartment, description: text})}
+                placeholder="Enter apartment description"
+                placeholderTextColor={subtitleColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+            
+            <View style={styles.inputRow}>
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.inputLabel, { color: textColor }]}>Bedrooms</ThemedText>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                  value={newApartment.bedrooms.toString()}
+                  onChangeText={(text) => setNewApartment({...newApartment, bedrooms: parseInt(text) || 1})}
+                  placeholder="1"
+                  placeholderTextColor={subtitleColor}
+                  keyboardType="numeric"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.inputLabel, { color: textColor }]}>Bathrooms</ThemedText>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                  value={newApartment.bathrooms.toString()}
+                  onChangeText={(text) => setNewApartment({...newApartment, bathrooms: parseInt(text) || 1})}
+                  placeholder="1"
+                  placeholderTextColor={subtitleColor}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Size</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newApartment.size}
+                onChangeText={(text) => setNewApartment({...newApartment, size: text})}
+                placeholder="Enter size (e.g., 45 sqm)"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+              onPress={handleCreate}
+            >
+              <ThemedText style={styles.saveButtonText}>Create Apartment</ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: bgColor }]}>
+          <View style={[styles.modalHeader, { backgroundColor: cardBgColor }]}>
+            <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+              Edit Apartment
+            </ThemedText>
+            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {editingApartment && (
+              <>
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Title</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingApartment.title}
+                    onChangeText={(text) => setEditingApartment({...editingApartment, title: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Price</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingApartment.price}
+                    onChangeText={(text) => setEditingApartment({...editingApartment, price: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Location</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingApartment.location}
+                    onChangeText={(text) => setEditingApartment({...editingApartment, location: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Description</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor, height: 80 }]}
+                    value={editingApartment.description}
+                    onChangeText={(text) => setEditingApartment({...editingApartment, description: text})}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={handleSaveEdit}
+                >
+                  <ThemedText style={styles.saveButtonText}>Save Changes</ThemedText>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
         </View>
       </Modal>
     </ThemedView>
@@ -516,8 +814,22 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
-  searchButton: {
-    padding: 4,
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
   },
   filtersContainer: {
     paddingVertical: 16,
@@ -641,15 +953,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  viewButton: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  viewButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+  actionButton: {
+    padding: 8,
+    borderRadius: 12,
   },
   modalOverlay: {
     flex: 1,
@@ -818,4 +1128,614 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-}); 
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  saveButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+     saveButtonText: {
+     color: '#fff',
+     fontWeight: 'bold',
+     fontSize: 16,
+     textAlign: 'center',
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+ });  

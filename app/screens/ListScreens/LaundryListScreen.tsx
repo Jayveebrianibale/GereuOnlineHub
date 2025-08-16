@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -114,6 +114,7 @@ const laundryData = [
 export default function LaundryListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isDark = colorScheme === 'dark';
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -122,15 +123,28 @@ export default function LaundryListScreen() {
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
 
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [searchVisible, setSearchVisible] = useState(false);
+  const [laundryServices, setLaundryServices] = useState(laundryData);
+  const [filteredLaundryServices, setFilteredLaundryServices] = useState(laundryData);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingLaundryService, setEditingLaundryService] = useState<any>(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newLaundryService, setNewLaundryService] = useState({
+    title: '',
+    price: '',
+    turnaround: '',
+    description: '',
+    services: [''],
+    pickup: '',
+    delivery: '',
+    minOrder: '',
+    available: true,
+  });
 
   // Handle navigation parameters
-  const params = useLocalSearchParams();
-  
   useEffect(() => {
     if (params.selectedItem) {
       try {
@@ -292,35 +306,124 @@ export default function LaundryListScreen() {
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
             {item.price}
           </ThemedText>
-          <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
-            onPress={() => {
-              setSelectedLaundryService(item);
-              setDetailModalVisible(true);
-            }}
-          >
-            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+              onPress={() => {
+                setSelectedLaundryService(item);
+                setDetailModalVisible(true);
+              }}
+            >
+              <MaterialIcons name="visibility" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colorPalette.primaryDark }]}
+              onPress={() => handleEdit(item)}
+            >
+              <MaterialIcons name="edit" size={16} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#dc2626' }]}
+              onPress={() => handleDelete(item)}
+            >
+              <MaterialIcons name="delete" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
               </View>
       </View>
     );
 
+  const handleEdit = (laundryService: any) => {
+    setEditingLaundryService({ ...laundryService });
+    setEditModalVisible(true);
+  };
+
+  const handleDelete = (laundryService: any) => {
+    Alert.alert(
+      'Delete Laundry Service',
+      `Are you sure you want to delete "${laundryService.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedServices = laundryServices.filter(service => service.id !== laundryService.id);
+            setLaundryServices(updatedServices);
+            setFilteredLaundryServices(updatedServices);
+            if (selectedLaundryService?.id === laundryService.id) {
+              setDetailModalVisible(false);
+              setSelectedLaundryService(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSaveEdit = () => {
+    if (editingLaundryService) {
+      const updatedServices = laundryServices.map(service => 
+        service.id === editingLaundryService.id ? editingLaundryService : service
+      );
+      setLaundryServices(updatedServices);
+      setFilteredLaundryServices(updatedServices);
+      setEditModalVisible(false);
+      setEditingLaundryService(null);
+    }
+  };
+
+  const handleCreate = () => {
+    if (newLaundryService.title && newLaundryService.price && newLaundryService.turnaround) {
+      const newId = (laundryServices.length + 1).toString();
+      const serviceToAdd = {
+        ...newLaundryService,
+        id: newId,
+        rating: 4.5,
+        reviews: 0,
+        image: require('@/assets/images/laundry1.webp'),
+      };
+      
+      const updatedServices = [...laundryServices, serviceToAdd];
+      setLaundryServices(updatedServices);
+      setFilteredLaundryServices(updatedServices);
+      setCreateModalVisible(false);
+      setNewLaundryService({
+        title: '',
+        price: '',
+        turnaround: '',
+        description: '',
+        services: [''],
+        pickup: '',
+        delivery: '',
+        minOrder: '',
+        available: true,
+      });
+    }
+  };
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+      {/* Header with Create Button */}
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
-        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Laundry Services
-        </ThemedText>
+        <View>
+          <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+            Laundry Services
+          </ThemedText>
+          <ThemedText type="default" style={[styles.headerSubtitle, { color: subtitleColor }]}>
+            Manage laundry service listings
+          </ThemedText>
+        </View>
         <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => setSearchVisible(true)}
+          style={[styles.createButton, { backgroundColor: colorPalette.primary }]}
+          onPress={() => setCreateModalVisible(true)}
         >
-          <MaterialIcons name="search" size={24} color={colorPalette.primary} />
+          <MaterialIcons name="add" size={24} color="#fff" />
+          <ThemedText style={styles.createButtonText}>Add New</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -525,6 +628,281 @@ export default function LaundryListScreen() {
            </View>
          </View>
        </Modal>
+
+      {/* Create Modal */}
+      <Modal
+        visible={createModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: bgColor }]}>
+          <View style={[styles.modalHeader, { backgroundColor: cardBgColor }]}>
+            <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+              Add New Laundry Service
+            </ThemedText>
+            <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Title</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newLaundryService.title}
+                onChangeText={(text) => setNewLaundryService({...newLaundryService, title: text})}
+                placeholder="Enter service title"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Price</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newLaundryService.price}
+                onChangeText={(text) => setNewLaundryService({...newLaundryService, price: text})}
+                placeholder="Enter price (e.g., P250/lb)"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Turnaround Time</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                value={newLaundryService.turnaround}
+                onChangeText={(text) => setNewLaundryService({...newLaundryService, turnaround: text})}
+                placeholder="Enter turnaround time"
+                placeholderTextColor={subtitleColor}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={[styles.inputLabel, { color: textColor }]}>Description</ThemedText>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor, height: 80 }]}
+                value={newLaundryService.description}
+                onChangeText={(text) => setNewLaundryService({...newLaundryService, description: text})}
+                placeholder="Enter service description"
+                placeholderTextColor={subtitleColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+              onPress={handleCreate}
+            >
+              <ThemedText style={styles.saveButtonText}>Create Service</ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: bgColor }]}>
+          <View style={[styles.modalHeader, { backgroundColor: cardBgColor }]}>
+            <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+              Edit Laundry Service
+            </ThemedText>
+            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {editingLaundryService && (
+              <>
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Title</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingLaundryService.title}
+                    onChangeText={(text) => setEditingLaundryService({...editingLaundryService, title: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Price</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingLaundryService.price}
+                    onChangeText={(text) => setEditingLaundryService({...editingLaundryService, price: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Turnaround Time</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor }]}
+                    value={editingLaundryService.turnaround}
+                    onChangeText={(text) => setEditingLaundryService({...editingLaundryService, turnaround: text})}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <ThemedText style={[styles.inputLabel, { color: textColor }]}>Description</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: cardBgColor, color: textColor, borderColor: subtitleColor, height: 80 }]}
+                    value={editingLaundryService.description}
+                    onChangeText={(text) => setEditingLaundryService({...editingLaundryService, description: text})}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={handleSaveEdit}
+                >
+                  <ThemedText style={styles.saveButtonText}>Save Changes</ThemedText>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+       {/* Detail Modal */}
+       <Modal
+         visible={detailModalVisible}
+         animationType="slide"
+         transparent={true}
+         onRequestClose={() => setDetailModalVisible(false)}
+       >
+         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+           <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+             {selectedLaundryService && (
+               <>
+                 <View style={styles.detailHeader}>
+                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
+                     {selectedLaundryService.title}
+                   </ThemedText>
+                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                     <MaterialIcons name="close" size={24} color={textColor} />
+                   </TouchableOpacity>
+                 </View>
+                 
+                 <ScrollView 
+                   style={styles.detailScrollView}
+                   showsVerticalScrollIndicator={false}
+                   contentContainerStyle={styles.detailScrollContent}
+                 >
+                   <Image source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
+                   
+                   <View style={styles.detailContent}>
+                     <View style={styles.detailRatingRow}>
+                       <View style={styles.ratingContainer}>
+                         <MaterialIcons name="star" size={16} color="#FFD700" />
+                         <ThemedText style={styles.ratingText}>{selectedLaundryService.rating}</ThemedText>
+                         <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
+                           ({selectedLaundryService.reviews} reviews)
+                         </ThemedText>
+                       </View>
+                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                         {selectedLaundryService.price}
+                       </ThemedText>
+                     </View>
+                     
+                     <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                       {selectedLaundryService.description}
+                     </ThemedText>
+                     
+                     <View style={styles.detailSpecs}>
+                       <View style={styles.detailItem}>
+                         <FontAwesome name="money" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.price}
+                         </ThemedText>
+                       </View>
+                       <View style={styles.detailItem}>
+                         <MaterialIcons name="schedule" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.turnaround}
+                         </ThemedText>
+                       </View>
+                       <View style={styles.detailItem}>
+                         <MaterialIcons name="local-shipping" size={20} color={subtitleColor} />
+                         <ThemedText style={[styles.detailText, { color: textColor }]}>
+                           {selectedLaundryService.pickup}
+                         </ThemedText>
+                       </View>
+                     </View>
+                     
+                     <View style={styles.servicesSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Services Included
+                       </ThemedText>
+                       <View style={styles.servicesGrid}>
+                        {selectedLaundryService?.services?.map((service: string, index: number) => (
+                          <View key={index} style={styles.serviceItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                              {service}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                     </View>
+                     
+                     <View style={styles.infoSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Service Details
+                       </ThemedText>
+                       <View style={styles.infoGrid}>
+                         <View style={styles.infoItem}>
+                           <MaterialIcons name="delivery-dining" size={16} color={colorPalette.primary} />
+                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
+                             {selectedLaundryService.delivery}
+                           </ThemedText>
+                         </View>
+                         <View style={styles.infoItem}>
+                           <MaterialIcons name="scale" size={16} color={colorPalette.primary} />
+                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
+                             {selectedLaundryService.minOrder}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     </View>
+                     
+                     <View style={styles.detailActions}>
+                       <TouchableOpacity
+                         style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
+                         onPress={() => {
+                           // TODO: Implement contact service logic
+                           alert('Contact Service feature coming soon!');
+                         }}
+                       >
+                         <MaterialIcons name="phone" size={20} color="#fff" />
+                         <ThemedText style={styles.contactButtonText}>Contact Service</ThemedText>
+                       </TouchableOpacity>
+                       <TouchableOpacity
+                         style={[styles.bookButton, { borderColor: colorPalette.primary }]}
+                         onPress={() => {
+                           // TODO: Implement schedule pickup logic
+                           alert('Schedule Pickup feature coming soon!');
+                         }}
+                       >
+                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>Schedule Pickup</ThemedText>
+                       </TouchableOpacity>
+                     </View>
+                   </View>
+                 </ScrollView>
+               </>
+             )}
+           </View>
+         </View>
+       </Modal>
      </ThemedView>
    );
  }
@@ -548,8 +926,22 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
-  searchButton: {
-    padding: 4,
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8,
   },
   filtersContainer: {
     paddingVertical: 16,
@@ -860,4 +1252,100 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-}); 
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  saveButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+     saveButtonText: {
+     color: '#fff',
+     fontWeight: 'bold',
+     fontSize: 16,
+   },
+   actionButtons: {
+     flexDirection: 'row',
+     gap: 8,
+   },
+   actionButton: {
+     padding: 8,
+     borderRadius: 12,
+   },
+   modalContainer: {
+     flex: 1,
+   },
+   modalHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     padding: 20,
+     borderBottomWidth: 1,
+     borderBottomColor: 'rgba(0,0,0,0.1)',
+   },
+   modalTitle: {
+     fontSize: 18,
+     fontWeight: '600',
+   },
+   modalContent: {
+     padding: 20,
+   },
+   inputGroup: {
+     marginBottom: 16,
+   },
+   inputLabel: {
+     fontSize: 14,
+     fontWeight: '500',
+     marginBottom: 8,
+   },
+   textInput: {
+     borderWidth: 1,
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     fontSize: 16,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     marginBottom: 16,
+   },
+   saveButton: {
+     borderRadius: 12,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+   },
+ });  
