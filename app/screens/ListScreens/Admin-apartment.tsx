@@ -1,0 +1,696 @@
+    import { useColorScheme } from '@/components/ColorSchemeContext';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+
+    const colorPalette = {
+    lightest: '#C3F5FF',
+    light: '#7FE6FF',
+    primaryLight: '#4AD0FF',
+    primary: '#00B2FF',
+    primaryDark: '#007BE5',
+    dark: '#0051C1',
+    darker: '#002F87',
+    darkest: '#001A5C',
+    };
+
+    // Initial empty apartment template
+    const emptyApartment = {
+    id: '',
+    title: '',
+    price: '',
+    location: '',
+    address: '',
+    image: require('@/assets/images/apartment1.webp'),
+    rating: 0,
+    reviews: 0,
+    amenities: [],
+    description: '',
+    size: '',
+    bedrooms: 0,
+    bathrooms: 0,
+    available: true,
+    };
+
+    export default function AdminApartmentManagement() {
+    const { colorScheme } = useColorScheme();
+    const router = useRouter();
+    const isDark = colorScheme === 'dark';
+    
+    const bgColor = isDark ? '#121212' : '#fff';
+    const cardBgColor = isDark ? '#1E1E1E' : '#fff';
+    const textColor = isDark ? '#fff' : colorPalette.darkest;
+    const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+    const borderColor = isDark ? '#333' : '#eee';
+    const dangerColor = isDark ? '#FF6B6B' : '#FF3B30';
+
+    const [apartments, setApartments] = useState<any[]>([]);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [currentApartment, setCurrentApartment] = useState<any>(emptyApartment);
+    const [isNewApartment, setIsNewApartment] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+    const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
+
+    // Load initial data (in a real app, this would come from an API)
+    useEffect(() => {
+        // Simulate loading data
+        const initialData = [
+        {
+            id: '1',
+            title: 'Luxury Studio Apartment',
+            price: 'P1,200/mo',
+            location: 'Downtown',
+            address: '123 Main Street, Downtown',
+            image: require('@/assets/images/apartment1.webp'),
+            rating: 4.8,
+            reviews: 124,
+            amenities: ['WiFi', 'Parking', 'Gym', 'Pool', 'Security'],
+            description: 'Modern studio apartment with premium amenities and city views.',
+            size: '45 sqm',
+            bedrooms: 1,
+            bathrooms: 1,
+            available: true,
+        },
+        {
+            id: '2',
+            title: 'Modern 1-Bedroom',
+            price: 'P1,500/mo',
+            location: 'Midtown',
+            address: '456 Oak Avenue, Midtown',
+            image: require('@/assets/images/apartment2.webp'),
+            rating: 4.6,
+            reviews: 89,
+            amenities: ['Pool', 'Laundry', 'Balcony', 'AC', 'Kitchen'],
+            description: 'Spacious 1-bedroom apartment with modern appliances.',
+            size: '65 sqm',
+            bedrooms: 1,
+            bathrooms: 1,
+            available: true,
+        },
+        ];
+        setApartments(initialData);
+    }, []);
+
+    const handleAddNew = () => {
+        setCurrentApartment({ ...emptyApartment, id: Date.now().toString() });
+        setIsNewApartment(true);
+        setEditModalVisible(true);
+    };
+
+    const handleEdit = (apartment: any) => {
+        setCurrentApartment(apartment);
+        setIsNewApartment(false);
+        setEditModalVisible(true);
+    };
+
+    const handleSave = () => {
+        if (!currentApartment.title || !currentApartment.price || !currentApartment.location) {
+        Alert.alert('Validation Error', 'Please fill in all required fields');
+        return;
+        }
+
+        if (isNewApartment) {
+        setApartments([...apartments, currentApartment]);
+        } else {
+        setApartments(apartments.map(apt => 
+            apt.id === currentApartment.id ? currentApartment : apt
+        ));
+        }
+        setEditModalVisible(false);
+    };
+
+    const handleDelete = (id: string) => {
+        setApartmentToDelete(id);
+        setDeleteConfirmVisible(true);
+    };
+
+    const confirmDelete = () => {
+        setApartments(apartments.filter(apt => apt.id !== apartmentToDelete));
+        setDeleteConfirmVisible(false);
+        setApartmentToDelete(null);
+    };
+
+    const handleAmenityChange = (text: string, index: number) => {
+        const updatedAmenities = [...currentApartment.amenities];
+        updatedAmenities[index] = text;
+        setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
+    };
+
+    const addAmenity = () => {
+        setCurrentApartment({ 
+        ...currentApartment, 
+        amenities: [...currentApartment.amenities, ''] 
+        });
+    };
+
+    const removeAmenity = (index: number) => {
+        const updatedAmenities = [...currentApartment.amenities];
+        updatedAmenities.splice(index, 1);
+        setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
+    };
+
+    const renderApartmentItem = ({ item }: { item: any }) => (
+        <View style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}>
+        <Image source={item.image} style={styles.apartmentImage} resizeMode="cover" />
+        <View style={styles.apartmentContent}>
+            <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
+            {item.title}
+            </ThemedText>
+            <View style={styles.locationRow}>
+            <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                {item.location}
+            </ThemedText>
+            </View>
+            <ThemedText style={[styles.priceText, { color: colorPalette.primary }]}>
+            {item.price}
+            </ThemedText>
+            <View style={styles.adminActions}>
+            <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+                onPress={() => handleEdit(item)}
+            >
+                <MaterialIcons name="edit" size={16} color="#fff" />
+                <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: dangerColor }]}
+                onPress={() => handleDelete(item.id)}
+            >
+                <MaterialIcons name="delete" size={16} color="#fff" />
+                <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+            </TouchableOpacity>
+            </View>
+        </View>
+        </View>
+    );
+
+    return (
+        <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
+            </TouchableOpacity>
+            <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+            Apartment Management
+            </ThemedText>
+            <TouchableOpacity 
+                style={styles.headerAddButton}
+                onPress={handleAddNew}
+            >
+                <MaterialIcons name="add" size={24} color={colorPalette.primary} />
+            </TouchableOpacity>
+        </View>
+
+        {/* Apartments List */}
+        {apartments.length > 0 ? (
+            <FlatList
+            data={apartments}
+            renderItem={renderApartmentItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            />
+        ) : (
+            <ThemedView style={styles.emptyState}>
+            <MaterialIcons name="apartment" size={48} color={subtitleColor} />
+            <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+                No apartments found. Add a new one to get started.
+            </ThemedText>
+            </ThemedView>
+        )}
+
+        {/* Edit/Create Modal */}
+        <Modal
+            visible={editModalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setEditModalVisible(false)}
+        >
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.editModal, { backgroundColor: cardBgColor }]}>
+                <ScrollView contentContainerStyle={styles.editScrollContent}>
+                <View style={styles.modalHeader}>
+                    <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+                    {isNewApartment ? 'Add New Apartment' : 'Edit Apartment'}
+                    </ThemedText>
+                    <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Title*</ThemedText>
+                    <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentApartment.title}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, title: text })}
+                    placeholder="Apartment title"
+                    placeholderTextColor={subtitleColor}
+                    />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Price*</ThemedText>
+                    <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentApartment.price}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, price: text })}
+                    placeholder="e.g. P1,200/mo"
+                    placeholderTextColor={subtitleColor}
+                    keyboardType="default"
+                    />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Location*</ThemedText>
+                    <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentApartment.location}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, location: text })}
+                    placeholder="e.g. Downtown"
+                    placeholderTextColor={subtitleColor}
+                    />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Address</ThemedText>
+                    <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentApartment.address}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, address: text })}
+                    placeholder="Full address"
+                    placeholderTextColor={subtitleColor}
+                    />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
+                    <TextInput
+                    style={[styles.textarea, { color: textColor, borderColor }]}
+                    value={currentApartment.description}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, description: text })}
+                    placeholder="Detailed description"
+                    placeholderTextColor={subtitleColor}
+                    multiline
+                    numberOfLines={4}
+                    />
+                </View>
+
+                <View style={styles.rowGroup}>
+                    <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Bedrooms</ThemedText>
+                    <TextInput
+                        style={[styles.input, { color: textColor, borderColor }]}
+                        value={currentApartment.bedrooms.toString()}
+                        onChangeText={(text) => setCurrentApartment({ ...currentApartment, bedrooms: parseInt(text) || 0 })}
+                        placeholder="0"
+                        placeholderTextColor={subtitleColor}
+                        keyboardType="numeric"
+                    />
+                    </View>
+
+                    <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Bathrooms</ThemedText>
+                    <TextInput
+                        style={[styles.input, { color: textColor, borderColor }]}
+                        value={currentApartment.bathrooms.toString()}
+                        onChangeText={(text) => setCurrentApartment({ ...currentApartment, bathrooms: parseInt(text) || 0 })}
+                        placeholder="0"
+                        placeholderTextColor={subtitleColor}
+                        keyboardType="numeric"
+                    />
+                    </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Size</ThemedText>
+                    <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentApartment.size}
+                    onChangeText={(text) => setCurrentApartment({ ...currentApartment, size: text })}
+                    placeholder="e.g. 45 sqm"
+                    placeholderTextColor={subtitleColor}
+                    />
+                </View>
+
+                <View style={styles.formGroup}>
+                    <View style={styles.amenitiesHeader}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Amenities</ThemedText>
+                    <TouchableOpacity 
+                        style={styles.addAmenityButton}
+                        onPress={addAmenity}
+                    >
+                        <MaterialIcons name="add" size={20} color={colorPalette.primary} />
+                    </TouchableOpacity>
+                    </View>
+                    
+                    {currentApartment.amenities.map((amenity: string, index: number) => (
+                    <View key={index} style={styles.amenityInputRow}>
+                        <TextInput
+                        style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
+                        value={amenity}
+                        onChangeText={(text) => handleAmenityChange(text, index)}
+                        placeholder={`Amenity ${index + 1}`}
+                        placeholderTextColor={subtitleColor}
+                        />
+                        <TouchableOpacity 
+                        style={styles.removeAmenityButton}
+                        onPress={() => removeAmenity(index)}
+                        >
+                        <MaterialIcons name="remove" size={20} color={dangerColor} />
+                        </TouchableOpacity>
+                    </View>
+                    ))}
+                </View>
+
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Availability</ThemedText>
+                    <View style={styles.radioGroup}>
+                    <TouchableOpacity
+                        style={styles.radioButton}
+                        onPress={() => setCurrentApartment({ ...currentApartment, available: true })}
+                    >
+                        <MaterialIcons
+                        name={currentApartment.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={currentApartment.available ? colorPalette.primary : textColor}
+                        />
+                        <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Available
+                        </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.radioButton, { marginLeft: 16 }]}
+                        onPress={() => setCurrentApartment({ ...currentApartment, available: false })}
+                    >
+                        <MaterialIcons
+                        name={!currentApartment.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={!currentApartment.available ? dangerColor : textColor}
+                        />
+                        <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Unavailable
+                        </ThemedText>
+                    </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View style={styles.modalActions}>
+                    <TouchableOpacity 
+                    style={[styles.cancelButton, { borderColor }]}
+                    onPress={() => setEditModalVisible(false)}
+                    >
+                    <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                        Cancel
+                    </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                    style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                    onPress={handleSave}
+                    >
+                    <ThemedText style={styles.saveButtonText}>
+                        {isNewApartment ? 'Add Apartment' : 'Save Changes'}
+                    </ThemedText>
+                    </TouchableOpacity>
+                </View>
+                </ScrollView>
+            </View>
+            </View>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+            visible={deleteConfirmVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setDeleteConfirmVisible(false)}
+        >
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.confirmModal, { backgroundColor: cardBgColor }]}>
+                <ThemedText type="title" style={[styles.confirmTitle, { color: textColor }]}>
+                Confirm Delete
+                </ThemedText>
+                <ThemedText style={[styles.confirmText, { color: subtitleColor }]}>
+                Are you sure you want to delete this apartment? This action cannot be undone.
+                </ThemedText>
+                <View style={styles.confirmActions}>
+                <TouchableOpacity 
+                    style={[styles.confirmButton, { backgroundColor: borderColor }]}
+                    onPress={() => setDeleteConfirmVisible(false)}
+                >
+                    <ThemedText style={[styles.confirmButtonText, { color: textColor }]}>
+                    Cancel
+                    </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.confirmButton, { backgroundColor: dangerColor }]}
+                    onPress={confirmDelete}
+                >
+                    <ThemedText style={styles.confirmButtonText}>
+                    Delete
+                    </ThemedText>
+                </TouchableOpacity>
+                </View>
+            </View>
+            </View>
+        </Modal>
+        </ThemedView>
+    );
+    }
+
+    const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        marginTop: 20,
+    },
+    backButton: {
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        flex: 1,
+        textAlign: 'center',
+        marginHorizontal: 12,
+    },
+    headerAddButton: {
+        padding: 4,
+    },
+    listContainer: {
+        padding: 20,
+    },
+    apartmentCard: {
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    apartmentImage: {
+        width: '100%',
+        height: 150,
+    },
+    apartmentContent: {
+        padding: 16,
+    },
+    apartmentTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    locationText: {
+        marginLeft: 4,
+        fontSize: 14,
+    },
+    priceText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 12,
+    },
+    adminActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        flex: 1,
+        marginHorizontal: 4,
+    },
+    actionButtonText: {
+        color: '#fff',
+        fontWeight: '500',
+        fontSize: 14,
+        marginLeft: 6,
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
+    },
+    emptyText: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginTop: 16,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    editModal: {
+        width: '100%',
+        borderRadius: 16,
+        maxHeight: '90%',
+    },
+    editScrollContent: {
+        padding: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    formGroup: {
+        marginBottom: 20,
+    },
+    rowGroup: {
+        flexDirection: 'row',
+        marginBottom: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    input: {
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+    },
+    textarea: {
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    amenitiesHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    addAmenityButton: {
+        padding: 4,
+    },
+    amenityInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    removeAmenityButton: {
+        padding: 12,
+        marginLeft: 8,
+    },
+    radioGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    radioButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    radioLabel: {
+        fontSize: 16,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
+    },
+    cancelButton: {
+        flex: 1,
+        borderRadius: 8,
+        padding: 16,
+        borderWidth: 1,
+        marginRight: 10,
+        alignItems: 'center',
+    },
+    cancelButtonText: {
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    saveButton: {
+        flex: 1,
+        borderRadius: 8,
+        padding: 16,
+        marginLeft: 10,
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    confirmModal: {
+        width: '100%',
+        borderRadius: 16,
+        padding: 24,
+    },
+    confirmTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 12,
+    },
+    confirmText: {
+        fontSize: 16,
+        marginBottom: 24,
+    },
+    confirmActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    confirmButton: {
+        flex: 1,
+        borderRadius: 8,
+        padding: 16,
+        alignItems: 'center',
+        marginHorizontal: 8,
+    },
+    confirmButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    });

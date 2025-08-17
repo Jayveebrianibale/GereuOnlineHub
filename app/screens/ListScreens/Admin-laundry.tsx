@@ -1,0 +1,692 @@
+import { useColorScheme } from '@/components/ColorSchemeContext';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+
+const colorPalette = {
+  lightest: '#C3F5FF',
+  light: '#7FE6FF',
+  primaryLight: '#4AD0FF',
+  primary: '#00B2FF',
+  primaryDark: '#007BE5',
+  dark: '#0051C1',
+  darker: '#002F87',
+  darkest: '#001A5C',
+};
+
+// Initial empty laundry service template
+const emptyLaundryService = {
+  id: '',
+  title: '',
+  price: '',
+  turnaround: '',
+  image: require('@/assets/images/laundry1.webp'),
+  rating: 0,
+  reviews: 0,
+  description: '',
+  services: [],
+  pickup: '',
+  delivery: '',
+  minOrder: '',
+  available: true,
+};
+
+export default function AdminLaundryManagement() {
+  const { colorScheme } = useColorScheme();
+  const router = useRouter();
+  const isDark = colorScheme === 'dark';
+  
+  const bgColor = isDark ? '#121212' : '#fff';
+  const cardBgColor = isDark ? '#1E1E1E' : '#fff';
+  const textColor = isDark ? '#fff' : colorPalette.darkest;
+  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+  const borderColor = isDark ? '#333' : '#eee';
+  const dangerColor = isDark ? '#FF6B6B' : '#FF3B30';
+
+  const [services, setServices] = useState<any[]>([]);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [currentService, setCurrentService] = useState<any>(emptyLaundryService);
+  const [isNewService, setIsNewService] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+
+  // Load initial data (in a real app, this would come from an API)
+  useEffect(() => {
+    // Simulate loading data
+    const initialData = [
+      {
+        id: '1',
+        title: 'Premium Wash & Fold',
+        price: 'P250/lb',
+        turnaround: '24-hour',
+        image: require('@/assets/images/laundry1.webp'),
+        rating: 4.8,
+        reviews: 156,
+        description: 'Professional wash and fold service with premium detergents and fabric softeners.',
+        services: ['Wash & Fold', 'Starch', 'Fabric Softener'],
+        pickup: 'Free pickup',
+        delivery: 'Free delivery',
+        minOrder: '5 lbs minimum',
+        available: true,
+      },
+      {
+        id: '2',
+        title: 'Express Dry Cleaning',
+        price: 'From P200',
+        turnaround: 'Same day',
+        image: require('@/assets/images/laundry2.webp'),
+        rating: 4.6,
+        reviews: 89,
+        description: 'Fast dry cleaning service for suits, dresses, and delicate garments.',
+        services: ['Dry Cleaning', 'Pressing', 'Spot Treatment'],
+        pickup: 'Same day pickup',
+        delivery: 'Same day delivery',
+        minOrder: 'No minimum',
+        available: true,
+      },
+    ];
+    setServices(initialData);
+  }, []);
+
+  const handleAddNew = () => {
+    setCurrentService({ ...emptyLaundryService, id: Date.now().toString() });
+    setIsNewService(true);
+    setEditModalVisible(true);
+  };
+
+  const handleEdit = (service: any) => {
+    setCurrentService(service);
+    setIsNewService(false);
+    setEditModalVisible(true);
+  };
+
+  const handleSave = () => {
+    if (!currentService.title || !currentService.price || !currentService.turnaround) {
+      Alert.alert('Validation Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (isNewService) {
+      setServices([...services, currentService]);
+    } else {
+      setServices(services.map(svc => 
+        svc.id === currentService.id ? currentService : svc
+      ));
+    }
+    setEditModalVisible(false);
+  };
+
+  const handleDelete = (id: string) => {
+    setServiceToDelete(id);
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDelete = () => {
+    setServices(services.filter(svc => svc.id !== serviceToDelete));
+    setDeleteConfirmVisible(false);
+    setServiceToDelete(null);
+  };
+
+  const handleServiceChange = (text: string, index: number) => {
+    const updatedServices = [...currentService.services];
+    updatedServices[index] = text;
+    setCurrentService({ ...currentService, services: updatedServices });
+  };
+
+  const addService = () => {
+    setCurrentService({ 
+      ...currentService, 
+      services: [...currentService.services, ''] 
+    });
+  };
+
+  const removeService = (index: number) => {
+    const updatedServices = [...currentService.services];
+    updatedServices.splice(index, 1);
+    setCurrentService({ ...currentService, services: updatedServices });
+  };
+
+  const renderServiceItem = ({ item }: { item: any }) => (
+    <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}>
+      <Image source={item.image} style={styles.serviceImage} resizeMode="cover" />
+      <View style={styles.serviceContent}>
+        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
+          {item.title}
+        </ThemedText>
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <FontAwesome name="money" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
+              {item.price}
+            </ThemedText>
+          </View>
+          <View style={styles.detailItem}>
+            <MaterialIcons name="schedule" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
+              {item.turnaround}
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.adminActions}>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => handleEdit(item)}
+          >
+            <MaterialIcons name="edit" size={16} color="#fff" />
+            <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: dangerColor }]}
+            onPress={() => handleDelete(item.id)}
+          >
+            <MaterialIcons name="delete" size={16} color="#fff" />
+            <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+          Laundry Service Management
+        </ThemedText>
+      </View>
+
+      {/* Add New Button */}
+      <TouchableOpacity 
+        style={[styles.addButton, { backgroundColor: colorPalette.primary }]}
+        onPress={handleAddNew}
+      >
+        <MaterialIcons name="add" size={24} color="#fff" />
+        <ThemedText style={styles.addButtonText}>Add New Service</ThemedText>
+      </TouchableOpacity>
+
+      {/* Services List */}
+      {services.length > 0 ? (
+        <FlatList
+          data={services}
+          renderItem={renderServiceItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <ThemedView style={styles.emptyState}>
+          <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
+          <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+            No laundry services found. Add a new one to get started.
+          </ThemedText>
+        </ThemedView>
+      )}
+
+      {/* Edit/Create Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.editModal, { backgroundColor: cardBgColor }]}>
+            <ScrollView contentContainerStyle={styles.editScrollContent}>
+              <View style={styles.modalHeader}>
+                <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+                  {isNewService ? 'Add New Service' : 'Edit Service'}
+                </ThemedText>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Service Title*</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.title}
+                  onChangeText={(text) => setCurrentService({ ...currentService, title: text })}
+                  placeholder="Service title"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Price*</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.price}
+                  onChangeText={(text) => setCurrentService({ ...currentService, price: text })}
+                  placeholder="e.g. P250/lb or From P200"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Turnaround Time*</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.turnaround}
+                  onChangeText={(text) => setCurrentService({ ...currentService, turnaround: text })}
+                  placeholder="e.g. 24-hour or Same day"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
+                <TextInput
+                  style={[styles.textarea, { color: textColor, borderColor }]}
+                  value={currentService.description}
+                  onChangeText={(text) => setCurrentService({ ...currentService, description: text })}
+                  placeholder="Service description"
+                  placeholderTextColor={subtitleColor}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Pickup Information</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.pickup}
+                  onChangeText={(text) => setCurrentService({ ...currentService, pickup: text })}
+                  placeholder="e.g. Free pickup or Scheduled pickup"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Delivery Information</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.delivery}
+                  onChangeText={(text) => setCurrentService({ ...currentService, delivery: text })}
+                  placeholder="e.g. Free delivery or Same day delivery"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Minimum Order</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.minOrder}
+                  onChangeText={(text) => setCurrentService({ ...currentService, minOrder: text })}
+                  placeholder="e.g. 5 lbs minimum or No minimum"
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <View style={styles.servicesHeader}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Included Services</ThemedText>
+                  <TouchableOpacity 
+                    style={styles.addServiceButton}
+                    onPress={addService}
+                  >
+                    <MaterialIcons name="add" size={20} color={colorPalette.primary} />
+                  </TouchableOpacity>
+                </View>
+                
+                {currentService.services.map((service: string, index: number) => (
+                  <View key={index} style={styles.serviceInputRow}>
+                    <TextInput
+                      style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
+                      value={service}
+                      onChangeText={(text) => handleServiceChange(text, index)}
+                      placeholder={`Service ${index + 1}`}
+                      placeholderTextColor={subtitleColor}
+                    />
+                    <TouchableOpacity 
+                      style={styles.removeServiceButton}
+                      onPress={() => removeService(index)}
+                    >
+                      <MaterialIcons name="remove" size={20} color={dangerColor} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Availability</ThemedText>
+                <View style={styles.radioGroup}>
+                  <TouchableOpacity
+                    style={styles.radioButton}
+                    onPress={() => setCurrentService({ ...currentService, available: true })}
+                  >
+                    <MaterialIcons
+                      name={currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                      size={20}
+                      color={currentService.available ? colorPalette.primary : textColor}
+                    />
+                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                      Available
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.radioButton, { marginLeft: 16 }]}
+                    onPress={() => setCurrentService({ ...currentService, available: false })}
+                  >
+                    <MaterialIcons
+                      name={!currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                      size={20}
+                      color={!currentService.available ? dangerColor : textColor}
+                    />
+                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                      Unavailable
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={[styles.cancelButton, { borderColor }]}
+                  onPress={() => setEditModalVisible(false)}
+                >
+                  <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                    Cancel
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={handleSave}
+                >
+                  <ThemedText style={styles.saveButtonText}>
+                    {isNewService ? 'Add Service' : 'Save Changes'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.confirmModal, { backgroundColor: cardBgColor }]}>
+            <ThemedText type="title" style={[styles.confirmTitle, { color: textColor }]}>
+              Confirm Delete
+            </ThemedText>
+            <ThemedText style={[styles.confirmText, { color: subtitleColor }]}>
+              Are you sure you want to delete this laundry service? This action cannot be undone.
+            </ThemedText>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity 
+                style={[styles.confirmButton, { backgroundColor: borderColor }]}
+                onPress={() => setDeleteConfirmVisible(false)}
+              >
+                <ThemedText style={[styles.confirmButtonText, { color: textColor }]}>
+                  Cancel
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmButton, { backgroundColor: dangerColor }]}
+                onPress={confirmDelete}
+              >
+                <ThemedText style={styles.confirmButtonText}>
+                  Delete
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 12,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    marginBottom: 0,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  listContainer: {
+    padding: 20,
+  },
+  serviceCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  serviceImage: {
+    width: '100%',
+    height: 150,
+  },
+  serviceContent: {
+    padding: 16,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  detailText: {
+    marginLeft: 4,
+    fontSize: 14,
+  },
+  adminActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  editModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '90%',
+  },
+  editScrollContent: {
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  textarea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  servicesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addServiceButton: {
+    padding: 4,
+  },
+  serviceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  removeServiceButton: {
+    padding: 12,
+    marginLeft: 8,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  radioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  radioLabel: {
+    fontSize: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  saveButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 16,
+    marginLeft: 10,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  confirmModal: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  confirmText: {
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  confirmButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+});
