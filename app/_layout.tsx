@@ -37,6 +37,9 @@ export default function RootLayout() {
             <Stack.Screen name="apartment-list" options={{ headerShown: false }} />
             <Stack.Screen name="laundry-list" options={{ headerShown: false }} />
             <Stack.Screen name="auto-list" options={{ headerShown: false }} />
+            <Stack.Screen name="admin-apartment" options={{ headerShown: false }} />
+            <Stack.Screen name="admin-laundry" options={{ headerShown: false }} />
+             <Stack.Screen name="admin-auto" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
