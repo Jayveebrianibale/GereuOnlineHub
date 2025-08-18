@@ -59,13 +59,13 @@ export default function AdminDashboard() {
   const handleModulePress = (moduleKey: string) => {
     switch (moduleKey) {
       case 'apartment':
-        router.push('/apartment-list');
+        router.push('/admin-apartment');
         break;
       case 'laundry':
-        router.push('/laundry-list');
+        router.push('/admin-laundry');
         break;
       case 'car':
-        router.push('/auto-list');
+        router.push('/admin-auto');
         break;
       default:
         break;

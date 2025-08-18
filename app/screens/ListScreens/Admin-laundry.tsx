@@ -200,16 +200,13 @@ export default function AdminLaundryManagement() {
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
           Laundry Service Management
         </ThemedText>
+        <TouchableOpacity
+          style={styles.headerAddButton}
+          onPress={handleAddNew}
+        >
+          <MaterialIcons name="add" size={24} color={colorPalette.primary} />
+        </TouchableOpacity>
       </View>
-
-      {/* Add New Button */}
-      <TouchableOpacity 
-        style={[styles.addButton, { backgroundColor: colorPalette.primary }]}
-        onPress={handleAddNew}
-      >
-        <MaterialIcons name="add" size={24} color="#fff" />
-        <ThemedText style={styles.addButtonText}>Add New Service</ThemedText>
-      </TouchableOpacity>
 
       {/* Services List */}
       {services.length > 0 ? (
@@ -462,6 +459,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
+    marginTop: 30,
   },
   backButton: {
     padding: 4,
@@ -473,20 +471,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 12,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
-    marginBottom: 0,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
+  headerAddButton: {
+    padding: 4,
   },
   listContainer: {
     padding: 20,

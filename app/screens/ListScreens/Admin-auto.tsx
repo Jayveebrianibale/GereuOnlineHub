@@ -197,16 +197,13 @@ export default function AdminAutoManagement() {
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
           Auto Service Management
         </ThemedText>
+        <TouchableOpacity
+          style={styles.headerAddButton}
+          onPress={handleAddNew}
+        >
+          <MaterialIcons name="add" size={24} color={colorPalette.primary} />
+        </TouchableOpacity>
       </View>
-
-      {/* Add New Button */}
-      <TouchableOpacity 
-        style={[styles.addButton, { backgroundColor: colorPalette.primary }]}
-        onPress={handleAddNew}
-      >
-        <MaterialIcons name="add" size={24} color="#fff" />
-        <ThemedText style={styles.addButtonText}>Add New Service</ThemedText>
-      </TouchableOpacity>
 
       {/* Services List */}
       {autoServices.length > 0 ? (
@@ -460,50 +457,44 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
+    marginTop: 20,
   },
   backButton: {
-    marginRight: 12,
+    padding: 4,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 12,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: 16,
-    padding: 12,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 8,
+  headerAddButton: {
+    padding: 4,
   },
   listContainer: {
-    padding: 16,
+    padding: 20,
   },
   serviceCard: {
-    flexDirection: 'row',
-    borderWidth: 1,
     borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   serviceImage: {
-    width: 100,
-    height: 100,
+    width: '100%',
+    height: 150,
   },
   serviceContent: {
-    flex: 1,
-    padding: 12,
+    padding: 16,
   },
   serviceTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -519,30 +510,35 @@ const styles = StyleSheet.create({
   },
   adminActions: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 8,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginRight: 8,
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flex: 1,
+    marginHorizontal: 4,
   },
   actionButtonText: {
     color: '#fff',
-    marginLeft: 4,
-    fontSize: 13,
+    fontWeight: '500',
+    fontSize: 14,
+    marginLeft: 6,
   },
   emptyState: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    marginTop: 80,
-    paddingHorizontal: 24,
+    alignItems: 'center',
+    padding: 40,
   },
   emptyText: {
-    marginTop: 12,
+    fontSize: 16,
     textAlign: 'center',
+    marginTop: 16,
   },
   modalOverlay: {
     flex: 1,
