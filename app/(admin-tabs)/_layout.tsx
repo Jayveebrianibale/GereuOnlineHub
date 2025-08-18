@@ -3,6 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
+
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -45,10 +46,10 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="reservations"
+        name="analytics"
         options={{
-          title: 'Reservations',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={size} color={color} />,
+          title: 'Analytics',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="analytics" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -56,13 +57,6 @@ export default function AdminTabLayout() {
         options={{
           title: 'Users',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={size} color={color} />,
-        }}
-      />
-       <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="message" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

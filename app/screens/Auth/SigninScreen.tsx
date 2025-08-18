@@ -43,7 +43,7 @@ export default function SigninScreen() {
       
       // Manual navigation based on user role
       setTimeout(() => {
-        if (user.email && user.email.toLowerCase() === 'jayveebriani@gmail.com') {
+        if (user.email && user.email.toLowerCase() === 'jayveebriani@gmail.com','jonjonsaysin@gmail.com') {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
@@ -51,7 +51,7 @@ export default function SigninScreen() {
       }, 1500); // Wait for toast to show
     } catch (error: any) {
       let errorMessage = 'Sign in failed. Please try again.';
-      
+       
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email.';
       } else if (error.code === 'auth/wrong-password') {

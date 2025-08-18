@@ -35,6 +35,7 @@ const apartmentData = [
     bathrooms: 1,
     available: true,
   },
+  
   {
     id: '2',
     title: 'Modern 1-Bedroom',

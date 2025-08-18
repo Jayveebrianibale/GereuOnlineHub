@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 const { width, height } = Dimensions.get('window');
@@ -22,6 +22,7 @@ const onboardingData = [
     image: require('../../../assets/images/onboarding1.png'),
   },
   {
+
     id: 2,
     title: 'Everything in One Place',
     description: 'Access available apartment units, laundry options, and hardware services with real-time updates and transparent pricing — all from your phone.',

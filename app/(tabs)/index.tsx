@@ -14,7 +14,7 @@ export default function HomeScreen() {
         headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
         headerImage={
           <Image
-            source={require('@/assets/images/react-logo.png')}
+            source={require('@/assets/images/logo.png')}
             style={styles.reactLogo}
             contentFit="contain"
           />
