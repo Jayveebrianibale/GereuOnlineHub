@@ -8,7 +8,7 @@ const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
   primaryLight: '#4AD0FF',
-  primary: '#00B2FF',
+  primary: '#cb044dff',
   primaryDark: '#007BE5',
   dark: '#0051C1',
   darker: '#002F87',
