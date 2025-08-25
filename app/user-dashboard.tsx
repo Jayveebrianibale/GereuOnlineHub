@@ -3,10 +3,13 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState, useEffect } from 'react';
-import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { getAuth } from 'firebase/auth';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { getApartments } from './services/apartmentService';
+import { getAutoServices } from './services/autoService';
+import { getLaundryServices } from './services/laundryService';
+import { getImageSource } from './utils/imageUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -22,53 +25,6 @@ const colorPalette = {
 const { width: screenWidth } = Dimensions.get('window');
 // ...existing code...
 
-const laundryData = [
-  {
-    id: '1',
-    title: 'Premium Wash & Fold',
-    price: 'P250/lb',
-    turnaround: '24-hour',
-    image: require('@/assets/images/laundry1.webp'),
-  },
-  {
-    id: '2',
-    title: 'Express Dry Cleaning',
-    price: 'From P200',
-    turnaround: 'Same day',
-    image: require('@/assets/images/laundry2.webp'),
-  },
-  {
-    id: '3',
-    title: 'Bulk Laundry Service',
-    price: 'P100/bag',
-    turnaround: '48-hour',
-    image: require('@/assets/images/laundry3.webp'),
-  },
-];
-
-const autoData = [
-  {
-    id: '1',
-    title: 'Oil Change Service',
-    price: 'P300',
-    duration: '30 min',
-    image: require('@/assets/images/auto2.avif'),
-  },
-  {
-    id: '2',
-    title: 'Tire Rotation',
-    price: 'P500',
-    duration: '45 min',
-    image: require('@/assets/images/auto3.avif'),
-  },
-  {
-    id: '3',
-    title: 'Full Detail Package',
-    price: 'P1000',
-    duration: '2 hours',
-    image: require('@/assets/images/auto1.jpg'),
-  },
-];
 
 export default function UserHome() {
   const [firstName, setFirstName] = useState('');
@@ -77,6 +33,8 @@ export default function UserHome() {
   const isDark = colorScheme === 'dark';
 
   const [apartments, setApartments] = useState<any[]>([]);
+  const [autoServices, setAutoServices] = useState<any[]>([]);
+  const [laundryServices, setLaundryServices] = useState<any[]>([]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -96,6 +54,30 @@ export default function UserHome() {
       }
     };
     fetchApartments();
+  }, []);
+
+  useEffect(() => {
+    const fetchAutoServices = async () => {
+      try {
+        const autoServicesData = await getAutoServices();
+        setAutoServices(autoServicesData);
+      } catch (error) {
+        console.error('Error fetching auto services:', error);
+      }
+    };
+    fetchAutoServices();
+  }, []);
+
+  useEffect(() => {
+    const fetchLaundryServices = async () => {
+      try {
+        const laundryServicesData = await getLaundryServices();
+        setLaundryServices(laundryServicesData);
+      } catch (error) {
+        console.error('Error fetching laundry services:', error);
+      }
+    };
+    fetchLaundryServices();
   }, []);
 
   const bgColor = isDark ? '#121212' : '#fff';
@@ -313,7 +295,7 @@ export default function UserHome() {
               </View>
               
               <FlatList
-                data={laundryData}
+                data={laundryServices}
                 renderItem={({ item }) => renderServiceItem({ item, serviceType: 'laundry' })}
                 horizontal
                 pagingEnabled
@@ -330,16 +312,16 @@ export default function UserHome() {
               />
               
               <View style={styles.pagination}>
-                {laundryData.map((_, index) => (
-                  <View 
-                    key={index} 
+                {laundryServices.map((_, index) => (
+                  <View
+                    key={index}
                     style={[
                       styles.paginationDot,
-                      { 
+                      {
                         backgroundColor: index === activeLaundryIndex ? colorPalette.primary : subtitleColor,
                         opacity: index === activeLaundryIndex ? 1 : 0.4,
                       }
-                    ]} 
+                    ]}
                   />
                 ))}
               </View>
@@ -364,7 +346,7 @@ export default function UserHome() {
               </View>
               
               <FlatList
-                data={autoData}
+                data={autoServices}
                 renderItem={({ item }) => renderServiceItem({ item, serviceType: 'auto' })}
                 horizontal
                 pagingEnabled
@@ -381,16 +363,16 @@ export default function UserHome() {
               />
               
               <View style={styles.pagination}>
-                {autoData.map((_, index) => (
-                  <View 
-                    key={index} 
+                {autoServices.map((_, index) => (
+                  <View
+                    key={index}
                     style={[
                       styles.paginationDot,
-                      { 
+                      {
                         backgroundColor: index === activeAutoIndex ? colorPalette.primary : subtitleColor,
                         opacity: index === activeAutoIndex ? 1 : 0.4,
                       }
-                    ]} 
+                    ]}
                   />
                 ))}
               </View>

@@ -12,6 +12,7 @@ export interface AutoService {
   reviews: number;
   description: string;
   services: string[];
+  category: string;
   includes: string[];
   warranty: string;
   available: boolean;

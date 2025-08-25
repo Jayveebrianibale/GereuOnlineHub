@@ -4,8 +4,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { getApartments } from '../../services/apartmentService';
+const placeholderImage = require("../../../assets/images/apartment1.webp");
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -17,8 +18,6 @@ const colorPalette = {
   darker: '#002F87',
   darkest: '#001A5C',
 };
-
-// ...existing code...
 
 export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
@@ -102,16 +101,32 @@ export default function ApartmentListScreen() {
     // Apply category filter
     switch (selectedFilter) {
       case 'studio':
-        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('studio'));
+        filteredData = apartments.filter(apt => 
+          apt.title?.toLowerCase().includes('studio') ||
+          apt.type?.toLowerCase().includes('studio')
+        );
         break;
       case '1bed':
-        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('1-bedroom') || apt.title?.toLowerCase().includes('1 bedroom'));
+        filteredData = apartments.filter(apt => 
+          apt.title?.toLowerCase().includes('1-bedroom') || 
+          apt.title?.toLowerCase().includes('1 bedroom') ||
+          apt.bedrooms === 1
+        );
         break;
       case '2bed':
-        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('2-bedroom') || apt.title?.toLowerCase().includes('2 bedroom'));
+        filteredData = apartments.filter(apt => 
+          apt.title?.toLowerCase().includes('2-bedroom') || 
+          apt.title?.toLowerCase().includes('2 bedroom') ||
+          apt.bedrooms === 2
+        );
         break;
       case 'luxury':
-        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('luxury') || apt.title?.toLowerCase().includes('premium') || apt.title?.toLowerCase().includes('executive'));
+        filteredData = apartments.filter(apt => 
+          apt.title?.toLowerCase().includes('luxury') || 
+          apt.title?.toLowerCase().includes('premium') || 
+          apt.title?.toLowerCase().includes('executive') ||
+          apt.amenities?.some((a: string) => a.toLowerCase().includes('luxury'))
+        );
         break;
       default:
         filteredData = apartments;
@@ -122,30 +137,45 @@ export default function ApartmentListScreen() {
       const query = searchQuery.toLowerCase();
       filteredData = filteredData.filter(apt => 
         apt.title?.toLowerCase().includes(query) ||
-        apt.location?.toLowerCase().includes(query) ||
         apt.description?.toLowerCase().includes(query) ||
-        (apt.amenities && apt.amenities.some((amenity: string) => amenity.toLowerCase().includes(query)))
+        apt.location?.toLowerCase().includes(query) ||
+        apt.amenities?.some((a: string) => a.toLowerCase().includes(query))
       );
     }
     
     return filteredData;
   };
 
+  // Function to get image source from Firebase data
+  const getApartmentImageSource = (apartment: any) => {
+    if (apartment.imageUrl) {
+      return { uri: apartment.imageUrl };
+    } else if (apartment.image) {
+      // Handle case where image might be a require statement or object
+      return typeof apartment.image === 'string' 
+        ? { uri: apartment.image } 
+        : apartment.image;
+    } else {
+      // Fallback to a default image
+      return placeholderImage;
+    }
+  };
+
   const renderApartmentItem = ({ item }: { item: any }) => (
     <View
       style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={item.image} style={styles.apartmentImage} resizeMode="cover" />
+      <Image source={getApartmentImageSource(item)} style={styles.apartmentImage} resizeMode="cover" />
       <View style={styles.apartmentContent}>
         <View style={styles.apartmentHeader}>
           <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
-            {item.title}
+            {item.title || 'Apartment'}
           </ThemedText>
           <View style={styles.ratingContainer}>
             <MaterialIcons name="star" size={16} color="#FFD700" />
-            <ThemedText style={styles.ratingText}>{item.rating}</ThemedText>
+            <ThemedText style={styles.ratingText}>{item.rating || '4.5'}</ThemedText>
             <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-              ({item.reviews})
+              ({item.reviews || '0'})
             </ThemedText>
           </View>
         </View>
@@ -153,31 +183,31 @@ export default function ApartmentListScreen() {
         <View style={styles.locationRow}>
           <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
           <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
-            {item.location}
+            {item.location || 'Location not specified'}
           </ThemedText>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
-          {item.description}
+          {item.description || 'No description available'}
         </ThemedText>
         
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
             <MaterialIcons name="bed" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.bedrooms} bed
+              {item.bedrooms || 'N/A'} bed
             </ThemedText>
           </View>
           <View style={styles.detailItem}>
-            <MaterialIcons name="bathroom" size={16} color={subtitleColor} />
+            <MaterialIcons name="bathtub" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.bathrooms} bath
+              {item.bathrooms || 'N/A'} bath
             </ThemedText>
           </View>
           <View style={styles.detailItem}>
             <MaterialIcons name="square-foot" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.size}
+              {item.size || 'N/A'} sqft
             </ThemedText>
           </View>
         </View>
@@ -197,7 +227,7 @@ export default function ApartmentListScreen() {
         
         <View style={styles.priceRow}>
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
-            {item.price}
+            {item.price || '$0'}
           </ThemedText>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
@@ -224,12 +254,12 @@ export default function ApartmentListScreen() {
           Apartment Rentals 
         </ThemedText> 
         <TouchableOpacity 
-          style={styles.searchButton} 
-          onPress={() => setSearchVisible(true)} 
+          style={styles.searchButton}
+          onPress={() => setSearchVisible(true)}
         > 
           <MaterialIcons name="search" size={24} color={colorPalette.primary} /> 
         </TouchableOpacity> 
-      </View> 
+      </View>
 
       {/* Filters */}
       <View style={styles.filtersContainer}> 
@@ -247,20 +277,177 @@ export default function ApartmentListScreen() {
         <FlatList 
           data={getFilteredApartments()} 
           renderItem={renderApartmentItem} 
-          keyExtractor={(item) => item.id} 
+          keyExtractor={(item) => item.id || Math.random().toString()} 
           contentContainerStyle={styles.listContainer} 
           showsVerticalScrollIndicator={false} 
         /> 
       ) : (
-        <ThemedView style={[styles.listContainer, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}> 
+        <View style={[styles.listContainer, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}> 
           <MaterialIcons name="apartment" size={48} color={subtitleColor} /> 
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}> 
             No apartments found. 
           </ThemedText> 
-        </ThemedView> 
+        </View> 
       )}
 
-      {/* ...existing code for modals... */}
+      {/* Search Modal */}
+      <Modal
+        visible={searchVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSearchVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.searchModal, { backgroundColor: cardBgColor }]}>
+            <View style={styles.searchHeader}>
+              <ThemedText type="title" style={[styles.searchTitle, { color: textColor }]}>
+                Search Apartments
+              </ThemedText>
+              <TouchableOpacity onPress={() => setSearchVisible(false)}>
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={[styles.searchInputContainer, { borderColor: borderColor }]}>
+              <MaterialIcons name="search" size={20} color={subtitleColor} />
+              <TextInput
+                style={[styles.searchInput, { color: textColor }]}
+                placeholder="Search by location, amenities..."
+                placeholderTextColor={subtitleColor}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={true}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <MaterialIcons name="clear" size={20} color={subtitleColor} />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <View style={styles.searchResults}>
+              <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
+                {getFilteredApartments().length} results found
+              </ThemedText>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.searchButton, { backgroundColor: colorPalette.primary }]}
+              onPress={() => setSearchVisible(false)}
+            >
+              <ThemedText style={styles.searchButtonText}>Done</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal
+        visible={detailModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDetailModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+            {selectedApartment && (
+              <>
+                <View style={styles.detailHeader}>
+                  <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
+                    {selectedApartment.title || 'Apartment'}
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                
+                <ScrollView 
+                  style={styles.detailScrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.detailScrollContent}
+                >
+                  <Image source={getApartmentImageSource(selectedApartment)} style={styles.detailImage} resizeMode="cover" />
+                  
+                  <View style={styles.detailContent}>
+                    <View style={styles.detailRatingRow}>
+                      <View style={styles.ratingContainer}>
+                        <MaterialIcons name="star" size={16} color="#FFD700" />
+                        <ThemedText style={styles.ratingText}>{selectedApartment.rating || '4.5'}</ThemedText>
+                        <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
+                          ({selectedApartment.reviews || '0'} reviews)
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                        {selectedApartment.price || '$0'}
+                      </ThemedText>
+                    </View>
+                    
+                    <View style={styles.locationRow}>
+                      <MaterialIcons name="location-on" size={20} color={colorPalette.primary} />
+                      <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                        {selectedApartment.location || 'Location not specified'}
+                      </ThemedText>
+                    </View>
+                    
+                    <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                      {selectedApartment.description || 'No description available'}
+                    </ThemedText>
+                    
+                    <View style={styles.detailSpecs}>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="bed" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.bedrooms || 'N/A'} Bedrooms
+                        </ThemedText>
+                      </View>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="bathtub" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.bathrooms || 'N/A'} Bathrooms
+                        </ThemedText>
+                      </View>
+                      <View style={styles.specItem}>
+                        <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
+                        <ThemedText style={[styles.specText, { color: textColor }]}>
+                          {selectedApartment.size || 'N/A'} sqft
+                        </ThemedText>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.amenitiesSection}>
+                      <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                        Amenities
+                      </ThemedText>
+                      <View style={styles.amenitiesGrid}>
+                        {selectedApartment.amenities?.map((amenity: string, index: number) => (
+                          <View key={index} style={styles.amenityItem}>
+                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
+                              {amenity}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    
+                    <View style={styles.detailActions}>
+                      <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
+                        <MaterialIcons name="phone" size={20} color="#fff" />
+                        <ThemedText style={styles.contactButtonText}>Contact Landlord</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
+                        <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
+                          Schedule Tour
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -592,4 +779,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
-}); 
+});

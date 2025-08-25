@@ -4,12 +4,12 @@ import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   createLaundryService,
+  deleteLaundryService,
   getLaundryServices,
   updateLaundryService,
-  deleteLaundryService,
   type LaundryService
 } from '../../services/laundryService';
 
@@ -82,7 +82,12 @@ export default function AdminLaundryManagement() {
   };
 
   const handleEdit = (service: any) => {
-    setCurrentService(service);
+    // Ensure services array is initialized if it doesn't exist
+    const serviceWithServices = {
+      ...service,
+      services: Array.isArray(service.services) ? service.services : []
+    };
+    setCurrentService(serviceWithServices);
     setIsNewService(false);
     setEditModalVisible(true);
   };
@@ -212,7 +217,7 @@ export default function AdminLaundryManagement() {
       </View>
 
       {/* Services List */}
-      {services.length > 0 ? (
+      {(services ?? []).length > 0 ? (
         <FlatList
           data={services}
           renderItem={renderServiceItem}

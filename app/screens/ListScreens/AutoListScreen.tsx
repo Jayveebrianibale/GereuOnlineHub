@@ -5,6 +5,10 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  AutoService,
+  getAutoServices,
+} from '../../services/autoService';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -16,94 +20,6 @@ const colorPalette = {
   darker: '#002F87',
   darkest: '#001A5C',
 };
-
-// Extended auto services data with more details
-const autoData = [
-  {
-    id: '1',
-    title: 'Oil Change Service',
-    price: 'P300',
-    duration: '30 min',
-    image: require('@/assets/images/auto2.avif'),
-    rating: 4.8,
-    reviews: 234,
-    description: 'Complete oil change service with premium synthetic oil and filter replacement.',
-    services: ['Oil Change', 'Filter Replacement', 'Multi-point Inspection'],
-    includes: ['Synthetic Oil', 'Oil Filter', 'Labor'],
-    warranty: '6 months warranty',
-    available: true,
-  },
-  {
-    id: '2',
-    title: 'Tire Rotation & Balance',
-    price: 'P500',
-    duration: '45 min',
-    image: require('@/assets/images/auto3.avif'),
-    rating: 4.6,
-    reviews: 156,
-    description: 'Professional tire rotation and balancing service for optimal tire performance.',
-    services: ['Tire Rotation', 'Wheel Balancing', 'Tire Inspection'],
-    includes: ['Rotation', 'Balancing', 'Inspection'],
-    warranty: '3 months warranty',
-    available: true,
-  },
-  {
-    id: '3',
-    title: 'Full Detail Package',
-    price: 'P1000',
-    duration: '2 hours',
-    image: require('@/assets/images/auto1.jpg'),
-    rating: 4.9,
-    reviews: 89,
-    description: 'Comprehensive car detailing service including interior and exterior cleaning.',
-    services: ['Exterior Wash', 'Interior Cleaning', 'Waxing'],
-    includes: ['Premium Products', 'Interior Vacuum', 'Exterior Wax'],
-    warranty: '1 month warranty',
-    available: true,
-  },
-  {
-    id: '4',
-    title: 'Brake Service',
-    price: 'P800',
-    duration: '1 hour',
-    image: require('@/assets/images/auto2.avif'),
-    rating: 4.7,
-    reviews: 178,
-    description: 'Complete brake system inspection and service for safety and performance.',
-    services: ['Brake Inspection', 'Pad Replacement', 'Rotor Service'],
-    includes: ['Brake Pads', 'Labor', 'Inspection'],
-    warranty: '12 months warranty',
-    available: true,
-  },
-  {
-    id: '5',
-    title: 'AC System Service',
-    price: 'P600',
-    duration: '1.5 hours',
-    image: require('@/assets/images/auto3.avif'),
-    rating: 4.5,
-    reviews: 112,
-    description: 'Air conditioning system service including refrigerant recharge and leak check.',
-    services: ['AC Inspection', 'Refrigerant Recharge', 'Leak Detection'],
-    includes: ['Refrigerant', 'Labor', 'Diagnostics'],
-    warranty: '6 months warranty',
-    available: true,
-  },
-  {
-    id: '6',
-    title: 'Battery Service',
-    price: 'P400',
-    duration: '20 min',
-    image: require('@/assets/images/auto1.jpg'),
-    rating: 4.8,
-    reviews: 203,
-    description: 'Battery testing, replacement, and installation service.',
-    services: ['Battery Test', 'Replacement', 'Installation'],
-    includes: ['New Battery', 'Installation', 'Testing'],
-    warranty: '24 months warranty',
-    available: true,
-  },
-];
 
 export default function AutoListScreen() {
   const { colorScheme } = useColorScheme();
@@ -121,6 +37,8 @@ export default function AutoListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
+  const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  // Removed unused loading state
 
   // Handle navigation parameters
   const params = useLocalSearchParams();
@@ -136,6 +54,13 @@ export default function AutoListScreen() {
       }
     }
   }, [params.selectedItem]);
+
+  // Fetch auto services from Firebase
+  useEffect(() => {
+    getAutoServices()
+      .then(setAutoServices)
+      .catch(console.error);
+  }, []);
 
   const filters = [
     { id: 'all', label: 'All Services' },
@@ -166,53 +91,6 @@ export default function AutoListScreen() {
       </ThemedText>
     </TouchableOpacity>
   );
-
-  // Filter auto services based on selected filter and search query
-  const getFilteredAutoServices = () => {
-    let filteredData = autoData;
-    
-    // Apply category filter
-    switch (selectedFilter) {
-      case 'maintenance':
-        filteredData = autoData.filter(service => 
-          service.title.toLowerCase().includes('oil') || 
-          service.title.toLowerCase().includes('tire') ||
-          service.title.toLowerCase().includes('battery')
-        );
-        break;
-      case 'repair':
-        filteredData = autoData.filter(service => 
-          service.title.toLowerCase().includes('brake') || 
-          service.title.toLowerCase().includes('ac')
-        );
-        break;
-      case 'detail':
-        filteredData = autoData.filter(service => 
-          service.title.toLowerCase().includes('detail')
-        );
-        break;
-      case 'emergency':
-        filteredData = autoData.filter(service => 
-          service.title.toLowerCase().includes('battery') || 
-          service.title.toLowerCase().includes('brake')
-        );
-        break;
-      default:
-        filteredData = autoData;
-    }
-    
-    // Apply search query filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filteredData = filteredData.filter(service => 
-        service.title.toLowerCase().includes(query) ||
-        service.description.toLowerCase().includes(query) ||
-        service.services.some(serviceItem => serviceItem.toLowerCase().includes(query))
-      );
-    }
-    
-    return filteredData;
-  };
 
   const renderAutoItem = ({ item }: { item: any }) => (
     <View
@@ -300,6 +178,47 @@ export default function AutoListScreen() {
               </View>
       </View>
     );
+
+  // Add new auto service
+  // Removed unused handleAddService function
+
+  // Update auto service
+  // const handleUpdateService = async (id: string, updates: Partial<AutoService>) => {
+  //   try {
+  //     await updateAutoService(id, updates);
+  //     setAutoServices(prev =>
+  //       prev.map(s => (s.id === id ? { ...s, ...updates } : s))
+  //     );
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
+
+  // Delete auto service
+  // const handleDeleteService = async (id: string) => {
+  //   try {
+  //     await deleteAutoService(id);
+  //     setAutoServices(prev => prev.filter(s => s.id !== id));
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
+
+  function getFilteredAutoServices() {
+    let filtered = autoServices;
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(service => service.category === selectedFilter);
+    }
+    if (searchQuery.trim().length > 0) {
+      const query = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(service =>
+        service.title.toLowerCase().includes(query) ||
+        service.description.toLowerCase().includes(query) ||
+        (service.services && service.services.some((s: string) => s.toLowerCase().includes(query)))
+      );
+    }
+    return filtered;
+  }
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -475,7 +394,7 @@ export default function AutoListScreen() {
                      
                      <View style={styles.includesSection}>
                        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                         What's Included
+                         What&apos;s Included
                        </ThemedText>
                        <View style={styles.includesGrid}>
                         {selectedAutoService?.includes?.map((include: string, index: number) => (
@@ -835,4 +754,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
   },
-}); 
+});

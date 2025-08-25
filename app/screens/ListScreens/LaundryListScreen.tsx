@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { getLaundryServices } from '../../services/laundryService';
+
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
@@ -16,100 +18,6 @@ const colorPalette = {
   darker: '#002F87',
   darkest: '#001A5C',
 };
-
-// Extended laundry data with more details
-const laundryData = [
-  {
-    id: '1',
-    title: 'Premium Wash & Fold',
-    price: 'P250/lb',
-    turnaround: '24-hour',
-    image: require('@/assets/images/laundry1.webp'),
-    rating: 4.8,
-    reviews: 156,
-    description: 'Professional wash and fold service with premium detergents and fabric softeners.',
-    services: ['Wash & Fold', 'Starch', 'Fabric Softener'],
-    pickup: 'Free pickup',
-    delivery: 'Free delivery',
-    minOrder: '5 lbs minimum',
-    available: true,
-  },
-  {
-    id: '2',
-    title: 'Express Dry Cleaning',
-    price: 'From P200',
-    turnaround: 'Same day',
-    image: require('@/assets/images/laundry2.webp'),
-    rating: 4.6,
-    reviews: 89,
-    description: 'Fast dry cleaning service for suits, dresses, and delicate garments.',
-    services: ['Dry Cleaning', 'Pressing', 'Spot Treatment'],
-    pickup: 'Same day pickup',
-    delivery: 'Same day delivery',
-    minOrder: 'No minimum',
-    available: true,
-  },
-  {
-    id: '3',
-    title: 'Bulk Laundry Service',
-    price: 'P100/bag',
-    turnaround: '48-hour',
-    image: require('@/assets/images/laundry3.webp'),
-    rating: 4.7,
-    reviews: 203,
-    description: 'Economical bulk laundry service perfect for families and businesses.',
-    services: ['Bulk Wash', 'Folding', 'Packaging'],
-    pickup: 'Scheduled pickup',
-    delivery: 'Scheduled delivery',
-    minOrder: '10 lbs minimum',
-    available: true,
-  },
-  {
-    id: '4',
-    title: 'Eco-Friendly Laundry',
-    price: 'P300/lb',
-    turnaround: '48-hour',
-    image: require('@/assets/images/laundry1.webp'),
-    rating: 4.9,
-    reviews: 67,
-    description: 'Environmentally friendly laundry service using organic detergents and energy-efficient machines.',
-    services: ['Eco Wash', 'Natural Detergents', 'Energy Efficient'],
-    pickup: 'Free pickup',
-    delivery: 'Free delivery',
-    minOrder: '3 lbs minimum',
-    available: true,
-  },
-  {
-    id: '5',
-    title: 'Delicate Care Service',
-    price: 'P400/lb',
-    turnaround: '72-hour',
-    image: require('@/assets/images/laundry2.webp'),
-    rating: 4.8,
-    reviews: 124,
-    description: 'Specialized care for delicate fabrics, silk, wool, and designer clothing.',
-    services: ['Hand Wash', 'Delicate Care', 'Professional Pressing'],
-    pickup: 'Free pickup',
-    delivery: 'Free delivery',
-    minOrder: '2 lbs minimum',
-    available: true,
-  },
-  {
-    id: '6',
-    title: 'Commercial Laundry',
-    price: 'P80/lb',
-    turnaround: '24-hour',
-    image: require('@/assets/images/laundry3.webp'),
-    rating: 4.5,
-    reviews: 45,
-    description: 'Commercial laundry service for hotels, restaurants, and businesses.',
-    services: ['Commercial Wash', 'Industrial Equipment', 'Bulk Processing'],
-    pickup: 'Daily pickup',
-    delivery: 'Daily delivery',
-    minOrder: '50 lbs minimum',
-    available: true,
-  },
-];
 
 export default function LaundryListScreen() {
   const { colorScheme } = useColorScheme();
@@ -127,6 +35,7 @@ export default function LaundryListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
+  const [laundryServices, setLaundryServices] = useState<any[]>([]);
 
   // Handle navigation parameters
   const params = useLocalSearchParams();
@@ -142,6 +51,19 @@ export default function LaundryListScreen() {
       }
     }
   }, [params.selectedItem]);
+
+  // Fetch laundry services from Firebase
+  useEffect(() => {
+    const fetchLaundryServices = async () => {
+      try {
+        const laundryServicesData = await getLaundryServices();
+        setLaundryServices(laundryServicesData);
+      } catch (error) {
+        console.error('Error fetching laundry services:', error);
+      }
+    };
+    fetchLaundryServices();
+  }, []);
 
   const filters = [
     { id: 'all', label: 'All Services' },
@@ -175,44 +97,44 @@ export default function LaundryListScreen() {
 
   // Filter laundry services based on selected filter and search query
   const getFilteredLaundryServices = () => {
-    let filteredData = laundryData;
+    let filteredData = laundryServices;
     
     // Apply category filter
     switch (selectedFilter) {
       case 'wash':
-        filteredData = laundryData.filter(service => 
-          service.title.toLowerCase().includes('wash') || 
+        filteredData = laundryServices.filter(service =>
+          service.title.toLowerCase().includes('wash') ||
           service.title.toLowerCase().includes('fold')
         );
         break;
       case 'dry-clean':
-        filteredData = laundryData.filter(service => 
-          service.title.toLowerCase().includes('dry cleaning') || 
+        filteredData = laundryServices.filter(service =>
+          service.title.toLowerCase().includes('dry cleaning') ||
           service.title.toLowerCase().includes('dry clean')
         );
         break;
       case 'bulk':
-        filteredData = laundryData.filter(service => 
+        filteredData = laundryServices.filter(service =>
           service.title.toLowerCase().includes('bulk')
         );
         break;
       case 'eco':
-        filteredData = laundryData.filter(service => 
-          service.title.toLowerCase().includes('eco') || 
+        filteredData = laundryServices.filter(service =>
+          service.title.toLowerCase().includes('eco') ||
           service.title.toLowerCase().includes('environmental')
         );
         break;
       default:
-        filteredData = laundryData;
+        filteredData = laundryServices;
     }
     
     // Apply search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filteredData = filteredData.filter(service => 
+      filteredData = filteredData.filter(service =>
         service.title.toLowerCase().includes(query) ||
         service.description.toLowerCase().includes(query) ||
-        service.services.some(serviceItem => serviceItem.toLowerCase().includes(query))
+        service.services.some((serviceItem: string) => serviceItem.toLowerCase().includes(query))
       );
     }
     
@@ -860,4 +782,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-}); 
+});

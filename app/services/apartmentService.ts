@@ -1,5 +1,6 @@
 import { db } from '../firebaseConfig';
 import { ref, push, get, update, remove, set } from 'firebase/database';
+import { getImagePath, getImageSource } from '../utils/imageUtils';
 
 // Define the Apartment type
 export interface Apartment {
@@ -25,10 +26,16 @@ const COLLECTION_NAME = 'apartments';
 // Create a new apartment
 export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
   try {
+    // Convert image source to path for storage
+    const apartmentToSave = {
+      ...apartment,
+      image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
+    };
+    
     const apartmentRef = ref(db, COLLECTION_NAME);
     const newApartmentRef = push(apartmentRef);
-    await set(newApartmentRef, apartment);
-    return { id: newApartmentRef.key!, ...apartment };
+    await set(newApartmentRef, apartmentToSave);
+    return { id: newApartmentRef.key!, ...apartmentToSave };
   } catch (error) {
     console.error('Error adding apartment: ', error);
     throw error;
@@ -44,7 +51,10 @@ export const getApartments = async () => {
     if (snapshot.exists()) {
       const data = snapshot.val();
       Object.keys(data).forEach((key) => {
-        apartments.push({ id: key, ...data[key] });
+        const apartment = { id: key, ...data[key] };
+        // Convert image path to require() statement
+        apartment.image = getImageSource(apartment.image);
+        apartments.push(apartment);
       });
     }
     return apartments;
@@ -57,9 +67,18 @@ export const getApartments = async () => {
 // Update an apartment
 export const updateApartment = async (id: string, apartment: Partial<Apartment>) => {
   try {
+    // Convert image source to path for storage if image is provided
+    let apartmentToUpdate = apartment;
+    if (apartment.image !== undefined) {
+      apartmentToUpdate = {
+        ...apartment,
+        image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
+      };
+    }
+    
     const apartmentRef = ref(db, `${COLLECTION_NAME}/${id}`);
-    await update(apartmentRef, apartment);
-    return { id, ...apartment };
+    await update(apartmentRef, apartmentToUpdate);
+    return { id, ...apartmentToUpdate };
   } catch (error) {
     console.error('Error updating apartment: ', error);
     throw error;

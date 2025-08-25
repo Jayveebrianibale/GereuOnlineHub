@@ -12,6 +12,7 @@ import {
     updateApartment,
     type Apartment
 } from '../../services/apartmentService';
+import { getApartmentImages, getImageSource } from '../../utils/imageUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -31,7 +32,7 @@ const colorPalette = {
     price: '',
     location: '',
     address: '',
-    image: require('@/assets/images/apartment1.webp'),
+    image: 'apartment1.webp',
     rating: 0,
     reviews: 0,
     amenities: [],
@@ -60,6 +61,7 @@ const colorPalette = {
     const [isNewApartment, setIsNewApartment] = useState(false);
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
+    const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
 
     // Load apartments from Firebase
     useEffect(() => {
@@ -151,6 +153,11 @@ const colorPalette = {
         const updatedAmenities = [...currentApartment.amenities];
         updatedAmenities.splice(index, 1);
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
+    };
+    
+    const handleImageSelect = (imagePath: string) => {
+        setCurrentApartment({ ...currentApartment, image: imagePath });
+        setImageSelectionVisible(false);
     };
 
     const renderApartmentItem = ({ item }: { item: any }) => (
@@ -288,7 +295,25 @@ const colorPalette = {
                     placeholderTextColor={subtitleColor}
                     />
                 </View>
-
+                
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Image</ThemedText>
+                    <TouchableOpacity
+                        style={[styles.imagePreview, { borderColor }]}
+                        onPress={() => setImageSelectionVisible(true)}
+                    >
+                        <Image
+                            source={getImageSource(currentApartment.image)}
+                            style={styles.imagePreviewImage}
+                            resizeMode="cover"
+                        />
+                        <View style={styles.imageOverlay}>
+                            <MaterialIcons name="edit" size={20} color="#fff" />
+                            <ThemedText style={styles.imageOverlayText}>Change Image</ThemedText>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+                
                 <View style={styles.formGroup}>
                     <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
                     <TextInput
@@ -458,6 +483,46 @@ const colorPalette = {
                 </TouchableOpacity>
                 </View>
             </View>
+            </View>
+        </Modal>
+        
+        {/* Image Selection Modal */}
+        <Modal
+            visible={imageSelectionVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setImageSelectionVisible(false)}
+        >
+            <View style={styles.imageSelectionModal}>
+                <View style={[styles.imageSelectionContainer, { backgroundColor: cardBgColor }]}>
+                    <View style={styles.imageSelectionHeader}>
+                        <ThemedText type="title" style={[styles.imageSelectionTitle, { color: textColor }]}>
+                            Select Image
+                        </ThemedText>
+                        <TouchableOpacity onPress={() => setImageSelectionVisible(false)}>
+                            <MaterialIcons name="close" size={24} color={textColor} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.imageGrid}>
+                        {Object.entries(getApartmentImages()).map(([imagePath, imageSource]) => (
+                            <TouchableOpacity
+                                key={imagePath}
+                                style={[
+                                    styles.imageGridItem,
+                                    currentApartment.image === imagePath && styles.selectedImage
+                                ]}
+                                onPress={() => handleImageSelect(imagePath)}
+                            >
+                                <Image
+                                    source={imageSource}
+                                    style={styles.imageGridImage}
+                                    resizeMode="cover"
+                                />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
             </View>
         </Modal>
         </ThemedView>
@@ -693,5 +758,75 @@ const colorPalette = {
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    imagePreview: {
+        width: '100%',
+        height: 150,
+        borderRadius: 8,
+        borderWidth: 1,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    imagePreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    imageOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    imageOverlayText: {
+        color: '#fff',
+        marginLeft: 8,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    imageSelectionModal: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    imageSelectionContainer: {
+        width: '100%',
+        maxHeight: '80%',
+        borderRadius: 16,
+        padding: 20,
+    },
+    imageSelectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    imageSelectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    imageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    imageGridItem: {
+        width: '30%',
+        marginBottom: 16,
+    },
+    imageGridImage: {
+        width: '100%',
+        height: 80,
+        borderRadius: 8,
+    },
+    selectedImage: {
+        borderWidth: 2,
+        borderColor: '#00B2FF',
     },
     });
