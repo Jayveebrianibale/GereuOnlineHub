@@ -1,5 +1,5 @@
 import { db } from '../firebaseConfig';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { ref, push, get, update, remove, set } from 'firebase/database';
 
 // Define the Apartment type
 export interface Apartment {
@@ -19,14 +19,16 @@ export interface Apartment {
   available: boolean;
 }
 
-// Collection name in Firestore
+// Collection name in RTDB
 const COLLECTION_NAME = 'apartments';
 
 // Create a new apartment
 export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), apartment);
-    return { id: docRef.id, ...apartment };
+    const apartmentRef = ref(db, COLLECTION_NAME);
+    const newApartmentRef = push(apartmentRef);
+    await set(newApartmentRef, apartment);
+    return { id: newApartmentRef.key!, ...apartment };
   } catch (error) {
     console.error('Error adding apartment: ', error);
     throw error;
@@ -36,11 +38,15 @@ export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
 // Get all apartments
 export const getApartments = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
+    const apartmentRef = ref(db, COLLECTION_NAME);
+    const snapshot = await get(apartmentRef);
     const apartments: Apartment[] = [];
-    querySnapshot.forEach((doc) => {
-      apartments.push({ id: doc.id, ...(doc.data() as Omit<Apartment, 'id'>) });
-    });
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      Object.keys(data).forEach((key) => {
+        apartments.push({ id: key, ...data[key] });
+      });
+    }
     return apartments;
   } catch (error) {
     console.error('Error fetching apartments: ', error);
@@ -51,8 +57,8 @@ export const getApartments = async () => {
 // Update an apartment
 export const updateApartment = async (id: string, apartment: Partial<Apartment>) => {
   try {
-    const apartmentDoc = doc(db, COLLECTION_NAME, id);
-    await updateDoc(apartmentDoc, apartment);
+    const apartmentRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    await update(apartmentRef, apartment);
     return { id, ...apartment };
   } catch (error) {
     console.error('Error updating apartment: ', error);
@@ -63,7 +69,8 @@ export const updateApartment = async (id: string, apartment: Partial<Apartment>)
 // Delete an apartment
 export const deleteApartment = async (id: string) => {
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    const apartmentRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    await remove(apartmentRef);
     return id;
   } catch (error) {
     console.error('Error deleting apartment: ', error);

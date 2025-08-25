@@ -4,7 +4,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { getApartments } from '../../services/apartmentService';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -17,105 +18,7 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Extended apartment data with more details
-const apartmentData = [
-  {
-    id: '1',
-    title: 'Luxury Studio Apartment',
-    price: 'P1,200/mo',
-    location: 'Downtown',
-    address: '123 Main Street, Downtown',
-    image: require('@/assets/images/apartment1.webp'),
-    rating: 4.8,
-    reviews: 124,
-    amenities: ['WiFi', 'Parking', 'Gym', 'Pool', 'Security'],
-    description: 'Modern studio apartment with premium amenities and city views. Perfect for young professionals.',
-    size: '45 sqm',
-    bedrooms: 1,
-    bathrooms: 1,
-    available: true,
-  },
-  {
-    id: '2',
-    title: 'Modern 1-Bedroom',
-    price: 'P1,500/mo',
-    location: 'Midtown',
-    address: '456 Oak Avenue, Midtown',
-    image: require('@/assets/images/apartment2.webp'),
-    rating: 4.6,
-    reviews: 89,
-    amenities: ['Pool', 'Laundry', 'Balcony', 'AC', 'Kitchen'],
-    description: 'Spacious 1-bedroom apartment with modern appliances and beautiful balcony views.',
-    size: '65 sqm',
-    bedrooms: 1,
-    bathrooms: 1,
-    available: true,
-  },
-  {
-    id: '3',
-    title: 'Cozy Studio Loft',
-    price: 'P950/mo',
-    location: 'Arts District',
-    address: '789 Creative Lane, Arts District',
-    image: require('@/assets/images/apartment3.avif'),
-    rating: 4.7,
-    reviews: 156,
-    amenities: ['Pet-friendly', 'Workspace', 'AC', 'High Ceilings'],
-    description: 'Unique loft-style studio perfect for artists and creatives. High ceilings and natural light.',
-    size: '40 sqm',
-    bedrooms: 1,
-    bathrooms: 1,
-    available: true,
-  },
-  {
-    id: '4',
-    title: 'Premium 2-Bedroom',
-    price: 'P2,200/mo',
-    location: 'Uptown',
-    address: '321 Luxury Blvd, Uptown',
-    image: require('@/assets/images/apartment1.webp'),
-    rating: 4.9,
-    reviews: 203,
-    amenities: ['WiFi', 'Parking', 'Gym', 'Pool', 'Security', 'Doorman'],
-    description: 'Luxurious 2-bedroom apartment with premium finishes and concierge service.',
-    size: '85 sqm',
-    bedrooms: 2,
-    bathrooms: 2,
-    available: true,
-  },
-  {
-    id: '5',
-    title: 'Garden View Studio',
-    price: 'P1,100/mo',
-    location: 'Green District',
-    address: '654 Garden Street, Green District',
-    image: require('@/assets/images/apartment2.webp'),
-    rating: 4.5,
-    reviews: 67,
-    amenities: ['Garden Access', 'Balcony', 'AC', 'Quiet Area'],
-    description: 'Peaceful studio with garden views, perfect for nature lovers and quiet living.',
-    size: '42 sqm',
-    bedrooms: 1,
-    bathrooms: 1,
-    available: true,
-  },
-  {
-    id: '6',
-    title: 'Executive 1-Bedroom',
-    price: 'P1,800/mo',
-    location: 'Business District',
-    address: '987 Corporate Plaza, Business District',
-    image: require('@/assets/images/apartment3.avif'),
-    rating: 4.8,
-    reviews: 145,
-    amenities: ['Business Center', 'Conference Room', 'Gym', 'Parking', 'Security'],
-    description: 'Executive apartment with business amenities, ideal for professionals and entrepreneurs.',
-    size: '70 sqm',
-    bedrooms: 1,
-    bathrooms: 1,
-    available: true,
-  },
-];
+// ...existing code...
 
 export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
@@ -133,10 +36,23 @@ export default function ApartmentListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<any>(null);
+  const [apartments, setApartments] = useState<any[]>([]);
+
+  // Fetch apartments from Firebase
+  useEffect(() => {
+    const fetchApartments = async () => {
+      try {
+        const apartmentsData = await getApartments();
+        setApartments(apartmentsData);
+      } catch (error) {
+        console.error('Error fetching apartments:', error);
+      }
+    };
+    fetchApartments();
+  }, []);
 
   // Handle navigation parameters
   const params = useLocalSearchParams();
-  
   useEffect(() => {
     if (params.selectedItem) {
       try {
@@ -181,34 +97,34 @@ export default function ApartmentListScreen() {
 
   // Filter apartments based on selected filter and search query
   const getFilteredApartments = () => {
-    let filteredData = apartmentData;
+    let filteredData = apartments;
     
     // Apply category filter
     switch (selectedFilter) {
       case 'studio':
-        filteredData = apartmentData.filter(apt => apt.title.toLowerCase().includes('studio'));
+        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('studio'));
         break;
       case '1bed':
-        filteredData = apartmentData.filter(apt => apt.title.toLowerCase().includes('1-bedroom') || apt.title.toLowerCase().includes('1 bedroom'));
+        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('1-bedroom') || apt.title?.toLowerCase().includes('1 bedroom'));
         break;
       case '2bed':
-        filteredData = apartmentData.filter(apt => apt.title.toLowerCase().includes('2-bedroom') || apt.title.toLowerCase().includes('2 bedroom'));
+        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('2-bedroom') || apt.title?.toLowerCase().includes('2 bedroom'));
         break;
       case 'luxury':
-        filteredData = apartmentData.filter(apt => apt.title.toLowerCase().includes('luxury') || apt.title.toLowerCase().includes('premium') || apt.title.toLowerCase().includes('executive'));
+        filteredData = apartments.filter(apt => apt.title?.toLowerCase().includes('luxury') || apt.title?.toLowerCase().includes('premium') || apt.title?.toLowerCase().includes('executive'));
         break;
       default:
-        filteredData = apartmentData;
+        filteredData = apartments;
     }
     
     // Apply search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filteredData = filteredData.filter(apt => 
-        apt.title.toLowerCase().includes(query) ||
-        apt.location.toLowerCase().includes(query) ||
-        apt.description.toLowerCase().includes(query) ||
-        apt.amenities.some(amenity => amenity.toLowerCase().includes(query))
+        apt.title?.toLowerCase().includes(query) ||
+        apt.location?.toLowerCase().includes(query) ||
+        apt.description?.toLowerCase().includes(query) ||
+        (apt.amenities && apt.amenities.some((amenity: string) => amenity.toLowerCase().includes(query)))
       );
     }
     
@@ -267,12 +183,12 @@ export default function ApartmentListScreen() {
         </View>
         
         <View style={styles.amenitiesContainer}>
-          {item.amenities.slice(0, 3).map((amenity: string, index: number) => (
+          {item.amenities?.slice(0, 3).map((amenity: string, index: number) => (
             <View key={index} style={styles.amenityBadge}>
               <ThemedText style={styles.amenityText}>{amenity}</ThemedText>
             </View>
           ))}
-          {item.amenities.length > 3 && (
+          {item.amenities && item.amenities.length > 3 && (
             <ThemedText style={[styles.moreAmenities, { color: subtitleColor }]}>
               +{item.amenities.length - 3} more
             </ThemedText>
@@ -293,206 +209,58 @@ export default function ApartmentListScreen() {
             <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
-              </View>
       </View>
-    );
+    </View>
+  );
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
-        </TouchableOpacity>
-        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Apartment Rentals
-        </ThemedText>
+      <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}> 
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
+          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} /> 
+        </TouchableOpacity> 
+        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}> 
+          Apartment Rentals 
+        </ThemedText> 
         <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => setSearchVisible(true)}
-        >
-          <MaterialIcons name="search" size={24} color={colorPalette.primary} />
-        </TouchableOpacity>
-      </View>
+          style={styles.searchButton} 
+          onPress={() => setSearchVisible(true)} 
+        > 
+          <MaterialIcons name="search" size={24} color={colorPalette.primary} /> 
+        </TouchableOpacity> 
+      </View> 
 
       {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          data={filters}
-          renderItem={renderFilterButton}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersList}
-        />
-      </View>
+      <View style={styles.filtersContainer}> 
+        <FlatList 
+          data={filters} 
+          renderItem={renderFilterButton} 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filtersList} 
+        /> 
+      </View> 
 
       {/* Apartments List */}
-      <FlatList
-        data={getFilteredApartments()}
-        renderItem={renderApartmentItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      {getFilteredApartments().length > 0 ? (
+        <FlatList 
+          data={getFilteredApartments()} 
+          renderItem={renderApartmentItem} 
+          keyExtractor={(item) => item.id} 
+          contentContainerStyle={styles.listContainer} 
+          showsVerticalScrollIndicator={false} 
+        /> 
+      ) : (
+        <ThemedView style={[styles.listContainer, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}> 
+          <MaterialIcons name="apartment" size={48} color={subtitleColor} /> 
+          <ThemedText style={[styles.emptyText, { color: subtitleColor }]}> 
+            No apartments found. 
+          </ThemedText> 
+        </ThemedView> 
+      )}
 
-      {/* Search Modal */}
-      <Modal
-        visible={searchVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSearchVisible(false)}
-      >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <View style={[styles.searchModal, { backgroundColor: cardBgColor }]}>
-            <View style={styles.searchHeader}>
-              <ThemedText type="title" style={[styles.searchTitle, { color: textColor }]}>
-                Search Apartments
-              </ThemedText>
-              <TouchableOpacity onPress={() => setSearchVisible(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={[styles.searchInputContainer, { borderColor: borderColor }]}>
-              <MaterialIcons name="search" size={20} color={subtitleColor} />
-              <TextInput
-                style={[styles.searchInput, { color: textColor }]}
-                placeholder="Search by title, location, amenities..."
-                placeholderTextColor={subtitleColor}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus={true}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialIcons name="clear" size={20} color={subtitleColor} />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <View style={styles.searchResults}>
-              <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
-                {getFilteredApartments().length} results found
-              </ThemedText>
-            </View>
-            
-            <TouchableOpacity 
-              style={[styles.searchButton, { backgroundColor: colorPalette.primary }]}
-              onPress={() => setSearchVisible(false)}
-            >
-              <ThemedText style={styles.searchButtonText}>Done</ThemedText>
-            </TouchableOpacity>
-          </View>
-                 </View>
-       </Modal>
-
-       {/* Detail Modal */}
-       <Modal
-         visible={detailModalVisible}
-         animationType="slide"
-         transparent={true}
-         onRequestClose={() => setDetailModalVisible(false)}
-       >
-         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-           <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
-             {selectedApartment && (
-               <>
-                 <View style={styles.detailHeader}>
-                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
-                     {selectedApartment.title}
-                   </ThemedText>
-                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                     <MaterialIcons name="close" size={24} color={textColor} />
-                   </TouchableOpacity>
-                 </View>
-                 
-                                   <ScrollView 
-                    style={styles.detailScrollView}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.detailScrollContent}
-                  >
-                    <Image source={selectedApartment.image} style={styles.detailImage} resizeMode="cover" />
-                    
-                    <View style={styles.detailContent}>
-                   <View style={styles.detailRatingRow}>
-                     <View style={styles.ratingContainer}>
-                       <MaterialIcons name="star" size={16} color="#FFD700" />
-                       <ThemedText style={styles.ratingText}>{selectedApartment.rating}</ThemedText>
-                       <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-                         ({selectedApartment.reviews} reviews)
-                       </ThemedText>
-                     </View>
-                     <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                       {selectedApartment.price}
-                     </ThemedText>
-                   </View>
-                   
-                   <View style={styles.locationRow}>
-                     <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-                     <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
-                       {selectedApartment.address}
-                     </ThemedText>
-                   </View>
-                   
-                   <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
-                     {selectedApartment.description}
-                   </ThemedText>
-                   
-                   <View style={styles.detailSpecs}>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="bed" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.bedrooms} Bedroom{selectedApartment.bedrooms > 1 ? 's' : ''}
-                       </ThemedText>
-                     </View>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="bathroom" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.bathrooms} Bathroom{selectedApartment.bathrooms > 1 ? 's' : ''}
-                       </ThemedText>
-                     </View>
-                     <View style={styles.specItem}>
-                       <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
-                       <ThemedText style={[styles.specText, { color: textColor }]}>
-                         {selectedApartment.size}
-                       </ThemedText>
-                     </View>
-                   </View>
-                   
-                   <View style={styles.amenitiesSection}>
-                     <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                       Amenities
-                     </ThemedText>
-                     <View style={styles.amenitiesGrid}>
-                       {selectedApartment.amenities.map((amenity: string, index: number) => (
-                         <View key={index} style={styles.amenityItem}>
-                           <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                           <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
-                             {amenity}
-                           </ThemedText>
-                         </View>
-                       ))}
-                     </View>
-                   </View>
-                   
-                   <View style={styles.detailActions}>
-                     <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
-                       <MaterialIcons name="phone" size={20} color="#fff" />
-                       <ThemedText style={styles.contactButtonText}>Contact Owner</ThemedText>
-                     </TouchableOpacity>
-                     <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
-                       <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                         Book Now
-                       </ThemedText>
-                     </TouchableOpacity>
-                                       </View>
-                  </View>
-                </ScrollView>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+      {/* ...existing code for modals... */}
     </ThemedView>
   );
 }
@@ -817,5 +585,11 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 16,
   },
 }); 

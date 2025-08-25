@@ -4,12 +4,12 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   createAutoService,
+  deleteAutoService,
   getAutoServices,
   updateAutoService,
-  deleteAutoService,
   type AutoService
 } from '../../services/autoService';
 
@@ -220,7 +220,7 @@ export default function AdminAutoManagement() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <ThemedView style={styles.emptyState}>
+        <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
           <MaterialIcons name="car-repair" size={48} color={subtitleColor} />
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
             No auto services found. Add a new one to get started.

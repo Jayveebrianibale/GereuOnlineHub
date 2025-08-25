@@ -1,5 +1,5 @@
+import { get, push, ref, remove, update, set } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 // Define the AutoService type
 export interface AutoService {
@@ -17,14 +17,16 @@ export interface AutoService {
   available: boolean;
 }
 
-// Collection name in Firestore
+// Collection name in RTDB
 const COLLECTION_NAME = 'autoServices';
 
 // Create a new auto service
 export const createAutoService = async (service: Omit<AutoService, 'id'>) => {
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), service);
-    return { id: docRef.id, ...service };
+    const serviceRef = ref(db, COLLECTION_NAME);
+    const newServiceRef = push(serviceRef);
+    await set(newServiceRef, service);
+    return { id: newServiceRef.key!, ...service };
   } catch (error) {
     console.error('Error adding auto service: ', error);
     throw error;
@@ -34,11 +36,15 @@ export const createAutoService = async (service: Omit<AutoService, 'id'>) => {
 // Get all auto services
 export const getAutoServices = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
+    const serviceRef = ref(db, COLLECTION_NAME);
+    const snapshot = await get(serviceRef);
     const services: AutoService[] = [];
-    querySnapshot.forEach((doc) => {
-      services.push({ id: doc.id, ...(doc.data() as Omit<AutoService, 'id'>) });
-    });
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      Object.keys(data).forEach((key) => {
+        services.push({ id: key, ...data[key] });
+      });
+    }
     return services;
   } catch (error) {
     console.error('Error fetching auto services: ', error);
@@ -49,8 +55,8 @@ export const getAutoServices = async () => {
 // Update an auto service
 export const updateAutoService = async (id: string, service: Partial<AutoService>) => {
   try {
-    const serviceDoc = doc(db, COLLECTION_NAME, id);
-    await updateDoc(serviceDoc, service);
+    const serviceRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    await update(serviceRef, service);
     return { id, ...service };
   } catch (error) {
     console.error('Error updating auto service: ', error);
@@ -61,7 +67,8 @@ export const updateAutoService = async (id: string, service: Partial<AutoService
 // Delete an auto service
 export const deleteAutoService = async (id: string) => {
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    const serviceRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    await remove(serviceRef);
     return id;
   } catch (error) {
     console.error('Error deleting auto service: ', error);

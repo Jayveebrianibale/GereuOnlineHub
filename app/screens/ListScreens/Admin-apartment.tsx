@@ -6,11 +6,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import {
-  createApartment,
-  getApartments,
-  updateApartment,
-  deleteApartment,
-  type Apartment
+    createApartment,
+    deleteApartment,
+    getApartments,
+    updateApartment,
+    type Apartment
 } from '../../services/apartmentService';
 
 const colorPalette = {
@@ -217,7 +217,7 @@ const colorPalette = {
             showsVerticalScrollIndicator={false}
             />
         ) : (
-            <ThemedView style={styles.emptyState}>
+            <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
             <MaterialIcons name="apartment" size={48} color={subtitleColor} />
             <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
                 No apartments found. Add a new one to get started.

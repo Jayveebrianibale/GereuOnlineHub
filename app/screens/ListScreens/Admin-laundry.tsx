@@ -221,7 +221,7 @@ export default function AdminLaundryManagement() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <ThemedView style={styles.emptyState}>
+        <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
           <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
             No laundry services found. Add a new one to get started.

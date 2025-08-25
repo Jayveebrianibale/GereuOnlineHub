@@ -22,7 +22,7 @@ const modules = [
     title: 'Apartment Rentals',
     image: require('@/assets/images/apartment1.webp'),
     description: 'Manage room listings, availability, and reservations',
-    stats: '24 Active Listings',
+    stats: '0 Active Listings',
     icon: 'apartment',
     color: colorPalette.primaryDark,
   },
@@ -31,7 +31,7 @@ const modules = [
     title: 'Laundry Services',
     image: require('@/assets/images/laundry1.webp'),
     description: 'Manage laundry status',
-    stats: '18 In Progress',
+    stats: '0 Orders Today',
     icon: 'local-laundry-service',
     color: colorPalette.primary,
   },
@@ -106,15 +106,15 @@ export default function AdminDashboard() {
               Total Services
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              49
+              10
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
             <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Active Bookings
+              Active Reservations
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              32
+              5
             </ThemedText>
           </View>
         </View>
