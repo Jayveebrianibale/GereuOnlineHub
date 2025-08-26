@@ -2,8 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
+import { getApartments } from './services/apartmentService';
+import { getAutoServices } from './services/autoService';
+import { getLaundryServices } from './services/laundryService';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -16,13 +20,14 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-const modules = [
+// Initialize modules with placeholder stats
+const initialModules = [
   {
     key: 'apartment',
     title: 'Apartment Rentals',
     image: require('@/assets/images/apartment1.webp'),
     description: 'Manage room listings, availability, and reservations',
-    stats: '0 Active Listings',
+    stats: '0 Listings',
     icon: 'apartment',
     color: colorPalette.primaryDark,
   },
@@ -31,7 +36,7 @@ const modules = [
     title: 'Laundry Services',
     image: require('@/assets/images/laundry1.webp'),
     description: 'Manage laundry status',
-    stats: '0 Orders Today',
+    stats: '0 Services',
     icon: 'local-laundry-service',
     color: colorPalette.primary,
   },
@@ -40,7 +45,7 @@ const modules = [
     title: 'Auto Services',
     image: require('@/assets/images/auto1.jpg'),
     description: 'Manage car parts and service requests',
-    stats: '7 Bookings Today',
+    stats: '0 Services',
     icon: 'directions-car',
     color: colorPalette.dark,
   },
@@ -50,11 +55,102 @@ export default function AdminDashboard() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
-  const cardBackground = isDark ? '#181818' : '#fff'; // Cards: dark gray in dark mode
-  const pageBackground = isDark ? '#000' : '#fff';    // Page: pure black in dark mode
+  const cardBackground = isDark ? '#181818' : '#fff';
+  const pageBackground = isDark ? '#000' : '#fff';
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const iconColor = isDark ? colorPalette.primaryLight : colorPalette.primaryDark;
+
+  const [apartments, setApartments] = useState<any[]>([]);
+  const [autoServices, setAutoServices] = useState<any[]>([]);
+  const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  const [modules, setModules] = useState(initialModules);
+  const [totalServices, setTotalServices] = useState(0);
+  const [activeReservations, setActiveReservations] = useState(0);
+
+  // Fetch all services data
+  useEffect(() => {
+    const fetchAllServices = async () => {
+      try {
+        const [apartmentsData, autoServicesData, laundryServicesData] = await Promise.all([
+          getApartments(),
+          getAutoServices(),
+          getLaundryServices()
+        ]);
+
+        setApartments(apartmentsData);
+        setAutoServices(autoServicesData);
+        setLaundryServices(laundryServicesData);
+
+        // Update modules with actual counts
+        setModules([
+          {
+            ...initialModules[0],
+            stats: `${apartmentsData.length} ${apartmentsData.length === 1 ? 'Listing' : 'Listings'}`
+          },
+          {
+            ...initialModules[1],
+            stats: `${laundryServicesData.length} ${laundryServicesData.length === 1 ? 'Service' : 'Services'}`
+          },
+          {
+            ...initialModules[2],
+            stats: `${autoServicesData.length} ${autoServicesData.length === 1 ? 'Service' : 'Services'}`
+          }
+        ]);
+
+        // Calculate total services
+        const total = apartmentsData.length + autoServicesData.length + laundryServicesData.length;
+        setTotalServices(total);
+
+        // Calculate active reservations (this is a placeholder - you'll need to implement actual reservation logic)
+        const activeReservationsCount = calculateActiveReservations(apartmentsData, autoServicesData, laundryServicesData);
+        setActiveReservations(activeReservationsCount);
+
+      } catch (error) {
+        console.error('Error fetching services:', error);
+      }
+    };
+
+    fetchAllServices();
+  }, []);
+
+  // Function to calculate active reservations (placeholder implementation)
+  const calculateActiveReservations = (apartments: any[], autoServices: any[], laundryServices: any[]) => {
+    // This is a simplified example - you'll need to implement your actual reservation logic
+    // For now, we'll just return a count based on some assumptions
+    
+    // Count apartments with status 'active' or 'occupied'
+    const activeApartments = apartments.filter(apt => 
+      apt.status === 'active' || apt.status === 'occupied' || apt.status === 'booked'
+    ).length;
+
+    // Count auto services with status 'active' or 'scheduled'
+    const activeAutoServices = autoServices.filter(auto => 
+      auto.status === 'active' || auto.status === 'scheduled' || auto.status === 'booked'
+    ).length;
+
+    // Count laundry services with status 'active' or 'in-progress'
+    const activeLaundryServices = laundryServices.filter(laundry => 
+      laundry.status === 'active' || laundry.status === 'in-progress' || laundry.status === 'scheduled'
+    ).length;
+
+    return activeApartments + activeAutoServices + activeLaundryServices;
+  };
+
+  // Function to get service counts by category
+  const getServiceCounts = () => {
+    return {
+      apartments: apartments.length,
+      autoServices: autoServices.length,
+      laundryServices: laundryServices.length,
+      total: totalServices
+    };
+  };
+
+  // Function to get active reservations count
+  const getActiveReservationsCount = () => {
+    return activeReservations;
+  };
 
   const handleModulePress = (moduleKey: string) => {
     switch (moduleKey) {
@@ -106,7 +202,7 @@ export default function AdminDashboard() {
               Total Services
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              10
+              {totalServices}
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
@@ -114,7 +210,7 @@ export default function AdminDashboard() {
               Active Reservations
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              5
+              {activeReservations}
             </ThemedText>
           </View>
         </View>
@@ -132,7 +228,7 @@ export default function AdminDashboard() {
                 { 
                   backgroundColor: cardBackground,
                   borderTopColor: mod.color,
-                  shadowColor: isDark ? '#222' : colorPalette.dark, // lighter shadow in dark mode
+                  shadowColor: isDark ? '#222' : colorPalette.dark,
                 }
               ]}
               onPress={() => handleModulePress(mod.key)}
@@ -160,11 +256,15 @@ export default function AdminDashboard() {
     </ThemedView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+   statBreakdown: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+
   scrollContainer: {
     padding: 20,
     paddingBottom: 40,

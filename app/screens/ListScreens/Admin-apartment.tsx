@@ -375,23 +375,23 @@ const colorPalette = {
                     </TouchableOpacity>
                     </View>
                     
-                    {currentApartment.amenities.map((amenity: string, index: number) => (
-                    <View key={index} style={styles.amenityInputRow}>
-                        <TextInput
-                        style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
-                        value={amenity}
-                        onChangeText={(text) => handleAmenityChange(text, index)}
-                        placeholder={`Amenity ${index + 1}`}
-                        placeholderTextColor={subtitleColor}
-                        />
-                        <TouchableOpacity 
-                        style={styles.removeAmenityButton}
-                        onPress={() => removeAmenity(index)}
-                        >
-                        <MaterialIcons name="remove" size={20} color={dangerColor} />
-                        </TouchableOpacity>
-                    </View>
-                    ))}
+                    {currentApartment.amenities?.map((amenity: string, index: number) => (
+                        <View key={index} style={styles.amenityInputRow}>
+                            <TextInput
+                            style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
+                            value={amenity}
+                            onChangeText={(text) => handleAmenityChange(text, index)}
+                            placeholder={`Amenity ${index + 1}`}
+                            placeholderTextColor={subtitleColor}
+                            />
+                            <TouchableOpacity 
+                            style={styles.removeAmenityButton}
+                            onPress={() => removeAmenity(index)}
+                            >
+                            <MaterialIcons name="remove" size={20} color={dangerColor} />
+                            </TouchableOpacity>
+                        </View>
+                        ))}
                 </View>
 
                 <View style={styles.formGroup}>

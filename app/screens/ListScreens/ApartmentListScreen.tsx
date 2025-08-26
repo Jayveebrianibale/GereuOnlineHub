@@ -64,14 +64,6 @@ export default function ApartmentListScreen() {
     }
   }, [params.selectedItem]);
 
-  const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'studio', label: 'Studio' },
-    { id: '1bed', label: '1 Bedroom' },
-    { id: '2bed', label: '2 Bedroom' },
-    { id: 'luxury', label: 'Luxury' },
-  ];
-
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
@@ -261,17 +253,6 @@ export default function ApartmentListScreen() {
         </TouchableOpacity> 
       </View>
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}> 
-        <FlatList 
-          data={filters} 
-          renderItem={renderFilterButton} 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.filtersList} 
-        /> 
-      </View> 
-
       {/* Apartments List */}
       {getFilteredApartments().length > 0 ? (
         <FlatList 
@@ -433,11 +414,11 @@ export default function ApartmentListScreen() {
                     <View style={styles.detailActions}>
                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
                         <MaterialIcons name="phone" size={20} color="#fff" />
-                        <ThemedText style={styles.contactButtonText}>Contact Landlord</ThemedText>
+                        <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                          Schedule Tour
+                         Reserved
                         </ThemedText>
                       </TouchableOpacity>
                     </View>
@@ -463,6 +444,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
+    marginTop: 20,
   },
   backButton: {
     padding: 4,
