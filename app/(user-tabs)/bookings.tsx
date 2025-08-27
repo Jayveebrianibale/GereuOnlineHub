@@ -99,10 +99,10 @@ export default function Bookings() {
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title" style={[styles.title, { color: textColor }]}>
-            My Bookings
+            My Reservations
           </ThemedText>
           <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
-            Track your service bookings
+            Track your service reservations
           </ThemedText>
         </View>
 
