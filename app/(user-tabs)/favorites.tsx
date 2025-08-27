@@ -138,7 +138,7 @@ export default function Favorites() {
                   <ThemedText style={[styles.priceText, { color: colorPalette.primary }]}>
                     {item.price}
                   </ThemedText>
-                  {item.amenities && (
+                  {item.amenities && item.amenities.length > 0 && (
                     <View style={styles.amenitiesContainer}>
                       {item.amenities.slice(0, 2).map((amenity, index) => (
                         <View key={index} style={styles.amenityBadge}>

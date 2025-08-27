@@ -4,23 +4,21 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 import { auth } from '../../firebaseConfig';
 
-// Screen: Sign In — nagha-handle ng pag-login gamit ang Firebase Auth
 export default function SigninScreen() {
-  // Local state para sa input fields at UI state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,36 +27,31 @@ export default function SigninScreen() {
   const colors = Colors.light;
   const router = useRouter();
 
-  // Action: Login flow
   const handleSignIn = async () => {
-    // 1) Basic validation — dapat may laman ang email at password
     if (!email.trim() || !password.trim()) {
       setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
       return;
     }
 
-    // 2) Start loading habang tumatawag sa Firebase
     setIsLoading(true);
     try {
-      // 3) Firebase Auth: sign in gamit email + password
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 4) Success toast; ang role ay nade-derive sa ibang bahagi ng app (Auth Context)
+      // Role will be determined by email address in the auth context
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
       
-      // 5) (Temporary) Manual navigation depende sa email → admin o user tabs
+      // Manual navigation based on user role
       setTimeout(() => {
-        if (user.email && user.email.toLowerCase() === 'jayveebriani@gmail.com','jonjonsaysin@gmail.com') {
+        if (user.email && user.email.toLowerCase() === 'pedro1@gmail.com') {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
         }
       }, 1500); // Wait for toast to show
     } catch (error: any) {
-      // 6) Error handling — gawing mas malinaw ang error message
       let errorMessage = 'Sign in failed. Please try again.';
-       
+      
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email.';
       } else if (error.code === 'auth/wrong-password') {
@@ -73,19 +66,16 @@ export default function SigninScreen() {
       
       setToast({ visible: true, message: errorMessage, type: 'error' });
     } finally {
-      // 7) Tapos na ang request — ihinto ang loading
       setIsLoading(false);
     }
   };
 
-  // Navigate papuntang Sign Up screen
   const handleSignUp = () => {
     router.push('/signup' as any);
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
-      {/* Toast messages para sa success/error feedback */}
       <Toast 
         visible={toast.visible}
         message={toast.message}
@@ -98,7 +88,7 @@ export default function SigninScreen() {
       >
         <View style={styles.content}>
             <View style={styles.header}>
-            {/* Logo ng app */}
+            {/* Logo or Image */}
             <View >
               <Image
               source={require('../../../assets/images/logo.png')}
@@ -110,7 +100,6 @@ export default function SigninScreen() {
             </View>
 
           <View style={styles.form}>
-            {/* Email input */}
             <View style={styles.inputContainer}>
               <TextInput
                 style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
@@ -123,7 +112,6 @@ export default function SigninScreen() {
               />
             </View>
 
-            {/* Password input na may show/hide */}
             <View style={styles.inputContainer}>
               <TextInput
                 style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
@@ -145,12 +133,11 @@ export default function SigninScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Forgot Password (placeholder) */}
             <TouchableOpacity style={styles.forgotPassword}>
               <Text style={[styles.forgotPasswordText, { color: '#007BE5' }]}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            {/* Sign In button — tatawag sa handleSignIn */}
+            {/* Gradient Sign In Button */}
             <TouchableOpacity 
               style={[styles.signInButtonWrapper, isLoading && styles.disabledButton]} 
               onPress={handleSignIn} 
@@ -171,7 +158,6 @@ export default function SigninScreen() {
           </View>
 
           <View style={styles.footer}>
-            {/* Link papuntang Sign Up kung wala pang account */}
             <Text style={[styles.footerText, { color: colors.icon }]}>Don't have an account?{' '}</Text>
             <TouchableOpacity onPress={handleSignUp}>
               <Text style={[styles.signUpText, { color: '#007BE5' }]}>Sign Up</Text>

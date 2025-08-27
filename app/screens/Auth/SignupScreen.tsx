@@ -4,24 +4,22 @@ import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 import { auth } from '../../firebaseConfig';
 
-// Screen: Sign Up — gumagawa ng bagong account sa Firebase Auth
 export default function SignupScreen() {
-  // Local state para sa inputs at UI state
   const [fullName, setFullName] = useState('');  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,9 +31,7 @@ export default function SignupScreen() {
   const colors = Colors.light;
   const router = useRouter();
 
-  // Action: Sign up flow
   const handleSignUp = async () => {
-    // 1) Basic validations
     if (!fullName.trim() || !email.trim() || !password) {
       setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
       return;
@@ -49,27 +45,22 @@ export default function SignupScreen() {
       return;
     }
 
-    // 2) Simulan ang loading habang tumatawag sa Firebase
     setIsLoading(true);
     try {
-      // 3) Firebase Auth: gumawa ng account
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // 4) I-update ang display name ng user
       await updateProfile(userCredential.user, { displayName: fullName });
       
-      // 5) Success toast
       setToast({ visible: true, message: 'Account created successfully!', type: 'success' });
       
-      // 6) (Temporary) Manual navigation depende sa email → admin o user tabs
+      // Manual navigation based on user role
       setTimeout(() => {
-        if (email.toLowerCase() === 'jayveebrianibale@gmail.com') {
+        if (email.toLowerCase() === 'pedro1@gmail.com') {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
         }
       }, 1500); // Wait for toast to show
     } catch (error: any) {
-      // 7) Error handling — gawing mas malinaw ang error message
       let errorMessage = 'Account creation failed. Please try again.';
       
       if (error.code === 'auth/email-already-in-use') {
@@ -84,12 +75,10 @@ export default function SignupScreen() {
       
       setToast({ visible: true, message: errorMessage, type: 'error' });
     } finally {
-      // 8) Tapos na ang request — ihinto ang loading
       setIsLoading(false);
     }
   };
 
-  // Navigate pabalik sa Sign In screen
   const handleSignIn = () => {
     router.push('/signin');
   };

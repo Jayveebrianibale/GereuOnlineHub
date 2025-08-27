@@ -4,12 +4,12 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   createAutoService,
+  deleteAutoService,
   getAutoServices,
   updateAutoService,
-  deleteAutoService,
   type AutoService
 } from '../../services/autoService';
 
@@ -81,7 +81,13 @@ export default function AdminAutoManagement() {
   };
 
   const handleEdit = (service: any) => {
-    setCurrentService(service);
+    // Ensure services and includes arrays are initialized if they don't exist
+    const serviceWithArrays = {
+      ...service,
+      services: Array.isArray(service.services) ? service.services : [],
+      includes: Array.isArray(service.includes) ? service.includes : []
+    };
+    setCurrentService(serviceWithArrays);
     setIsNewService(false);
     setEditModalVisible(true);
   };
@@ -220,7 +226,7 @@ export default function AdminAutoManagement() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <ThemedView style={styles.emptyState}>
+        <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
           <MaterialIcons name="car-repair" size={48} color={subtitleColor} />
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
             No auto services found. Add a new one to get started.
@@ -336,7 +342,7 @@ export default function AdminAutoManagement() {
 
               <View style={styles.formGroup}>
                 <View style={styles.servicesHeader}>
-                  <ThemedText style={[styles.label, { color: textColor }]}>What's Included*</ThemedText>
+                  <ThemedText style={[styles.label, { color: textColor }]}>What&apos;s Included*</ThemedText>
                   <TouchableOpacity 
                     style={styles.addItemButton}
                     onPress={() => addItem('includes')}
@@ -548,15 +554,16 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
-    padding: 16,
+    alignItems: 'center',
+    padding: 20,
   },
   editModal: {
-    borderRadius: 12,
-    padding: 16,
+    width: '100%',
+    borderRadius: 16,
     maxHeight: '90%',
   },
   editScrollContent: {
-    paddingBottom: 24,
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',

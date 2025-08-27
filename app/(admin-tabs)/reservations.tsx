@@ -25,6 +25,7 @@ const reservations = [
     time: '10:00 AM',
     status: 'Confirmed',
     price: '$50'
+    
   },
   {
     id: '2',
