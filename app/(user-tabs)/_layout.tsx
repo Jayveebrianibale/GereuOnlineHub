@@ -47,17 +47,17 @@ export default function UserTabLayout() {
       <Tabs.Screen
         name="bookings"
         options={{
-          title: 'Bookings',
+          title: 'Reservations',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="favorites"
-        options={{
-          title: 'Favorites',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="favorite" size={size} color={color} />,
-        }}
-      />
+          name="messages"
+          options={{
+              title: 'Messages',
+              tabBarIcon: ({ color, size }) => <MaterialIcons name="message" size={size} color={color} />,
+            }}
+            />
       <Tabs.Screen
         name="profile"
         options={{

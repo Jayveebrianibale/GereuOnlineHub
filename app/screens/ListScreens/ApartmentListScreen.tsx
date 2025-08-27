@@ -5,8 +5,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useReservation } from '../../contexts/ReservationContext';
 import { getApartments } from '../../services/apartmentService';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
+
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -36,6 +38,7 @@ export default function ApartmentListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedApartment, setSelectedApartment] = useState<any>(null);
   const [apartments, setApartments] = useState<any[]>([]);
+  const { reservedApartments, reserveApartment, removeReservation } = useReservation();
 
   // Fetch apartments from Firebase
   useEffect(() => {
@@ -49,6 +52,16 @@ export default function ApartmentListScreen() {
     };
     fetchApartments();
   }, []);
+
+  const handleReservation = (apartment: any) => {
+    const isReserved = reservedApartments.some(a => a.id === apartment.id);
+    if (!isReserved) {
+      reserveApartment(apartment);
+      router.push('/bookings');
+    } else {
+      removeReservation(apartment.id);
+    }
+  };
 
   // Handle navigation parameters
   const params = useLocalSearchParams();
@@ -416,9 +429,28 @@ export default function ApartmentListScreen() {
                         <MaterialIcons name="phone" size={20} color="#fff" />
                         <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
                       </TouchableOpacity>
-                      <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
-                        <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                         Reserved
+                        <TouchableOpacity 
+                        style={[
+                          styles.bookButton,
+                          {
+                            borderColor: colorPalette.primary,
+                            backgroundColor: reservedApartments.some(a => a.id === selectedApartment.id) ? colorPalette.primary : 'transparent',
+                          },
+                        ]}
+                        onPress={() => handleReservation(selectedApartment)}
+                      >
+                        <MaterialIcons
+                          name={reservedApartments.some(a => a.id === selectedApartment.id) ? 'check-circle' : 'bookmark-border'}
+                          size={20}
+                          color={reservedApartments.some(a => a.id === selectedApartment.id) ? '#fff' : colorPalette.primary}
+                        />
+                        <ThemedText
+                          style={[
+                            styles.bookButtonText,
+                            { color: reservedApartments.some(a => a.id === selectedApartment.id) ? '#fff' : colorPalette.primary },
+                          ]}
+                        >
+                          {reservedApartments.some(a => a.id === selectedApartment.id) ? 'Reserved' : 'Reserve'}
                         </ThemedText>
                       </TouchableOpacity>
                     </View>
@@ -754,6 +786,7 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontWeight: 'bold',
     fontSize: 14,
+    
   },
   emptyText: {
     fontSize: 16,
