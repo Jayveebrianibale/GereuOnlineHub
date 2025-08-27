@@ -62,13 +62,6 @@ export default function AutoListScreen() {
       .catch(console.error);
   }, []);
 
-  const filters = [
-    { id: 'all', label: 'All Services' },
-    { id: 'maintenance', label: 'Maintenance' },
-    { id: 'repair', label: 'Repair' },
-    { id: 'detail', label: 'Detailing' },
-    { id: 'emergency', label: 'Emergency' },
-  ];
 
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -220,6 +213,8 @@ export default function AutoListScreen() {
     return filtered;
   }
 
+  const filteredServices = getFilteredAutoServices();
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Header */}
@@ -238,25 +233,23 @@ export default function AutoListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
+      {/* Auto Services List or No Results Message */}
+      {filteredServices.length === 0 ? (
+        <View style={styles.noResultsContainer}>
+          <MaterialIcons name="car-repair" size={64} color={subtitleColor} />
+          <ThemedText type="subtitle" style={[styles.noResultsText, { color: textColor }]}>
+            No Auto-Services found
+          </ThemedText>
+        </View>
+      ) : (
         <FlatList
-          data={filters}
-          renderItem={renderFilterButton}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersList}
+          data={filteredServices}
+          renderItem={renderAutoItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
         />
-      </View>
-
-      {/* Auto Services List */}
-      <FlatList
-        data={getFilteredAutoServices()}
-        renderItem={renderAutoItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      )}
 
       {/* Search Modal */}
       <Modal
@@ -295,7 +288,7 @@ export default function AutoListScreen() {
             
             <View style={styles.searchResults}>
               <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
-                {getFilteredAutoServices().length} results found
+                {filteredServices.length} results found
               </ThemedText>
             </View>
             
@@ -412,11 +405,11 @@ export default function AutoListScreen() {
                      <View style={styles.detailActions}>
                        <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
                          <MaterialIcons name="phone" size={20} color="#fff" />
-                         <ThemedText style={styles.contactButtonText}>Contact Service</ThemedText>
+                         <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
                        </TouchableOpacity>
                        <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
                          <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                           Book Now
+                           Reserved
                          </ThemedText>
                        </TouchableOpacity>
                      </View>
@@ -428,9 +421,8 @@ export default function AutoListScreen() {
          </View>
        </Modal>
      </ThemedView>
-   );
- }
-
+  );
+}
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -442,6 +434,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
+    marginTop: 20,
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noResultsText: {
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noResultsSubtext: {
+    textAlign: 'center',
   },
   backButton: {
     padding: 4,

@@ -375,7 +375,7 @@ const colorPalette = {
                     </TouchableOpacity>
                     </View>
                     
-                    {(currentApartment.amenities || []).map((amenity: string, index: number) => (
+                    {currentApartment.amenities.map((amenity: string, index: number) => (
                     <View key={index} style={styles.amenityInputRow}>
                         <TextInput
                         style={[styles.input, { color: textColor, borderColor, flex: 1 }]}

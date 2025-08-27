@@ -65,14 +65,6 @@ export default function LaundryListScreen() {
     fetchLaundryServices();
   }, []);
 
-  const filters = [
-    { id: 'all', label: 'All Services' },
-    { id: 'wash', label: 'Wash & Fold' },
-    { id: 'dry-clean', label: 'Dry Cleaning' },
-    { id: 'bulk', label: 'Bulk Service' },
-    { id: 'eco', label: 'Eco-Friendly' },
-  ];
-
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
@@ -246,17 +238,6 @@ export default function LaundryListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filters */}
-      <View style={styles.filtersContainer}>
-        <FlatList
-          data={filters}
-          renderItem={renderFilterButton}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersList}
-        />
-      </View>
-
       {/* Laundry Services List */}
       <FlatList
         data={getFilteredLaundryServices()}
@@ -428,7 +409,7 @@ export default function LaundryListScreen() {
                          }}
                        >
                          <MaterialIcons name="phone" size={20} color="#fff" />
-                         <ThemedText style={styles.contactButtonText}>Contact Service</ThemedText>
+                         <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
                        </TouchableOpacity>
                        <TouchableOpacity
                          style={[styles.bookButton, { borderColor: colorPalette.primary }]}
@@ -437,7 +418,7 @@ export default function LaundryListScreen() {
                            alert('Schedule Pickup feature coming soon!');
                          }}
                        >
-                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>Schedule Pickup</ThemedText>
+                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>Reserved</ThemedText>
                        </TouchableOpacity>
                      </View>
                    </View>
@@ -462,6 +443,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
+    marginTop: 20,
   },
   backButton: {
     padding: 4,

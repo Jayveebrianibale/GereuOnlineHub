@@ -222,15 +222,17 @@ export default function UserHome() {
                 <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}> 
                   Apartment Rentals
                 </ThemedText>
-                <TouchableOpacity 
-                  style={styles.seeAllButton}
-                  onPress={() => router.push('/apartment-list')}
-                >
-                  <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}> 
-                    See All
-                  </ThemedText>
-                  <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
-                </TouchableOpacity>
+                {apartments.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles.seeAllButton}
+                    onPress={() => router.push('/apartment-list')}
+                  >
+                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}> 
+                      See All
+                    </ThemedText>
+                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
           
               {apartments.length > 0 ? (
@@ -259,20 +261,22 @@ export default function UserHome() {
                 </View>
               )}
           
-              <View style={styles.pagination}> 
-                {apartments.map((_, index) => (
-                  <View 
-                    key={index} 
-                    style={[
-                      styles.paginationDot,
-                      { 
-                        backgroundColor: index === activeApartmentIndex ? colorPalette.primary : subtitleColor,
-                        opacity: index === activeApartmentIndex ? 1 : 0.4,
-                      }
-                    ]} 
-                  />
-                ))}
-              </View>
+              {apartments.length > 0 && (
+                <View style={styles.pagination}> 
+                  {apartments.map((_, index) => (
+                    <View 
+                      key={index} 
+                      style={[
+                        styles.paginationDot,
+                        { 
+                          backgroundColor: index === activeApartmentIndex ? colorPalette.primary : subtitleColor,
+                          opacity: index === activeApartmentIndex ? 1 : 0.4,
+                        }
+                      ]} 
+                    />
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Laundry Services Carousel */}
@@ -282,48 +286,61 @@ export default function UserHome() {
                 <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
                   Laundry Services
                 </ThemedText>
-                <TouchableOpacity 
-                  style={styles.seeAllButton}
-                  onPress={() => router.push('/laundry-list')}
-                >
-                  <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
-                    See All
-                  </ThemedText>
-                  <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={laundryServices}
-                renderItem={({ item }) => renderServiceItem({ item, serviceType: 'laundry' })}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { x: laundryScrollX } } }],
-                  { useNativeDriver: false }
+                {laundryServices.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles.seeAllButton}
+                    onPress={() => router.push('/laundry-list')}
+                  >
+                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
+                      See All
+                    </ThemedText>
+                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                  </TouchableOpacity>
                 )}
-                onMomentumScrollEnd={(e) => {
-                  const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
-                  setActiveLaundryIndex(index);
-                }}
-                keyExtractor={(item) => item.id}
-              />
-              
-              <View style={styles.pagination}>
-                {laundryServices.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.paginationDot,
-                      {
-                        backgroundColor: index === activeLaundryIndex ? colorPalette.primary : subtitleColor,
-                        opacity: index === activeLaundryIndex ? 1 : 0.4,
-                      }
-                    ]}
-                  />
-                ))}
               </View>
+              
+              {laundryServices.length > 0 ? (
+                <>
+                  <FlatList
+                    data={laundryServices}
+                    renderItem={({ item }) => renderServiceItem({ item, serviceType: 'laundry' })}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={Animated.event(
+                      [{ nativeEvent: { contentOffset: { x: laundryScrollX } } }],
+                      { useNativeDriver: false }
+                    )}
+                    onMomentumScrollEnd={(e) => {
+                      const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
+                      setActiveLaundryIndex(index);
+                    }}
+                    keyExtractor={(item) => item.id}
+                  />
+                  
+                  <View style={styles.pagination}>
+                    {laundryServices.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.paginationDot,
+                          {
+                            backgroundColor: index === activeLaundryIndex ? colorPalette.primary : subtitleColor,
+                            opacity: index === activeLaundryIndex ? 1 : 0.4,
+                          }
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={{ alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                  <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
+                  <ThemedText style={{ color: subtitleColor, fontSize: 16, marginTop: 16 }}>
+                    No laundry services found.
+                  </ThemedText>
+                </View>
+              )}
             </View>
 
             {/* Auto Services Carousel */}
@@ -333,48 +350,61 @@ export default function UserHome() {
                 <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
                   Auto Services
                 </ThemedText>
-                <TouchableOpacity 
-                  style={styles.seeAllButton}
-                  onPress={() => router.push('/auto-list')}
-                >
-                  <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
-                    See All
-                  </ThemedText>
-                  <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
-                </TouchableOpacity>
-              </View>
-              
-              <FlatList
-                data={autoServices}
-                renderItem={({ item }) => renderServiceItem({ item, serviceType: 'auto' })}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { x: autoScrollX } } }],
-                  { useNativeDriver: false }
+                {autoServices.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles.seeAllButton}
+                    onPress={() => router.push('/auto-list')}
+                  >
+                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
+                      See All
+                    </ThemedText>
+                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                  </TouchableOpacity>
                 )}
-                onMomentumScrollEnd={(e) => {
-                  const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
-                  setActiveAutoIndex(index);
-                }}
-                keyExtractor={(item) => item.id}
-              />
-              
-              <View style={styles.pagination}>
-                {autoServices.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.paginationDot,
-                      {
-                        backgroundColor: index === activeAutoIndex ? colorPalette.primary : subtitleColor,
-                        opacity: index === activeAutoIndex ? 1 : 0.4,
-                      }
-                    ]}
-                  />
-                ))}
               </View>
+              
+              {autoServices.length > 0 ? (
+                <>
+                  <FlatList
+                    data={autoServices}
+                    renderItem={({ item }) => renderServiceItem({ item, serviceType: 'auto' })}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={Animated.event(
+                      [{ nativeEvent: { contentOffset: { x: autoScrollX } } }],
+                      { useNativeDriver: false }
+                    )}
+                    onMomentumScrollEnd={(e) => {
+                      const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
+                      setActiveAutoIndex(index);
+                    }}
+                    keyExtractor={(item) => item.id}
+                  />
+                  
+                  <View style={styles.pagination}>
+                    {autoServices.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.paginationDot,
+                          {
+                            backgroundColor: index === activeAutoIndex ? colorPalette.primary : subtitleColor,
+                            opacity: index === activeAutoIndex ? 1 : 0.4,
+                          }
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={{ alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                  <MaterialIcons name="directions-car" size={48} color={subtitleColor} />
+                  <ThemedText style={{ color: subtitleColor, fontSize: 16, marginTop: 16 }}>
+                    No auto services found.
+                  </ThemedText>
+                </View>
+              )}
             </View>
           </ScrollView>
         </ThemedView>
@@ -393,6 +423,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 20,
   },
   headerIcons: {
     flexDirection: 'row',
