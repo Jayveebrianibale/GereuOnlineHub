@@ -2,12 +2,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { off, onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
-import { getApartments } from './services/apartmentService';
-import { getAutoServices } from './services/autoService';
-import { getLaundryServices } from './services/laundryService';
+import { db } from './firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -68,51 +67,82 @@ export default function AdminDashboard() {
   const [totalServices, setTotalServices] = useState(0);
   const [activeReservations, setActiveReservations] = useState(0);
 
-  // Fetch all services data
+  // Real-time listeners for all services
   useEffect(() => {
-    const fetchAllServices = async () => {
-      try {
-        const [apartmentsData, autoServicesData, laundryServicesData] = await Promise.all([
-          getApartments(),
-          getAutoServices(),
-          getLaundryServices()
-        ]);
-
-        setApartments(apartmentsData);
-        setAutoServices(autoServicesData);
-        setLaundryServices(laundryServicesData);
-
-        // Update modules with actual counts
-        setModules([
-          {
-            ...initialModules[0],
-            stats: `${apartmentsData.length} ${apartmentsData.length === 1 ? 'Listing' : 'Listings'}`
-          },
-          {
-            ...initialModules[1],
-            stats: `${laundryServicesData.length} ${laundryServicesData.length === 1 ? 'Service' : 'Services'}`
-          },
-          {
-            ...initialModules[2],
-            stats: `${autoServicesData.length} ${autoServicesData.length === 1 ? 'Service' : 'Services'}`
-          }
-        ]);
-
-        // Calculate total services
-        const total = apartmentsData.length + autoServicesData.length + laundryServicesData.length;
-        setTotalServices(total);
-
-        // Calculate active reservations (this is a placeholder - you'll need to implement actual reservation logic)
-        const activeReservationsCount = calculateActiveReservations(apartmentsData, autoServicesData, laundryServicesData);
-        setActiveReservations(activeReservationsCount);
-
-      } catch (error) {
-        console.error('Error fetching services:', error);
+    // Set up real-time listeners for apartments
+    const apartmentsRef = ref(db, 'apartments');
+    const apartmentsListener = onValue(apartmentsRef, (snapshot) => {
+      const apartmentsData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          const apartment = { id: key, ...data[key] };
+          apartmentsData.push(apartment);
+        });
       }
-    };
+      setApartments(apartmentsData);
+    });
 
-    fetchAllServices();
+    // Set up real-time listeners for auto services
+    const autoServicesRef = ref(db, 'autoServices');
+    const autoServicesListener = onValue(autoServicesRef, (snapshot) => {
+      const autoServicesData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          autoServicesData.push({ id: key, ...data[key] });
+        });
+      }
+      setAutoServices(autoServicesData);
+    });
+
+    // Set up real-time listeners for laundry services
+    const laundryServicesRef = ref(db, 'laundryServices');
+    const laundryServicesListener = onValue(laundryServicesRef, (snapshot) => {
+      const laundryServicesData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          laundryServicesData.push({ id: key, ...data[key] });
+        });
+      }
+      setLaundryServices(laundryServicesData);
+    });
+
+    // Cleanup listeners when component unmounts
+    return () => {
+      off(apartmentsRef, 'value', apartmentsListener);
+      off(autoServicesRef, 'value', autoServicesListener);
+      off(laundryServicesRef, 'value', laundryServicesListener);
+    };
   }, []);
+
+  // Update modules and calculate totals whenever any service data changes
+  useEffect(() => {
+    // Update modules with actual counts
+    setModules([
+      {
+        ...initialModules[0],
+        stats: `${apartments.length} ${apartments.length === 1 ? 'Listing' : 'Listings'}`
+      },
+      {
+        ...initialModules[1],
+        stats: `${laundryServices.length} ${laundryServices.length === 1 ? 'Service' : 'Services'}`
+      },
+      {
+        ...initialModules[2],
+        stats: `${autoServices.length} ${autoServices.length === 1 ? 'Service' : 'Services'}`
+      }
+    ]);
+
+    // Calculate total services
+    const total = apartments.length + autoServices.length + laundryServices.length;
+    setTotalServices(total);
+
+    // Calculate active reservations
+    const activeReservationsCount = calculateActiveReservations(apartments, autoServices, laundryServices);
+    setActiveReservations(activeReservationsCount);
+  }, [apartments, autoServices, laundryServices]);
 
   // Function to calculate active reservations (placeholder implementation)
   const calculateActiveReservations = (apartments: any[], autoServices: any[], laundryServices: any[]) => {
