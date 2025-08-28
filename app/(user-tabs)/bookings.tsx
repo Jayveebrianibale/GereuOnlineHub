@@ -2,7 +2,10 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useReservation } from "../contexts/ReservationContext";
+
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -15,66 +18,31 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Sample booking data
-const bookingsData = [
-  {
-    id: '1',
-    serviceType: 'Apartment Rental',
-    serviceName: 'Luxury Studio Apartment',
-    date: '2024-01-15',
-    status: 'Confirmed',
-    price: '$1,200',
-    location: 'Downtown',
-  },
-  {
-    id: '2',
-    serviceType: 'Laundry Service',
-    serviceName: 'Premium Wash & Fold',
-    date: '2024-01-12',
-    status: 'Completed',
-    price: '$15.50',
-    location: 'Home Pickup',
-  },
-  {
-    id: '3',
-    serviceType: 'Auto Service',
-    serviceName: 'Oil Change Service',
-    date: '2024-01-10',
-    status: 'In Progress',
-    price: '$49.99',
-    location: 'Auto Center',
-  },
-  {
-    id: '4',
-    serviceType: 'Apartment Rental',
-    serviceName: 'Modern 1-Bedroom',
-    date: '2024-01-08',
-    status: 'Cancelled',
-    price: '$1,500',
-    location: 'Midtown',
-  },
-];
 
 export default function Bookings() {
   const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
-  const bgColor = isDark ? '#121212' : '#fff';
-  const cardBgColor = isDark ? '#1E1E1E' : '#fff';
-  const textColor = isDark ? '#fff' : colorPalette.darkest;
+  const params = useLocalSearchParams();
+  const { reservedApartments } = useReservation();
+
+  const isDark = colorScheme === "dark";
+  const bgColor = isDark ? "#121212" : "#fff";
+  const cardBgColor = isDark ? "#1E1E1E" : "#fff";
+  const textColor = isDark ? "#fff" : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
-  const borderColor = isDark ? '#333' : '#eee';
+  const borderColor = isDark ? "#333" : "#eee";
+
+  // No need for local bookings state, use reservedApartments from context
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Confirmed':
-        return '#4CAF50';
-      case 'Completed':
-        return '#2196F3';
-      case 'In Progress':
-        return '#FF9800';
-      case 'Cancelled':
-        return '#F44336';
+      case "Confirmed":
+        return "#4CAF50";
+      case "Completed":
+        return "#2196F3";
+      case "In Progress":
+        return "#FF9800";
+      case "Cancelled":
+        return "#F44336";
       default:
         return colorPalette.primary;
     }
@@ -82,14 +50,14 @@ export default function Bookings() {
 
   const getServiceIcon = (serviceType: string) => {
     switch (serviceType) {
-      case 'Apartment Rental':
-        return 'apartment';
-      case 'Laundry Service':
-        return 'local-laundry-service';
-      case 'Auto Service':
-        return 'directions-car';
+      case "Apartment Rental":
+        return "apartment";
+      case "Laundry Service":
+        return "local-laundry-service";
+      case "Auto Service":
+        return "directions-car";
       default:
-        return 'receipt';
+        return "receipt";
     }
   };
 
@@ -99,74 +67,77 @@ export default function Bookings() {
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title" style={[styles.title, { color: textColor }]}>
-            My Bookings
+            My Reservations
           </ThemedText>
           <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
-            Track your service bookings
+            Track your service reservations
           </ThemedText>
         </View>
 
         {/* Booking Cards */}
-        {bookingsData.map((booking) => (
-          <View key={booking.id} style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}>
-            <View style={styles.bookingHeader}>
-              <View style={styles.serviceInfo}>
-                <MaterialIcons 
-                  name={getServiceIcon(booking.serviceType) as any} 
-                  size={24} 
-                  color={colorPalette.primary} 
-                />
-                <View style={styles.serviceDetails}>
-                  <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}>
-                    {booking.serviceName}
-                  </ThemedText>
-                  <ThemedText style={[styles.serviceType, { color: subtitleColor }]}>
-                    {booking.serviceType}
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
-                <ThemedText style={styles.statusText}>{booking.status}</ThemedText>
-              </View>
-            </View>
-            
-            <View style={styles.bookingDetails}>
-              <View style={styles.detailRow}>
-                <MaterialIcons name="event" size={16} color={subtitleColor} />
-                <ThemedText style={[styles.detailText, { color: textColor }]}>
-                  {new Date(booking.date).toLocaleDateString()}
-                </ThemedText>
-              </View>
-              <View style={styles.detailRow}>
-                <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                <ThemedText style={[styles.detailText, { color: textColor }]}>
-                  {booking.location}
-                </ThemedText>
-              </View>
-              <View style={styles.detailRow}>
-                <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
-                <ThemedText style={[styles.detailText, { color: textColor }]}>
-                  {booking.price}
-                </ThemedText>
-              </View>
-            </View>
-            
-            <View style={styles.bookingActions}>
-              <TouchableOpacity style={[styles.actionButton, { borderColor }]}>
-                <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}>
-                  View Details
-                </ThemedText>
-              </TouchableOpacity>
-              {booking.status === 'Confirmed' && (
-                <TouchableOpacity style={[styles.actionButton, { borderColor }]}>
-                  <ThemedText style={[styles.actionButtonText, { color: '#F44336' }]}>
-                    Cancel
-                  </ThemedText>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        ))}
+       {reservedApartments.length > 0 ? (
+         reservedApartments.map((apt) => (
+           <View
+             key={apt.id}
+             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+           >
+             {/* Booking Header */}
+             <View style={styles.bookingHeader}>
+               <View style={styles.serviceInfo}>
+                 <MaterialIcons
+                   name={getServiceIcon('Apartment Rental') as any}
+                   size={24}
+                   color={colorPalette.primary}
+                 />
+                 <View style={styles.serviceDetails}>
+                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
+                     {apt.title}
+                   </ThemedText>
+                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
+                     Apartment Rental
+                   </ThemedText>
+                 </View>
+               </View>
+             </View>
+
+             {/* Booking Details */}
+             <View style={styles.bookingDetails}>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="event" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   {/* No booking date, show placeholder or add date if needed */}
+                   Reserved
+                 </ThemedText>
+               </View>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   {apt.location}
+                 </ThemedText>
+               </View>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   {apt.price}
+                 </ThemedText>
+               </View>
+             </View>
+
+             {/* Booking Actions (only "View Details") */}
+             <View style={styles.bookingActions}>
+               <TouchableOpacity style={[styles.actionButton, { borderColor }]}> 
+                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
+                   View Details
+                 </ThemedText>
+               </TouchableOpacity>
+             </View>
+           </View>
+         ))
+       ) : (
+         <View style={{ alignItems: "center", marginTop: 250 }}>
+           <ThemedText style={{ color: subtitleColor }}>No reservations yet.</ThemedText>
+         </View>
+       )}
       </ScrollView>
     </ThemedView>
   );
@@ -181,6 +152,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    marginTop: 20,
   },
   title: {
     fontSize: 24,

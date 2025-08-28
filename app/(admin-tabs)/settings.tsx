@@ -23,7 +23,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [currentVersion] = useState('1.2.3');
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -97,18 +96,6 @@ export default function SettingsScreen() {
       title: "Security",
       icon: "security",
       items: [
-        {
-          title: "Biometric Login",
-          icon: "fingerprint",
-          action: (
-            <Switch
-              value={biometricEnabled}
-              onValueChange={setBiometricEnabled}
-              thumbColor={biometricEnabled ? colorPalette.primary : '#f4f3f4'}
-              trackColor={{ false: '#767577', true: colorPalette.primaryLight }}
-            />
-          ),
-        },
         {
           title: "Change Password",
           icon: "lock",

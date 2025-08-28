@@ -34,13 +34,6 @@ const profileMenuItems = [
     action: 'edit',
   },
   {
-    id: '2',
-    title: 'Payment Methods',
-    subtitle: 'Manage your payment options',
-    icon: 'credit-card',
-    action: 'view',
-  },
-  {
     id: '3',
     title: 'Notifications',
     subtitle: 'Configure notification settings',
