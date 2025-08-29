@@ -1,92 +1,83 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { auth } from '../../firebaseConfig';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-export default function SigninScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const router = useRouter();
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setToast({ visible: true, message: 'Please enter your email address', type: 'error' });
       return;
     }
 
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      setToast({ visible: true, message: 'Login successful!', type: 'success' });
-
+      await sendPasswordResetEmail(auth, email);
+      setToast({ 
+        visible: true, 
+        message: 'Password reset email sent! Check your inbox.', 
+        type: 'success' 
+      });
+      
+      // Navigate back to signin after successful reset
       setTimeout(() => {
-        if (user.email && user.email.toLowerCase() === 'pedro1@gmail.com') {
-          router.replace('/(admin-tabs)');
-        } else {
-          router.replace('/(user-tabs)');
-        }
-      }, 1500);
+        router.back();
+      }, 2000);
     } catch (error: any) {
-      let errorMessage = 'Sign in failed. Please try again.';
-
+      let errorMessage = 'Failed to send reset email. Please try again.';
+      
       if (error.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email.';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Incorrect password.';
+        errorMessage = 'No account found with this email address.';
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address.';
+        errorMessage = 'Invalid email address format.';
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed attempts. Please try again later.';
+        errorMessage = 'Too many attempts. Please try again later.';
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your connection.';
       }
-
+      
       setToast({ visible: true, message: errorMessage, type: 'error' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    router.push('/forgot-password');
-  };
-
-  const handleSignUp = () => {
-    router.push('/signup');
+  const handleBackToSignIn = () => {
+    router.back();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}> 
       <LinearGradient
         colors={['#00B2FF', '#007BE5', '#002F87']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.backgroundGradient}
       />
-
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -96,81 +87,57 @@ export default function SigninScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
+            {/* Header Section */}
             <View style={styles.header}>
-              <View style={styles.logoRing}>
-                <LinearGradient
-                  colors={['#00B2FF', '#007BE5', '#002F87']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.logoRingGradient}
-                >
-                  <View style={styles.logoInner}>
-                    <Image
-                      source={require('../../../assets/images/logo.png')}
-                      style={styles.logo}
-                    />
-                  </View>
-                </LinearGradient>
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../../../assets/images/logo.png')}
+                  style={styles.logo}
+                />
               </View>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to your Gereu Smart Services account</Text>
+              <Text style={styles.title}>Reset Password</Text>
+              <Text style={styles.subtitle}>Enter your email to receive reset instructions</Text>
+              <Text style={styles.tagline}>We'll send you a secure link to reset your password</Text>
             </View>
 
+            {/* Form Card */}
             <View style={styles.formCard}>
               <View style={styles.formHeader}>
-                <Ionicons name="log-in" size={24} color="#00B2FF" />
-                <Text style={styles.formTitle}>Account Access</Text>
+                <Ionicons name="key" size={24} color="#00B2FF" />
+                <Text style={styles.formTitle}>Password Recovery</Text>
               </View>
 
               <View style={styles.form}>
+                {/* Email Input */}
                 <View style={styles.inputSection}>
                   <Text style={styles.inputLabel}>Email Address</Text>
                   <View style={styles.inputContainer}>
                     <Ionicons name="mail" size={20} color="#666" style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder="Enter your email"
+                      placeholder="Enter your registered email"
                       placeholderTextColor="#999"
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
                       autoCapitalize="none"
+                      autoCorrect={false}
                     />
                   </View>
                 </View>
 
-                <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>Password</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="lock-closed" size={20} color="#666" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter your password"
-                      placeholderTextColor="#999"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                    />
-                    <TouchableOpacity
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.eyeIcon}
-                    >
-                      <Ionicons 
-                        name={showPassword ? 'eye' : 'eye-off'}
-                        size={20}
-                        color="#666"
-                      />
-                    </TouchableOpacity>
-                  </View>
+                {/* Instructions */}
+                <View style={styles.instructionsContainer}>
+                  <Ionicons name="information-circle" size={20} color="#00B2FF" style={styles.infoIcon} />
+                  <Text style={styles.instructionsText}>
+                    Enter the email address associated with your account. We'll send you a secure link to reset your password.
+                  </Text>
                 </View>
 
-                <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
-                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                </TouchableOpacity>
-
+                {/* Reset Button */}
                 <TouchableOpacity 
-                  style={[styles.signInButton, isLoading && styles.disabledButton]} 
-                  onPress={handleSignIn} 
+                  style={[styles.resetButton, isLoading && styles.disabledButton]} 
+                  onPress={handleResetPassword} 
                   activeOpacity={0.9}
                   disabled={isLoading}
                 >
@@ -180,24 +147,20 @@ export default function SigninScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.buttonGradient}
                   >
-                    <Ionicons 
-                      name="arrow-forward" 
-                      size={20} 
-                      color="white" 
-                      style={styles.buttonIcon} 
-                    />
-                    <Text style={styles.signInButtonText}>
-                      {isLoading ? 'Signing In...' : 'Sign In'}
+                    <Ionicons name="mail" size={20} color="white" style={styles.buttonIcon} />
+                    <Text style={styles.resetButtonText}>
+                      {isLoading ? 'Sending...' : 'Send Reset Email'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
 
+            {/* Footer */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={handleSignUp} style={styles.signUpLink}>
-                <Text style={styles.signUpText}>Sign Up</Text>
+              <TouchableOpacity onPress={handleBackToSignIn} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={20} color="#00B2FF" style={styles.backIcon} />
+                <Text style={styles.backText}>Back to Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -243,31 +206,20 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     paddingTop: 20,
   },
-  logoRing: {
-    borderRadius: 56,
-    padding: 2,
+  logoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 20,
-  },
-  logoRingGradient: {
-    borderRadius: 56,
-    padding: 3,
-  },
-  logoInner: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   logo: { 
-    width: 64, 
-    height: 64, 
+    width: 80, 
+    height: 80, 
     resizeMode: 'contain' 
   },
   title: { 
@@ -283,6 +235,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 8,
     fontWeight: '500',
+  },
+  tagline: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontStyle: 'italic',
   },
   formCard: {
     backgroundColor: 'white',
@@ -313,7 +271,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   inputSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   inputLabel: {
     fontSize: 16,
@@ -340,20 +298,27 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     fontWeight: '500',
   },
-  eyeIcon: { 
-    padding: 8,
-    marginLeft: 8,
+  instructionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#00B2FF',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 16,
+  infoIcon: {
+    marginRight: 12,
+    marginTop: 2,
   },
-  forgotPasswordText: {
+  instructionsText: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#00B2FF',
+    color: '#1e40af',
+    lineHeight: 20,
   },
-  signInButton: {
+  resetButton: {
     borderRadius: 16,
     overflow: 'hidden',
     marginTop: 8,
@@ -373,7 +338,7 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: 8,
   },
-  signInButtonText: {
+  resetButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '700',
@@ -383,22 +348,23 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   footer: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
     alignItems: 'center',
     paddingVertical: 20,
   },
-  footerText: { 
-    fontSize: 16,
-    color: '#6b7280',
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
   },
-  signUpLink: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  backIcon: {
+    marginRight: 8,
   },
-  signUpText: { 
+  backText: { 
     fontSize: 16, 
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#00B2FF',
   },
 });
