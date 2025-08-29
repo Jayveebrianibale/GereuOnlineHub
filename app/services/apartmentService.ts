@@ -1,5 +1,5 @@
+import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { ref, push, get, update, remove, set } from 'firebase/database';
 import { getImagePath, getImageSource } from '../utils/imageUtils';
 
 // Define the Apartment type

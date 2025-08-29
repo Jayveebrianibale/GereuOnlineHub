@@ -22,28 +22,45 @@ Object.entries(imageMap).forEach(([path, source]) => {
 
 // Function to get image source from image path
 export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSourcePropType => {
-  // If imagePath is already a require() statement or object, return it directly
-  if (typeof imagePath !== 'string') {
-    return imagePath;
+  try {
+    // If imagePath is already a require() statement or object, return it directly
+    if (typeof imagePath !== 'string') {
+      return imagePath;
+    }
+    
+    // If the imagePath is a full path, extract just the filename
+    const fileName = imagePath.split('/').pop() || imagePath;
+    
+    // Check if the image exists in our map
+    if (imageMap[fileName]) {
+      return imageMap[fileName];
+    }
+    
+    // If not found (like "26"), log warning and return default
+    console.warn(`⚠️ Invalid image reference: "${fileName}". Using default image.`);
+    return require('@/assets/images/apartment1.webp');
+    
+  } catch (error) {
+    console.error('❌ Error loading image:', error);
+    return require('@/assets/images/apartment1.webp');
   }
-  
-  // If the imagePath is a full path, extract just the filename
-  const fileName = imagePath.split('/').pop() || imagePath;
-  
-  // Return the mapped image or a default image if not found
-  return imageMap[fileName] || require('@/assets/images/apartment1.webp');
 };
 
 // Function to get image path from image source (for saving to Firebase)
 export const getImagePath = (imageSource: ImageSourcePropType): string => {
-  // Try to find the path in reverse mapping
-  const path = reverseImageMap.get(imageSource);
-  if (path) {
-    return path;
+  try {
+    // Try to find the path in reverse mapping
+    const path = reverseImageMap.get(imageSource);
+    if (path) {
+      return path;
+    }
+    
+    // If not found, return a default path
+    return 'apartment1.webp';
+  } catch (error) {
+    console.error('❌ Error getting image path:', error);
+    return 'apartment1.webp';
   }
-  
-  // If not found, return a default path
-  return 'apartment1.webp';
 };
 
 // Function to get all available apartment images
