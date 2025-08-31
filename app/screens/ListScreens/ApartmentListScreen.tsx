@@ -21,7 +21,6 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-
 export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
@@ -131,7 +130,7 @@ export default function ApartmentListScreen() {
           apt.title?.toLowerCase().includes('luxury') || 
           apt.title?.toLowerCase().includes('premium') || 
           apt.title?.toLowerCase().includes('executive') ||
-          (apt.amenities || []).some((a: string) => a.toLowerCase().includes('luxury'))
+          apt.amenities?.some((a: string) => a.toLowerCase().includes('luxury'))
         );
         break;
       default:
@@ -145,7 +144,7 @@ export default function ApartmentListScreen() {
         apt.title?.toLowerCase().includes(query) ||
         apt.description?.toLowerCase().includes(query) ||
         apt.location?.toLowerCase().includes(query) ||
-        (apt.amenities || []).some((a: string) => a.toLowerCase().includes(query))
+        apt.amenities?.some((a: string) => a.toLowerCase().includes(query))
       );
     }
     
@@ -219,7 +218,7 @@ export default function ApartmentListScreen() {
         </View>
         
         <View style={styles.amenitiesContainer}>
-          {(item.amenities || []).slice(0, 3).map((amenity: string, index: number) => (
+          {item.amenities?.slice(0, 3).map((amenity: string, index: number) => (
             <View key={index} style={styles.amenityBadge}>
               <ThemedText style={styles.amenityText}>{amenity}</ThemedText>
             </View>
@@ -414,7 +413,7 @@ export default function ApartmentListScreen() {
                         Amenities
                       </ThemedText>
                       <View style={styles.amenitiesGrid}>
-                        {(selectedApartment.amenities || []).map((amenity: string, index: number) => (
+                        {selectedApartment.amenities?.map((amenity: string, index: number) => (
                           <View key={index} style={styles.amenityItem}>
                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
                             <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
@@ -426,10 +425,13 @@ export default function ApartmentListScreen() {
                     </View>
                     
                     <View style={styles.detailActions}>
-                      <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
-                        <MaterialIcons name="phone" size={20} color="#fff" />
-                        <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
-                      </TouchableOpacity>
+                     <TouchableOpacity 
+                      style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
+                        onPress={() => router.push('/(user-tabs)/messages')}
+                    >
+                      <MaterialIcons name="message" size={20} color="#fff" />
+                      <ThemedText style={styles.contactButtonText}>Message</ThemedText>
+                    </TouchableOpacity>
                         <TouchableOpacity 
                         style={[
                           styles.bookButton,
