@@ -41,7 +41,7 @@ const initialModules = [
   },
   {
     key: 'car',
-    title: 'Auto Services',
+    title: 'Car and Motor Parts',
     image: require('@/assets/images/auto1.jpg'),
     description: 'Manage car parts and service requests',
     stats: '0 Services',
