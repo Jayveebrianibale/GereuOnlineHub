@@ -2,12 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // Change from useNavigation to useRouter
+import { onValue, orderByChild, query, ref } from "firebase/database";
 import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { onValue, query, ref, orderByChild } from "firebase/database";
 import { db } from "../firebaseConfig";
-import { useRouter } from 'expo-router'; // Change from useNavigation to useRouter
-import { isAdminEmail } from '../config/adminConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -27,6 +26,7 @@ const ADMIN_USERS = [
 ];
 
 export default function MessagesScreen() {
+  const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
   const { colorScheme } = useColorScheme();
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
@@ -78,7 +78,7 @@ export default function MessagesScreen() {
       message.name.toLowerCase().includes(search.toLowerCase()) ||
       message.lastMessage.toLowerCase().includes(search.toLowerCase());
     const matchesFilter =
-      filter === 'all' ? true : message.unread;
+      filter === 'all' ? true : message.unread; 
     return matchesSearch && matchesFilter;
   });
 
@@ -111,9 +111,6 @@ export default function MessagesScreen() {
               Your recent conversations
             </ThemedText>
           </View>
-          <TouchableOpacity style={[styles.newMessageButton, { backgroundColor: colorPalette.primary }]}>
-            <MaterialIcons name="message" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
         {/* Search and Filter */}
@@ -141,15 +138,7 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Admin Section */}
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-            Admin Support
-          </ThemedText>
-          <ThemedText type="default" style={[styles.sectionSubtitle, { color: subtitleColor }]}>
-            Get help from our team
-          </ThemedText>
-        </View>
+        {/* Admin Section header removed as requested */}
 
         {ADMIN_USERS.map((admin) => (
           <TouchableOpacity 
@@ -168,7 +157,7 @@ export default function MessagesScreen() {
               </View>
               <View style={styles.messageDetails}>
                 <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
-                  {admin.name}
+                  Admin
                 </ThemedText>
                 <ThemedText 
                   numberOfLines={1} 
@@ -184,41 +173,7 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Total Messages
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {filteredMessages.length}
-            </ThemedText>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Unread
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: '#00B2FF' }]}>
-              {filteredMessages.filter(m => m.unread).length}
-            </ThemedText>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Today
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {filteredMessages.filter(m => {
-                const msgTime = m.time?.toDate?.() || new Date();
-                const now = new Date();
-                return (
-                  msgTime.getDate() === now.getDate() &&
-                  msgTime.getMonth() === now.getMonth() &&
-                  msgTime.getFullYear() === now.getFullYear()
-                );
-              }).length}
-            </ThemedText>
-          </View>
-        </View>
+        {/* Stats removed as requested */}
 
         {/* Message List Header */}
         <View style={styles.sectionHeader}>
@@ -249,7 +204,7 @@ export default function MessagesScreen() {
                   color: message.unread ? textColor : subtitleColor,
                   fontWeight: message.unread ? '600' : '400'
                 }]}>
-                  {message.name}
+                  {getFirstName(message.name)}
                 </ThemedText>
                 <ThemedText 
                   numberOfLines={1} 

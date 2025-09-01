@@ -61,6 +61,7 @@ const messages = [
 ];
 
 export default function MessagesScreen() {
+  const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
   const { colorScheme } = useColorScheme();
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
@@ -98,9 +99,6 @@ export default function MessagesScreen() {
               Your recent conversations
             </ThemedText>
           </View>
-          <TouchableOpacity style={[styles.newMessageButton, { backgroundColor: colorPalette.primary }]}>
-            <MaterialIcons name="message" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
         {/* Search and Filter */}
@@ -132,33 +130,7 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Message Stats */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Total Messages
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {filteredMessages.length}
-            </ThemedText>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Unread
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: '#00B2FF' }]}>
-              {filteredMessages.filter(m => m.unread).length}
-            </ThemedText>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Today
-            </ThemedText>
-            <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {filteredMessages.filter(m => m.time.includes('minute') || m.time.includes('hour')).length}
-            </ThemedText>
-          </View>
-        </View>
+        {/* Message Stats removed as requested */}
 
         {/* Message List Header */}
         <View style={[styles.listHeader, { borderBottomColor: borderColor }]}>
@@ -192,7 +164,7 @@ export default function MessagesScreen() {
                   color: message.unread ? textColor : subtitleColor,
                   fontWeight: message.unread ? '600' : '400'
                 }]}>
-                  {message.name}
+                  {getFirstName(message.name)}
                 </ThemedText>
                 <ThemedText 
                   numberOfLines={1} 
