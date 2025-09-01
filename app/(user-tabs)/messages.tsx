@@ -2,8 +2,12 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { onValue, query, ref, orderByChild } from "firebase/database";
+import { db } from "../firebaseConfig";
+import { useRouter } from 'expo-router'; // Change from useNavigation to useRouter
+import { isAdminEmail } from '../config/adminConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -16,54 +20,17 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Sample message data
-const messages = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    lastMessage: 'Hey, just checking in about the apartment',
-    time: '2 hours ago',
-    avatar: 'AJ',
-    unread: true,
-  },
-  {
-    id: '2',
-    name: 'Maria Garcia',
-    lastMessage: 'Your laundry will be ready by 5pm',
-    time: '1 day ago',
-    avatar: 'MG',
-    unread: false,
-  },
-  {
-    id: '3',
-    name: 'James Wilson',
-    lastMessage: 'Your car service is complete',
-    time: '1 week ago',
-    avatar: 'JW',
-    unread: false,
-  },
-  {
-    id: '4',
-    name: 'Sarah Lee',
-    lastMessage: 'The rent payment was received, thank you!',
-    time: '3 hours ago',
-    avatar: 'SL',
-    unread: true,
-  },
-  {
-    id: '5',
-    name: 'David Kim',
-    lastMessage: 'Need to schedule another cleaning',
-    time: '5 minutes ago',
-    avatar: 'DK',
-    unread: true,
-  },
+// Admin data - you might want to fetch this from Firebase or another source
+const ADMIN_USERS = [
+  { id: '1', name: 'Jayvee Briani', email: 'jayveebriani@gmail.com', avatar: 'JB' },
+  { id: '2', name: 'Pedro Admin', email: 'pedro1@gmail.com', avatar: 'PA' },
 ];
 
 export default function MessagesScreen() {
   const { colorScheme } = useColorScheme();
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
+  const router = useRouter(); // Use Expo Router's useRouter instead of useNavigation
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -72,10 +39,40 @@ export default function MessagesScreen() {
   const borderColor = isDark ? '#333' : '#eee';
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
 
-  // Filtering state and logic
+  // Firebase messages state
+  const [messages, setMessages] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
+  // Get current user email (you'll need to replace this with your actual auth)
+  const currentUserEmail = 'user@example.com'; // Replace with actual user email
+
+  // ✅ Real-time listener
+  useEffect(() => {
+    const messagesRef = query(ref(db, "messages"), orderByChild("time"));
+
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Convert object to array
+        const fetched = Object.keys(data)
+          .map((key) => ({
+            id: key,
+            ...data[key],
+          }))
+          // sort newest first
+          .sort((a, b) => b.time - a.time);
+
+        setMessages(fetched as any[]);
+      } else {
+        setMessages([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Filtering
   const filteredMessages = messages.filter(message => {
     const matchesSearch =
       message.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -84,6 +81,22 @@ export default function MessagesScreen() {
       filter === 'all' ? true : message.unread;
     return matchesSearch && matchesFilter;
   });
+
+  const handleAdminChat = (admin: any) => {
+    // Generate a unique chat ID based on user and admin emails
+    const chatId = [currentUserEmail, admin.email].sort().join('_');
+    
+    // Use Expo Router's push method instead of navigation.navigate
+    router.push({
+      pathname: `/`,
+      params: {
+        chatId,
+        recipientName: admin.name,
+        recipientEmail: admin.email,
+        currentUserEmail,
+      }
+    });
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -115,11 +128,7 @@ export default function MessagesScreen() {
           />
           <TouchableOpacity
             style={styles.filterButton}
-            onPress={() =>
-              setFilter(
-                filter === 'all' ? 'unread' : 'all'
-              )
-            }
+            onPress={() => setFilter(filter === 'all' ? 'unread' : 'all')}
           >
             <MaterialIcons 
               name={filter === 'unread' ? "mark-email-read" : "mark-email-unread"} 
@@ -132,7 +141,50 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Message Stats */}
+        {/* Admin Section */}
+        <View style={styles.sectionHeader}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+            Admin Support
+          </ThemedText>
+          <ThemedText type="default" style={[styles.sectionSubtitle, { color: subtitleColor }]}>
+            Get help from our team
+          </ThemedText>
+        </View>
+
+        {ADMIN_USERS.map((admin) => (
+          <TouchableOpacity 
+            key={admin.id}
+            style={[styles.messageCard, { 
+              backgroundColor: cardBgColor, 
+              borderColor,
+            }]}
+            onPress={() => handleAdminChat(admin)}
+          >
+            <View style={[styles.messageInfo, { flex: 4 }]}>
+              <View style={[styles.avatar, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
+                  {admin.avatar}
+                </ThemedText>
+              </View>
+              <View style={styles.messageDetails}>
+                <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
+                  {admin.name}
+                </ThemedText>
+                <ThemedText 
+                  numberOfLines={1} 
+                  style={[styles.lastMessage, { color: subtitleColor }]}
+                >
+                  Available for support
+                </ThemedText>
+              </View>
+            </View>
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <MaterialIcons name="chat" size={20} color={colorPalette.primary} />
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
             <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
@@ -155,18 +207,23 @@ export default function MessagesScreen() {
               Today
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {filteredMessages.filter(m => m.time.includes('minute') || m.time.includes('hour')).length}
+              {filteredMessages.filter(m => {
+                const msgTime = m.time?.toDate?.() || new Date();
+                const now = new Date();
+                return (
+                  msgTime.getDate() === now.getDate() &&
+                  msgTime.getMonth() === now.getMonth() &&
+                  msgTime.getFullYear() === now.getFullYear()
+                );
+              }).length}
             </ThemedText>
           </View>
         </View>
 
         {/* Message List Header */}
-        <View style={[styles.listHeader, { borderBottomColor: borderColor }]}>
-          <ThemedText type="default" style={[styles.headerText, { color: subtitleColor, flex: 4 }]}>
-            Conversation
-          </ThemedText>
-          <ThemedText type="default" style={[styles.headerText, { color: subtitleColor, flex: 1, textAlign: 'right' }]}>
-            Time
+        <View style={styles.sectionHeader}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+            Recent Conversations
           </ThemedText>
         </View>
 
@@ -207,7 +264,7 @@ export default function MessagesScreen() {
             </View>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
-                {message.time}
+                {message.time?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </ThemedText>
               {message.unread && (
                 <View style={styles.unreadBadge}>
@@ -274,10 +331,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    marginTop: 20,
   },
   statCard: {
     width: '32%',
@@ -296,18 +365,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    marginBottom: 8,
-  },
-  headerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   messageCard: {
     flexDirection: 'row',
