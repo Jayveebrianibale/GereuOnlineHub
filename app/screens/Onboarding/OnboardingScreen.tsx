@@ -18,20 +18,20 @@ const onboardingData = [
   {
     id: 1,
     title: 'Welcome to Gereu Online Hub',
-    description: 'Your one-stop mobile platform for apartment rentals, laundry services, and hardware assistance — all within the Gereu Building.',
+    description: 'Your one-stop mobile platform for apartment rentals, laundry services, and car and motor parts assistance — all within the Gereu Building.',
     image: require('../../../assets/images/onboarding1.png'),
   },
   {
 
     id: 2,
     title: 'Everything in One Place',
-    description: 'Access available apartment units, laundry options, and hardware services with real-time updates and transparent pricing — all from your phone.',
+    description: 'Access available apartment units, laundry options, and car and motor parts services with real-time updates and transparent pricing — all from your phone.',
     image: require('../../../assets/images/onboarding2.png'),
   },
   {
     id: 3,
     title: 'Stay Informed, Stay Connected',
-    description: 'Get notified when your laundry is ready, book apartments, or connect with hardware service providers. All without waiting in line.',
+    description: 'Get notified when your laundry is ready, book apartments, or connect with car and motor parts service providers. All without waiting in line.',
     image: require('../../../assets/images/onboarding3.png'),
   },
 ];
