@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router'; // Change from useNavigation to useRout
 import { onValue, orderByChild, query, ref } from "firebase/database";
 import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
 const colorPalette = {
@@ -19,6 +20,21 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
+// Interface for real-time messages
+interface Message {
+  id: string;
+  name: string;
+  lastMessage: string;
+  time: number;
+  avatar: string;
+  unread: boolean;
+  chatId: string;
+  senderEmail: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  senderName?: string;
+}
+
 // Admin data - you might want to fetch this from Firebase or another source
 const ADMIN_USERS = [
   { id: '1', name: 'Jayvee Briani', email: 'jayveebriani@gmail.com', avatar: 'JB' },
@@ -31,6 +47,7 @@ export default function MessagesScreen() {
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
   const router = useRouter(); // Use Expo Router's useRouter instead of useNavigation
+  const { user } = useAuthContext(); // Get current user from auth context
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -44,56 +61,135 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  // Get current user email (you'll need to replace this with your actual auth)
-  const currentUserEmail = 'user@example.com'; // Replace with actual user email
+  // Get current user email from auth context
+  const currentUserEmail = user?.email || '';
 
   // ✅ Real-time listener
   useEffect(() => {
+    if (!currentUserEmail) return;
+
     const messagesRef = query(ref(db, "messages"), orderByChild("time"));
 
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Convert object to array
+        
+        console.log('User - Raw Firebase data:', data);
+        console.log('User email:', currentUserEmail);
+        
+        // Convert object to array and process messages
         const fetched = Object.keys(data)
           .map((key) => ({
             id: key,
             ...data[key],
           }))
-          // sort newest first
+          // Filter messages where user is recipient or sender
+          .filter((msg: any) => {
+            const isUserRecipient = msg.recipientEmail === currentUserEmail;
+            const isUserSender = msg.senderEmail === currentUserEmail;
+            
+            console.log('User message filter:', {
+              messageId: msg.id,
+              recipientEmail: msg.recipientEmail,
+              senderEmail: msg.senderEmail,
+              userEmail: currentUserEmail,
+              isUserRecipient,
+              isUserSender,
+              included: isUserRecipient || isUserSender,
+              text: msg.text
+            });
+            
+            return isUserRecipient || isUserSender;
+          })
+          // Group by chatId and get the latest message from each chat
+          .reduce((acc: any[], msg: any) => {
+            const existingChat = acc.find(chat => chat.chatId === msg.chatId);
+            const messageTime = msg.timestamp || msg.time;
+            
+            if (!existingChat || messageTime > existingChat.time) {
+              // Remove existing chat and add this one
+              const filtered = acc.filter(chat => chat.chatId !== msg.chatId);
+              
+              const chatMessage = {
+                id: msg.id,
+                name: msg.senderEmail === currentUserEmail ? msg.recipientName || 'Admin' : msg.senderName || 'Admin',
+                lastMessage: msg.text,
+                time: messageTime,
+                avatar: msg.senderEmail === currentUserEmail ? 
+                  (msg.recipientName || 'A').charAt(0).toUpperCase() : 
+                  (msg.senderName || 'A').charAt(0).toUpperCase(),
+                unread: msg.senderEmail !== currentUserEmail, // Mark as unread if not sent by user
+                chatId: msg.chatId,
+                senderEmail: msg.senderEmail,
+                recipientEmail: msg.recipientEmail,
+                recipientName: msg.recipientName,
+              };
+              
+              console.log('User - Adding chat message:', chatMessage);
+              
+              return [...filtered, chatMessage];
+            }
+            return acc;
+          }, [])
+          // Sort by time (newest first)
           .sort((a, b) => b.time - a.time);
 
-        setMessages(fetched as any[]);
+        setMessages(fetched);
       } else {
         setMessages([]);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUserEmail]);
 
   // Filtering
   const filteredMessages = messages.filter(message => {
+    // Add null checks and fallbacks for potentially undefined properties
+    const messageName = message.name || '';
+    const messageLastMessage = message.lastMessage || '';
+    
     const matchesSearch =
-      message.name.toLowerCase().includes(search.toLowerCase()) ||
-      message.lastMessage.toLowerCase().includes(search.toLowerCase());
+      messageName.toLowerCase().includes(search.toLowerCase()) ||
+      messageLastMessage.toLowerCase().includes(search.toLowerCase());
     const matchesFilter =
       filter === 'all' ? true : message.unread; 
     return matchesSearch && matchesFilter;
   });
 
   const handleAdminChat = (admin: any) => {
+    // Check if user is authenticated
+    if (!currentUserEmail) {
+      // You might want to show an alert or redirect to login
+      return;
+    }
+    
     // Generate a unique chat ID based on user and admin emails
     const chatId = [currentUserEmail, admin.email].sort().join('_');
     
-    // Use Expo Router's push method instead of navigation.navigate
+    // Navigate to the chat route with proper parameters
     router.push({
-      pathname: `/`,
+      pathname: '/chat/[id]',
       params: {
+        id: chatId,
         chatId,
         recipientName: admin.name,
         recipientEmail: admin.email,
         currentUserEmail,
+      }
+    });
+  };
+
+  const handleMessageClick = (message: Message) => {
+    // Navigate to chat with the admin
+    router.push({
+      pathname: '/chat/[id]',
+      params: {
+        id: message.chatId,
+        chatId: message.chatId,
+        recipientName: message.name,
+        recipientEmail: message.senderEmail === currentUserEmail ? message.recipientEmail || 'admin@example.com' : message.senderEmail,
+        currentUserEmail: currentUserEmail,
       }
     });
   };
@@ -140,14 +236,31 @@ export default function MessagesScreen() {
 
         {/* Admin Section header removed as requested */}
 
+        {!currentUserEmail && (
+          <View style={[styles.messageCard, { 
+            backgroundColor: cardBgColor, 
+            borderColor,
+            opacity: 0.8,
+          }]}>
+            <View style={styles.messageInfo}>
+              <Ionicons name="information-circle" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
+              <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
+                Please sign in to chat with admins
+              </ThemedText>
+            </View>
+          </View>
+        )}
+
         {ADMIN_USERS.map((admin) => (
           <TouchableOpacity 
             key={admin.id}
             style={[styles.messageCard, { 
               backgroundColor: cardBgColor, 
               borderColor,
+              opacity: currentUserEmail ? 1 : 0.6,
             }]}
             onPress={() => handleAdminChat(admin)}
+            disabled={!currentUserEmail}
           >
             <View style={[styles.messageInfo, { flex: 4 }]}>
               <View style={[styles.avatar, { backgroundColor: colorPalette.primary }]}>
@@ -183,20 +296,35 @@ export default function MessagesScreen() {
         </View>
 
         {/* Message List */}
-        {filteredMessages.map((message) => (
-          <TouchableOpacity 
-            key={message.id} 
-            style={[styles.messageCard, { 
-              backgroundColor: cardBgColor, 
-              borderColor,
-              borderLeftWidth: message.unread ? 4 : 0,
-              borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
-            }]}
-          >
+        {filteredMessages.length === 0 ? (
+          <View style={[styles.messageCard, { 
+            backgroundColor: cardBgColor, 
+            borderColor,
+            opacity: 0.8,
+          }]}>
+            <View style={styles.messageInfo}>
+              <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
+              <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
+                No conversations yet. Start chatting with admins above.
+              </ThemedText>
+            </View>
+          </View>
+        ) : (
+          filteredMessages.map((message) => (
+            <TouchableOpacity 
+              key={message.id} 
+              style={[styles.messageCard, { 
+                backgroundColor: cardBgColor, 
+                borderColor,
+                borderLeftWidth: message.unread ? 4 : 0,
+                borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
+              }]}
+              onPress={() => handleMessageClick(message)}
+            >
             <View style={[styles.messageInfo, { flex: 4 }]}>
               <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
                 <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
-                  {message.avatar}
+                  {message.avatar || 'U'}
                 </ThemedText>
               </View>
               <View style={styles.messageDetails}>
@@ -204,7 +332,7 @@ export default function MessagesScreen() {
                   color: message.unread ? textColor : subtitleColor,
                   fontWeight: message.unread ? '600' : '400'
                 }]}>
-                  {getFirstName(message.name)}
+                  {getFirstName(message.name || 'Unknown')}
                 </ThemedText>
                 <ThemedText 
                   numberOfLines={1} 
@@ -213,13 +341,13 @@ export default function MessagesScreen() {
                     fontWeight: message.unread ? '500' : '400'
                   }]}
                 >
-                  {message.lastMessage}
+                  {message.lastMessage || 'No message'}
                 </ThemedText>
               </View>
             </View>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
-                {message.time?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {message.time ? new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
               </ThemedText>
               {message.unread && (
                 <View style={styles.unreadBadge}>
@@ -228,7 +356,8 @@ export default function MessagesScreen() {
               )}
             </View>
           </TouchableOpacity>
-        ))}
+        ))
+        )}
       </ScrollView>
     </ThemedView>
   );

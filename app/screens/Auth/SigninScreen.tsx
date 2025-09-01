@@ -43,7 +43,7 @@ export default function SigninScreen() {
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
       setTimeout(() => {
-        if (user.email && user.email.toLowerCase() === 'pedro1@gmail.com') {
+        if (user.email && user.email.toLowerCase() === 'pedro1@gmail.com', 'jayveebriani@gmail.com') {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');

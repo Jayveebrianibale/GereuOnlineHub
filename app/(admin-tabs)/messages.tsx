@@ -2,8 +2,12 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { onValue, orderByChild, query, ref } from "firebase/database";
+import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuthContext } from '../contexts/AuthContext';
+import { db } from "../firebaseConfig";
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -16,55 +20,27 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Sample message data
-const messages = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    lastMessage: 'Hey, just checking in about the apartment',
-    time: '2 hours ago',
-    avatar: 'AJ',
-    unread: true,
-  },
-  {
-    id: '2',
-    name: 'Maria Garcia',
-    lastMessage: 'Your laundry will be ready by 5pm',
-    time: '1 day ago',
-    avatar: 'MG',
-    unread: false,
-  },
-  {
-    id: '3',
-    name: 'James Wilson',
-    lastMessage: 'Your car service is complete',
-    time: '1 week ago',
-    avatar: 'JW',
-    unread: false,
-  },
-  {
-    id: '4',
-    name: 'Sarah Lee',
-    lastMessage: 'The rent payment was received, thank you!',
-    time: '3 hours ago',
-    avatar: 'SL',
-    unread: true,
-  },
-  {
-    id: '5',
-    name: 'David Kim',
-    lastMessage: 'Need to schedule another cleaning',
-    time: '5 minutes ago',
-    avatar: 'DK',
-    unread: true,
-  },
-];
+// Interface for real-time messages
+interface Message {
+  id: string;
+  name: string;
+  lastMessage: string;
+  time: number;
+  avatar: string;
+  unread: boolean;
+  chatId: string;
+  senderEmail: string;
+  recipientEmail?: string;
+  recipientName?: string;
+}
 
 export default function MessagesScreen() {
   const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
   const { colorScheme } = useColorScheme();
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
+  const { user } = useAuthContext();
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -73,9 +49,91 @@ export default function MessagesScreen() {
   const borderColor = isDark ? '#333' : '#eee';
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
 
-  // Filtering state and logic
+  // Firebase messages state
+  const [messages, setMessages] = useState<Message[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  // ✅ Real-time listener for admin messages
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const messagesRef = query(ref(db, "messages"), orderByChild("time"));
+
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        
+        console.log('Admin - Raw Firebase data:', data);
+        console.log('Admin email:', user.email);
+        
+        // Convert object to array and process messages
+        const fetched = Object.keys(data)
+          .map((key) => ({
+            id: key,
+            ...data[key],
+          }))
+          // Filter messages where admin is recipient or sender
+          .filter((msg: any) => {
+            // Include messages where admin is the recipient (from users)
+            // or where admin is the sender (admin's own messages)
+            const isAdminRecipient = msg.recipientEmail === user.email;
+            const isAdminSender = msg.senderEmail === user.email;
+            
+            console.log('Admin message filter:', {
+              messageId: msg.id,
+              recipientEmail: msg.recipientEmail,
+              senderEmail: msg.senderEmail,
+              adminEmail: user.email,
+              isAdminRecipient,
+              isAdminSender,
+              included: isAdminRecipient || isAdminSender,
+              text: msg.text
+            });
+            
+            return isAdminRecipient || isAdminSender;
+          })
+          // Group by chatId and get the latest message from each chat
+          .reduce((acc: any[], msg: any) => {
+            const existingChat = acc.find(chat => chat.chatId === msg.chatId);
+            const messageTime = msg.timestamp || msg.time;
+            
+            if (!existingChat || messageTime > existingChat.time) {
+              // Remove existing chat and add this one
+              const filtered = acc.filter(chat => chat.chatId !== msg.chatId);
+              
+              const chatMessage = {
+                id: msg.id,
+                name: msg.senderEmail === user.email ? msg.recipientName || 'User' : msg.senderName || 'User',
+                lastMessage: msg.text,
+                time: messageTime,
+                avatar: msg.senderEmail === user.email ? 
+                  (msg.recipientName || 'U').charAt(0).toUpperCase() : 
+                  (msg.senderName || 'U').charAt(0).toUpperCase(),
+                unread: msg.senderEmail !== user.email, // Mark as unread if not sent by admin
+                chatId: msg.chatId,
+                senderEmail: msg.senderEmail,
+                recipientEmail: msg.recipientEmail,
+                recipientName: msg.recipientName,
+              };
+              
+              console.log('Admin - Adding chat message:', chatMessage);
+              
+              return [...filtered, chatMessage];
+            }
+            return acc;
+          }, [])
+          // Sort by time (newest first)
+          .sort((a, b) => b.time - a.time);
+
+        setMessages(fetched);
+      } else {
+        setMessages([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.email]);
 
   const filteredMessages = messages.filter(message => {
     const matchesSearch =
@@ -85,6 +143,20 @@ export default function MessagesScreen() {
       filter === 'all' ? true : message.unread;
     return matchesSearch && matchesFilter;
   });
+
+  const handleMessageClick = (message: Message) => {
+    // Navigate to chat with the user
+    router.push({
+      pathname: '/chat/[id]',
+      params: {
+        id: message.chatId,
+        chatId: message.chatId,
+        recipientName: message.name,
+        recipientEmail: message.senderEmail === user?.email ? message.recipientEmail || 'user@example.com' : message.senderEmail,
+        currentUserEmail: user?.email || '',
+      }
+    });
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -143,7 +215,21 @@ export default function MessagesScreen() {
         </View>
 
         {/* Message List */}
-        {filteredMessages.map((message) => (
+        {filteredMessages.length === 0 ? (
+          <View style={[styles.messageCard, { 
+            backgroundColor: cardBgColor, 
+            borderColor,
+            opacity: 0.8,
+          }]}>
+            <View style={styles.messageInfo}>
+              <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
+              <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
+                No messages yet. Users will appear here when they message you.
+              </ThemedText>
+            </View>
+          </View>
+        ) : (
+          filteredMessages.map((message) => (
           <TouchableOpacity 
             key={message.id} 
             style={[styles.messageCard, { 
@@ -152,6 +238,7 @@ export default function MessagesScreen() {
               borderLeftWidth: message.unread ? 4 : 0,
               borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
             }]}
+            onPress={() => handleMessageClick(message)}
           >
             <View style={[styles.messageInfo, { flex: 4 }]}>
               <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
@@ -179,7 +266,7 @@ export default function MessagesScreen() {
             </View>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
-                {message.time}
+                {message.time ? new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
               </ThemedText>
               {message.unread && (
                 <View style={styles.unreadBadge}>
@@ -188,7 +275,8 @@ export default function MessagesScreen() {
               )}
             </View>
           </TouchableOpacity>
-        ))}
+        ))
+        )}
       </ScrollView>
     </ThemedView>
   );

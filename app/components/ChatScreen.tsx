@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform,
-  Alert
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/components/ColorSchemeContext';
-import { ref, push, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
-import { db } from '../firebaseConfig';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { equalTo, off, onValue, orderByChild, push, query, ref } from 'firebase/database';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
+import { useAuthContext } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
 
 interface Message {
   id: string;
@@ -24,19 +26,39 @@ interface Message {
   senderEmail: string;
   timestamp: number;
   isAdmin: boolean;
+  recipientEmail?: string;
+  recipientName?: string;
+  senderName?: string;
 }
 
 interface ChatScreenProps {
   route: any;
-  navigation: any;
+  navigation?: any;
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { colorScheme } = useColorScheme();
-  const { chatId, recipientName, recipientEmail, currentUserEmail } = route.params;
+  const router = useRouter();
+  const { user } = useAuthContext();
+  const { chatId, recipientName, recipientEmail } = route.params;
+  const currentUserEmail = user?.email || '';
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const isDark = colorScheme === 'dark';
+
+  // Debug logging for user context
+  console.log('ChatScreen - User context:', {
+    user: user,
+    currentUserEmail: currentUserEmail,
+    chatId: chatId,
+    recipientName: recipientName,
+    recipientEmail: recipientEmail
+  });
+
+  // Check if user is authenticated
+  if (!currentUserEmail) {
+    console.warn('No current user email found - user may not be authenticated');
+  }
 
   const bgColor = isDark ? '#121212' : '#fff';
   const textColor = isDark ? '#fff' : '#000';
@@ -45,15 +67,20 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const adminBubbleBgColor = isDark ? '#004d40' : '#b2dfdb';
 
   useEffect(() => {
-    navigation.setOptions({
-      title: recipientName,
-    });
+    // Only set navigation options if navigation is available
+    if (navigation) {
+      navigation.setOptions({
+        title: recipientName,
+      });
+    }
 
     const messagesRef = query(
       ref(db, 'messages'),
       orderByChild('chatId'),
       equalTo(chatId)
     );
+
+    console.log('Querying messages for chatId:', chatId);
 
     const handleData = (snapshot: any) => {
       if (snapshot.exists()) {
@@ -63,7 +90,20 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           ...data[key],
         })).sort((a, b) => a.timestamp - b.timestamp);
         
-        setMessages(messagesList);
+        // Debug logging for messages
+        console.log('Fetched messages:', messagesList);
+        console.log('Current user email:', currentUserEmail);
+        
+        // Filter messages to only show those for the current chat
+        const chatMessages = messagesList.filter(msg => msg.chatId === chatId);
+        console.log('Filtered chat messages:', chatMessages);
+        console.log('Chat ID being filtered:', chatId);
+        
+        // Sort messages by timestamp (oldest first for chat flow)
+        const sortedMessages = chatMessages.sort((a, b) => (a.timestamp || a.time) - (b.timestamp || b.time));
+        console.log('Sorted messages:', sortedMessages);
+        
+        setMessages(sortedMessages);
       } else {
         setMessages([]);
       }
@@ -77,7 +117,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }, [chatId]);
 
   const sendMessage = async () => {
-    if (newMessage.trim() === '') return;
+    if (newMessage.trim() === '' || !currentUserEmail) return;
 
     try {
       const messageData = {
@@ -87,7 +127,19 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         timestamp: Date.now(),
         chatId: chatId,
         isAdmin: isAdminEmail(currentUserEmail),
+        // Add recipient information for admin messages
+        recipientEmail: recipientEmail,
+        recipientName: recipientName,
+        // Add sender name for user messages
+        senderName: isAdminEmail(currentUserEmail) ? 'Admin' : currentUserEmail.split('@')[0],
+        // Add time field for proper sorting
+        time: Date.now(),
       };
+
+      console.log('Sending message:', messageData);
+      console.log('Current user email:', currentUserEmail);
+      console.log('Chat ID:', chatId);
+      console.log('Recipient email:', recipientEmail);
 
       await push(ref(db, 'messages'), messageData);
       setNewMessage('');
@@ -98,13 +150,30 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
+    // Determine if this message is from the current user
     const isCurrentUser = item.senderEmail === currentUserEmail;
+    
+    // Debug logging to see what's happening
+    console.log('Message:', {
+      senderEmail: item.senderEmail,
+      currentUserEmail: currentUserEmail,
+      isCurrentUser: isCurrentUser,
+      text: item.text
+    });
+    
+    // Ensure we have valid data for positioning
+    if (!item.senderEmail || !currentUserEmail) {
+      console.warn('Missing email data for message positioning');
+    }
+    
+    // Add case-insensitive comparison as fallback
+    const isCurrentUserFallback = item.senderEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
     
     return (
       <View style={[
         styles.messageBubble, 
-        isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
-        { backgroundColor: isCurrentUser ? adminBubbleBgColor : bubbleBgColor }
+        (isCurrentUser || isCurrentUserFallback) ? styles.currentUserBubble : styles.otherUserBubble,
+        { backgroundColor: (isCurrentUser || isCurrentUserFallback) ? adminBubbleBgColor : bubbleBgColor }
       ]}>
         <ThemedText style={[styles.messageText, { color: textColor }]}>
           {item.text}
@@ -112,12 +181,33 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         <ThemedText style={[styles.timestamp, { color: isDark ? '#aaa' : '#666' }]}>
           {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </ThemedText>
+        <ThemedText style={[styles.senderLabel, { color: isDark ? '#aaa' : '#666', fontSize: 10 }]}>
+          {(isCurrentUser || isCurrentUserFallback) ? 'You' : (item.senderName || 'User')}
+        </ThemedText>
       </View>
     );
   };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: isDark ? '#333' : '#eee' }]}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={textColor} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+            {recipientName}
+          </ThemedText>
+          <ThemedText type="default" style={[styles.headerSubtitle, { color: isDark ? '#aaa' : '#666' }]}>
+            {recipientEmail}
+          </ThemedText>
+        </View>
+      </View>
+      
       <FlatList
         data={messages}
         renderItem={renderMessage}
@@ -162,6 +252,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    paddingTop: 50, // Account for status bar
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
   messagesList: {
     padding: 16,
   },
@@ -186,6 +299,12 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 10,
     alignSelf: 'flex-end',
+  },
+  senderLabel: {
+    fontSize: 10,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    opacity: 0.7,
   },
   inputContainer: {
     flexDirection: 'row',

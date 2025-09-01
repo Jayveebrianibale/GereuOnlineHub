@@ -53,7 +53,8 @@ export default function UserTabLayout() {
       />
       <Tabs.Screen
           name="messages"
-          options={{
+          options={{  
+              headerShown: false,
               title: 'Messages',
               tabBarIcon: ({ color, size }) => <MaterialIcons name="message" size={size} color={color} />,
             }}
