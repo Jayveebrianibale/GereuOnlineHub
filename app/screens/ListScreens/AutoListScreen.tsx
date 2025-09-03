@@ -404,9 +404,9 @@ export default function AutoListScreen() {
                      </View>
                      
                      <View style={styles.detailActions}>
-                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}>
-                         <MaterialIcons name="phone" size={20} color="#fff" />
-                         <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
+                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} onPress={() => router.push('/(user-tabs)/messages')}>
+                         <MaterialIcons name="message" size={20} color="#fff" />
+                         <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
                        <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
                          <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>

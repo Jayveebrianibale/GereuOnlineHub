@@ -404,13 +404,10 @@ export default function LaundryListScreen() {
                      <View style={styles.detailActions}>
                        <TouchableOpacity
                          style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
-                         onPress={() => {
-                           // TODO: Implement contact service logic
-                           alert('Contact Service feature coming soon!');
-                         }}
-                       >
-                         <MaterialIcons name="phone" size={20} color="#fff" />
-                         <ThemedText style={styles.contactButtonText}>Contact</ThemedText>
+                         onPress={() => router.push('/(user-tabs)/messages')}
+                         >
+                         <MaterialIcons name="message" size={20} color="#fff" />
+                         <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
                        <TouchableOpacity
                          style={[styles.bookButton, { borderColor: colorPalette.primary }]}
