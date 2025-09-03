@@ -28,6 +28,12 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
       return imagePath;
     }
     
+    // If imagePath is a URI or data URL, return it as an object source
+    const lower = imagePath.toLowerCase();
+    if (lower.startsWith('file:') || lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+
     // If the imagePath is a full path, extract just the filename
     const fileName = imagePath.split('/').pop() || imagePath;
     
@@ -55,6 +61,11 @@ export const getImagePath = (imageSource: ImageSourcePropType): string => {
       return path;
     }
     
+    // If not found and it's an object source with a URI, return the URI directly
+    if (typeof imageSource === 'object' && imageSource && (imageSource as any).uri) {
+      return (imageSource as any).uri as string;
+    }
+
     // If not found, return a default path
     return 'apartment1.webp';
   } catch (error) {

@@ -2,6 +2,8 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -12,7 +14,8 @@ import {
     updateApartment,
     type Apartment
 } from '../../services/apartmentService';
-import { getApartmentImages, getImageSource } from '../../utils/imageUtils';
+import { getImageSource } from '../../utils/imageUtils';
+import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -62,6 +65,90 @@ const colorPalette = {
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
     const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
+    const [recentImages, setRecentImages] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (imageSelectionVisible) {
+            (async () => {
+                const recents = await getRecentImages();
+                setRecentImages(recents);
+            })();
+        }
+    }, [imageSelectionVisible]);
+
+    const selectAndClose = async (pathOrUri: string) => {
+        setCurrentApartment({ ...currentApartment, image: pathOrUri });
+        await addRecentImage(pathOrUri);
+        setImageSelectionVisible(false);
+    };
+
+    const processImage = async (uri: string) => {
+        // Crop to 4:3, resize to max width 1280, compress to ~0.7
+        try {
+            setIsProcessingImage(true);
+            const manipResult = await ImageManipulator.manipulateAsync(
+                uri,
+                [
+                    // center crop approximation by resizing then cropping
+                    { resize: { width: 1280 } },
+                ],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            return manipResult.uri;
+        } finally {
+            setIsProcessingImage(false);
+        }
+    };
+
+    const pickImageFromDevice = async () => {
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Please allow photo library access to choose an image.');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 1,
+                allowsEditing: true,
+                aspect: [4, 3],
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const processed = await processImage(result.assets[0].uri);
+                await selectAndClose(processed);
+            }
+        } catch (error) {
+            console.error('Error picking image: ', error);
+            Alert.alert('Error', 'Failed to pick image from device');
+        }
+    };
+
+    const takePhotoWithCamera = async () => {
+        try {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                quality: 1,
+                allowsEditing: true,
+                aspect: [4, 3],
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const processed = await processImage(result.assets[0].uri);
+                await selectAndClose(processed);
+            }
+        } catch (error) {
+            console.error('Error taking photo: ', error);
+            Alert.alert('Error', 'Failed to take photo');
+        }
+    };
 
     // Load apartments from Firebase
     useEffect(() => {
@@ -107,7 +194,7 @@ const colorPalette = {
                 const { id, ...apartmentData } = currentApartment;
                 await updateApartment(id, apartmentData);
                 setApartments(apartments.map(apt =>
-                    apt.id === currentApartment.id ? currentApartment : apt
+                    apt.id === currentApartment.id ? { ...apt, ...currentApartment, image: getImageSource(currentApartment.image) } : apt
                 ));
             }
             setEditModalVisible(false);
@@ -155,14 +242,9 @@ const colorPalette = {
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
     };
     
-    const handleImageSelect = (imagePath: string) => {
-        setCurrentApartment({ ...currentApartment, image: imagePath });
-        setImageSelectionVisible(false);
-    };
-
     const renderApartmentItem = ({ item }: { item: any }) => (
         <View style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}>
-        <Image source={item.image} style={styles.apartmentImage} resizeMode="cover" />
+        <Image source={getImageSource(item.image)} style={styles.apartmentImage} resizeMode="cover" />
         <View style={styles.apartmentContent}>
             <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
             {item.title}
@@ -499,29 +581,67 @@ const colorPalette = {
                         <ThemedText type="title" style={[styles.imageSelectionTitle, { color: textColor }]}>
                             Select Image
                         </ThemedText>
-                        <TouchableOpacity onPress={() => setImageSelectionVisible(false)}>
-                            <MaterialIcons name="close" size={24} color={textColor} />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={takePhotoWithCamera} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="photo-camera" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={pickImageFromDevice} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="photo-library" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={async () => { await clearRecentImages(); setRecentImages([]); }} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="delete-sweep" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setImageSelectionVisible(false)}>
+                                <MaterialIcons name="close" size={24} color={textColor} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                     
-                    <View style={styles.imageGrid}>
-                        {Object.entries(getApartmentImages()).map(([imagePath, imageSource]) => (
-                            <TouchableOpacity
-                                key={imagePath}
-                                style={[
-                                    styles.imageGridItem,
-                                    currentApartment.image === imagePath && styles.selectedImage
-                                ]}
-                                onPress={() => handleImageSelect(imagePath)}
-                            >
-                                <Image
-                                    source={imageSource}
-                                    style={styles.imageGridImage}
-                                    resizeMode="cover"
-                                />
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    {recentImages.length === 0 ? (
+                        <ThemedText style={[styles.confirmText, { color: subtitleColor }]}>No recent images yet. Use the buttons above.</ThemedText>
+                    ) : (
+                        <FlatList
+                            data={recentImages}
+                            keyExtractor={(img) => img}
+                            numColumns={2}
+                            style={{ maxHeight: 420 }}
+                            contentContainerStyle={styles.imageGrid}
+                            columnWrapperStyle={{ justifyContent: 'space-between' }}
+                            renderItem={({ item: img }) => (
+                                <View style={{ width: '47%', marginBottom: 16 }}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.imageGridItem,
+                                            currentApartment.image === img && styles.selectedImage
+                                        ]}
+                                        onPress={() => selectAndClose(img)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Image
+                                            source={getImageSource(img)}
+                                            style={styles.imageGridImage}
+                                            resizeMode="cover"
+                                        />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={async () => { await removeRecentImage(img); const rec = await getRecentImages(); setRecentImages(rec); }}
+                                        style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 14, padding: 4 }}
+                                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                                    >
+                                        <MaterialIcons name="close" size={16} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                            showsVerticalScrollIndicator={true}
+                        />
+                    )}
+
+                    {isProcessingImage && (
+                        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                            <MaterialIcons name="hourglass-top" size={36} color={textColor} />
+                            <ThemedText style={{ marginTop: 8, color: textColor }}>Processing image...</ThemedText>
+                        </View>
+                    )}
                 </View>
             </View>
         </Modal>
@@ -817,16 +937,18 @@ const colorPalette = {
         justifyContent: 'space-between',
     },
     imageGridItem: {
-        width: '30%',
-        marginBottom: 16,
+        width: '100%', // Changed to 100% for full width
+        height: 120,
+        borderRadius: 10,
+        position: 'relative', // Added for absolute positioning of delete badge
     },
     imageGridImage: {
         width: '100%',
-        height: 80,
-        borderRadius: 8,
+        height: '100%',
+        borderRadius: 10,
     },
     selectedImage: {
-        borderWidth: 2,
+        borderWidth: 3,
         borderColor: '#00B2FF',
     },
     });

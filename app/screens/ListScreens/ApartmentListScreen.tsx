@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useReservation } from '../../contexts/ReservationContext';
 import { getApartments } from '../../services/apartmentService';
+import { getImageSource } from '../../utils/imageUtils';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
 
 
@@ -153,17 +154,7 @@ export default function ApartmentListScreen() {
 
   // Function to get image source from Firebase data
   const getApartmentImageSource = (apartment: any) => {
-    if (apartment.imageUrl) {
-      return { uri: apartment.imageUrl };
-    } else if (apartment.image) {
-      // Handle case where image might be a require statement or object
-      return typeof apartment.image === 'string' 
-        ? { uri: apartment.image } 
-        : apartment.image;
-    } else {
-      // Fallback to a default image
-      return placeholderImage;
-    }
+    return getImageSource(apartment.image);
   };
 
   const renderApartmentItem = ({ item }: { item: any }) => (

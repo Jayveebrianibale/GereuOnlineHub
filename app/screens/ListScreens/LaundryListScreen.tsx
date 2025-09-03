@@ -5,6 +5,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { getLaundryServices } from '../../services/laundryService';
+import { getImageSource } from '../../utils/imageUtils';
 
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -137,7 +138,7 @@ export default function LaundryListScreen() {
     <View
       style={[styles.laundryCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={item.image} style={styles.laundryImage} resizeMode="cover" />
+      <Image source={getImageSource(item.image)} style={styles.laundryImage} resizeMode="cover" />
       <View style={styles.laundryContent}>
         <View style={styles.laundryHeader}>
           <ThemedText type="subtitle" style={[styles.laundryTitle, { color: textColor }]}>
@@ -323,7 +324,7 @@ export default function LaundryListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <Image source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
+                   <Image source={getImageSource(selectedLaundryService.image)} style={styles.detailImage} resizeMode="cover" />
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>

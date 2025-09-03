@@ -2,6 +2,8 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -12,6 +14,8 @@ import {
   updateAutoService,
   type AutoService
 } from '../../services/autoService';
+import { getImageSource } from '../../utils/imageUtils';
+import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -30,7 +34,7 @@ const emptyAutoService = {
   title: '',
   price: '',
   duration: '',
-  image: require('@/assets/images/auto2.avif'),
+  image: 'auto2.avif',
   rating: 0,
   reviews: 0,
   description: '',
@@ -58,6 +62,91 @@ export default function AdminAutoManagement() {
   const [isNewService, setIsNewService] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+  const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [recentImages, setRecentImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (imageSelectionVisible) {
+      (async () => {
+        const recents = await getRecentImages();
+        setRecentImages(recents);
+      })();
+    }
+  }, [imageSelectionVisible]);
+
+  const selectAndClose = async (pathOrUri: string) => {
+    setCurrentService({ ...currentService, image: pathOrUri });
+    await addRecentImage(pathOrUri);
+    setImageSelectionVisible(false);
+  };
+
+  const processImage = async (uri: string) => {
+    // Crop to 4:3, resize to max width 1280, compress to ~0.7
+    try {
+      setIsProcessingImage(true);
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        [
+          // center crop approximation by resizing then cropping
+          { resize: { width: 1280 } },
+        ],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return manipResult.uri;
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  const pickImageFromDevice = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow photo library access to choose an image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+        allowsEditing: true,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const processed = await processImage(result.assets[0].uri);
+        await selectAndClose(processed);
+      }
+    } catch (error) {
+      console.error('Error picking image: ', error);
+      Alert.alert('Error', 'Failed to pick image from device');
+    }
+  };
+
+  const takePhotoWithCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 1,
+        allowsEditing: true,
+        aspect: [4, 3],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const processed = await processImage(result.assets[0].uri);
+        await selectAndClose(processed);
+      }
+    } catch (error) {
+      console.error('Error taking photo: ', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
 
   // Load auto services from Firebase
   useEffect(() => {
@@ -159,7 +248,7 @@ export default function AdminAutoManagement() {
 
   const renderServiceItem = ({ item }: { item: any }) => (
     <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}>
-      <Image source={item.image} style={styles.serviceImage} resizeMode="cover" />
+      <Image source={getImageSource(item.image)} style={styles.serviceImage} resizeMode="cover" />
       <View style={styles.serviceContent}>
         <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
           {item.title}
@@ -295,6 +384,24 @@ export default function AdminAutoManagement() {
                   placeholder="e.g. 6 months warranty"
                   placeholderTextColor={subtitleColor}
                 />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Image</ThemedText>
+                <TouchableOpacity
+                  style={[styles.imagePreview, { borderColor }]}
+                  onPress={() => setImageSelectionVisible(true)}
+                >
+                  <Image
+                    source={getImageSource(currentService.image)}
+                    style={styles.imagePreviewImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.imageOverlay}>
+                    <MaterialIcons name="edit" size={20} color="#fff" />
+                    <ThemedText style={styles.imageOverlayText}>Change Image</ThemedText>
+                  </View>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.formGroup}>
@@ -456,10 +563,88 @@ export default function AdminAutoManagement() {
             </View>
           </View>
         </View>
-      </Modal>
-    </ThemedView>
-  );
-}
+              </Modal>
+        
+        {/* Image Selection Modal */}
+        <Modal
+          visible={imageSelectionVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setImageSelectionVisible(false)}
+        >
+          <View style={styles.imageSelectionModal}>
+            <View style={[styles.imageSelectionContainer, { backgroundColor: cardBgColor }]}>
+              <View style={styles.imageSelectionHeader}>
+                <ThemedText type="title" style={[styles.imageSelectionTitle, { color: textColor }]}>
+                  Select Image
+                </ThemedText>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={takePhotoWithCamera} style={{ marginRight: 12 }}>
+                    <MaterialIcons name="photo-camera" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={pickImageFromDevice} style={{ marginRight: 12 }}>
+                    <MaterialIcons name="photo-library" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={async () => { await clearRecentImages(); setRecentImages([]); }} style={{ marginRight: 12 }}>
+                    <MaterialIcons name="delete-sweep" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setImageSelectionVisible(false)}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {recentImages.length === 0 ? (
+                <ThemedText style={[styles.confirmText, { color: subtitleColor }]}>No recent images yet. Use the buttons above.</ThemedText>
+              ) : (
+                <FlatList
+                  data={recentImages}
+                  keyExtractor={(img) => img}
+                  numColumns={2}
+                  style={{ maxHeight: 420 }}
+                  contentContainerStyle={styles.imageGrid}
+                  columnWrapperStyle={{ justifyContent: 'space-between' }}
+                  renderItem={({ item: img }) => (
+                    <View style={{ width: '47%', marginBottom: 16 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.imageGridItem,
+                          currentService.image === img && styles.selectedImage
+                        ]}
+                        onPress={() => selectAndClose(img)}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={getImageSource(img)}
+                          style={styles.imageGridImage}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={async () => { await removeRecentImage(img); const rec = await getRecentImages(); setRecentImages(rec); }}
+                        style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 14, padding: 4 }}
+                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <MaterialIcons name="close" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  showsVerticalScrollIndicator={true}
+                />
+              )}
+
+              {isProcessingImage && (
+                <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                  <MaterialIcons name="hourglass-top" size={36} color={textColor} />
+                  <ThemedText style={{ marginTop: 8, color: textColor }}>Processing image...</ThemedText>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </ThemedView>
+    );
+  }
 
 const styles = StyleSheet.create({
   container: {
@@ -668,5 +853,77 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 6,
     marginLeft: 10,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageOverlayText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  imageSelectionModal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  imageSelectionContainer: {
+    width: '100%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 20,
+  },
+  imageSelectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  imageSelectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  imageGridItem: {
+    width: '100%',
+    height: 120,
+    borderRadius: 10,
+    position: 'relative',
+  },
+  imageGridImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  selectedImage: {
+    borderWidth: 3,
+    borderColor: '#00B2FF',
   },
 });

@@ -9,6 +9,7 @@ import {
     AutoService,
     getAutoServices,
 } from '../../services/autoService';
+import { getImageSource } from '../../utils/imageUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -89,7 +90,7 @@ export default function AutoListScreen() {
     <View
       style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={item.image} style={styles.autoImage} resizeMode="cover" />
+      <Image source={getImageSource(item.image)} style={styles.autoImage} resizeMode="cover" />
       <View style={styles.autoContent}>
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
@@ -327,7 +328,7 @@ export default function AutoListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <Image source={selectedAutoService.image} style={styles.detailImage} resizeMode="cover" />
+                   <Image source={getImageSource(selectedAutoService.image)} style={styles.detailImage} resizeMode="cover" />
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>

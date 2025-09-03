@@ -4,17 +4,17 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { auth } from '../../firebaseConfig';
@@ -25,8 +25,8 @@ export default function SigninScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const router = useRouter();
 
   const handleSignIn = async () => {
@@ -43,7 +43,7 @@ export default function SigninScreen() {
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
       setTimeout(() => {
-        if (user.email && user.email.toLowerCase() === 'pedro1@gmail.com', 'jayveebriani@gmail.com') {
+        if (user.email && (user.email.toLowerCase() === 'pedro1@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com')) {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
