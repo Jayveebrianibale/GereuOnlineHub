@@ -1,4 +1,4 @@
-import { get, push, ref, remove, update, set } from 'firebase/database';
+import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
 
 // Define the LaundryService type

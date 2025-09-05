@@ -3,6 +3,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { formatPHP } from '../utils/currency';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -201,7 +202,7 @@ export default function ReservationsScreen() {
                     styles.detailText, 
                     { color: textColor }
                   ]}>
-                    {reservation.price}
+                    {formatPHP(reservation.price)}
                   </ThemedText>
                 </View>
               </View>

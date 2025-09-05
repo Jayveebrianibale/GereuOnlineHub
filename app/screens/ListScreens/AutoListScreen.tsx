@@ -5,10 +5,12 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useReservation } from '../../contexts/ReservationContext';
 import {
     AutoService,
     getAutoServices,
 } from '../../services/autoService';
+import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 
 const colorPalette = {
@@ -26,6 +28,7 @@ export default function AutoListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
+  const { reservedAutoServices, reserveAutoService, removeAutoReservation } = useReservation();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -39,6 +42,15 @@ export default function AutoListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  const handleAutoReservation = (service: any) => {
+    const isReserved = reservedAutoServices.some(s => s.id === service.id);
+    if (!isReserved) {
+      reserveAutoService(service);
+      router.push('/(user-tabs)/bookings');
+    } else {
+      removeAutoReservation(service.id);
+    }
+  };
   // Removed unused loading state
 
   // Handle navigation parameters
@@ -112,8 +124,8 @@ export default function AutoListScreen() {
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
             <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.price}
+            <ThemedText style={[styles.detailText, { color: textColor }]}> 
+              {formatPHP(item.price)}
             </ThemedText>
           </View>
           <View style={styles.detailItem}>
@@ -156,8 +168,8 @@ export default function AutoListScreen() {
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
-            {item.price}
+          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}> 
+            {formatPHP(item.price)}
           </ThemedText>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
@@ -224,7 +236,7 @@ export default function AutoListScreen() {
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Auto Services
+          Car & Motor Parts
         </ThemedText>
         <TouchableOpacity 
           style={styles.searchButton}
@@ -339,8 +351,8 @@ export default function AutoListScreen() {
                            ({selectedAutoService.reviews} reviews)
                          </ThemedText>
                        </View>
-                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                         {selectedAutoService.price}
+                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
+                         {formatPHP(selectedAutoService.price)}
                        </ThemedText>
                      </View>
                      
@@ -351,8 +363,8 @@ export default function AutoListScreen() {
                      <View style={styles.detailSpecs}>
                        <View style={styles.detailItem}>
                          <MaterialIcons name="attach-money" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedAutoService.price}
+                         <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                           {formatPHP(selectedAutoService.price)}
                          </ThemedText>
                        </View>
                        <View style={styles.detailItem}>
@@ -408,9 +420,28 @@ export default function AutoListScreen() {
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
-                       <TouchableOpacity style={[styles.bookButton, { borderColor: colorPalette.primary }]}>
-                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>
-                           Reserved
+                       <TouchableOpacity
+                         style={[
+                           styles.bookButton,
+                           {
+                             borderColor: colorPalette.primary,
+                             backgroundColor: reservedAutoServices.some(s => s.id === selectedAutoService.id) ? colorPalette.primary : 'transparent',
+                           }
+                         ]}
+                         onPress={() => handleAutoReservation(selectedAutoService)}
+                       >
+                         <MaterialIcons
+                           name={reservedAutoServices.some(s => s.id === selectedAutoService.id) ? 'check-circle' : 'bookmark-border'}
+                           size={20}
+                           color={reservedAutoServices.some(s => s.id === selectedAutoService.id) ? '#fff' : colorPalette.primary}
+                         />
+                         <ThemedText
+                           style={[
+                             styles.bookButtonText,
+                             { color: reservedAutoServices.some(s => s.id === selectedAutoService.id) ? '#fff' : colorPalette.primary }
+                           ]}
+                         >
+                           {reservedAutoServices.some(s => s.id === selectedAutoService.id) ? 'Reserved' : 'Reserve'}
                          </ThemedText>
                        </TouchableOpacity>
                      </View>
@@ -592,9 +623,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   bookButton: {
+    flex: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderWidth: 2,
   },
   bookButtonText: {
     color: '#fff',
@@ -748,10 +781,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   contactButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,

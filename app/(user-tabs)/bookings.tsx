@@ -2,9 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams } from "expo-router";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useReservation } from "../contexts/ReservationContext";
+import { formatPHP } from "../utils/currency";
+import { getImageSource } from "../utils/imageUtils";
 
 
 const colorPalette = {
@@ -22,7 +24,8 @@ const colorPalette = {
 export default function Bookings() {
   const { colorScheme } = useColorScheme();
   const params = useLocalSearchParams();
-  const { reservedApartments } = useReservation();
+  const router = useRouter();
+  const { reservedApartments, reservedLaundryServices, reservedAutoServices } = useReservation();
 
   const isDark = colorScheme === "dark";
   const bgColor = isDark ? "#121212" : "#fff";
@@ -74,13 +77,14 @@ export default function Bookings() {
           </ThemedText>
         </View>
 
-        {/* Booking Cards */}
-       {reservedApartments.length > 0 ? (
+        {/* Booking Cards - Apartments */}
+       {reservedApartments.length > 0 && (
          reservedApartments.map((apt) => (
            <View
              key={apt.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
+             <Image source={getImageSource((apt as any).image)} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -118,14 +122,20 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {apt.price}
+                   {formatPHP(apt.price)}
                  </ThemedText>
                </View>
              </View>
 
              {/* Booking Actions (only "View Details") */}
              <View style={styles.bookingActions}>
-               <TouchableOpacity style={[styles.actionButton, { borderColor }]}> 
+               <TouchableOpacity 
+                 style={[styles.actionButton, { borderColor }]}
+                 onPress={() => router.push({
+                   pathname: "/reservation-details/[id]",
+                   params: { id: apt.id }
+                 })}
+               > 
                  <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
                    View Details
                  </ThemedText>
@@ -133,8 +143,127 @@ export default function Bookings() {
              </View>
            </View>
          ))
-       ) : (
-         <View style={{ alignItems: "center", marginTop: 250 }}>
+       )}
+
+       {/* Booking Cards - Laundry */}
+       {reservedLaundryServices.length > 0 && (
+         reservedLaundryServices.map((svc) => (
+           <View
+             key={svc.id}
+             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+           >
+             <Image source={getImageSource((svc as any).image)} style={styles.coverImage} resizeMode="cover" />
+             {/* Booking Header */}
+             <View style={styles.bookingHeader}>
+               <View style={styles.serviceInfo}>
+                 <MaterialIcons
+                   name={getServiceIcon('Laundry Service') as any}
+                   size={24}
+                   color={colorPalette.primary}
+                 />
+                 <View style={styles.serviceDetails}>
+                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
+                     {svc.title}
+                   </ThemedText>
+                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
+                     Laundry Service
+                   </ThemedText>
+                 </View>
+               </View>
+             </View>
+
+             {/* Booking Details */}
+             <View style={styles.bookingDetails}>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="event" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   Reserved
+                 </ThemedText>
+               </View>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   {formatPHP(svc.price)}
+                 </ThemedText>
+               </View>
+             </View>
+
+             {/* Booking Actions */}
+             <View style={styles.bookingActions}>
+               <TouchableOpacity 
+                 style={[styles.actionButton, { borderColor }]}
+                 onPress={() => router.push({ pathname: '/reservation-details/[id]', params: { id: svc.id, type: 'laundry' } })}
+               > 
+                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
+                   View Details
+                 </ThemedText>
+               </TouchableOpacity>
+             </View>
+           </View>
+         ))
+       )}
+
+       {/* Booking Cards - Car & Motor Parts */}
+       {reservedAutoServices && reservedAutoServices.length > 0 && (
+         reservedAutoServices.map((svc) => (
+           <View
+             key={svc.id}
+             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+           >
+             <Image source={getImageSource((svc as any).image)} style={styles.coverImage} resizeMode="cover" />
+             {/* Booking Header */}
+             <View style={styles.bookingHeader}>
+               <View style={styles.serviceInfo}>
+                 <MaterialIcons
+                   name={getServiceIcon('Auto Service') as any}
+                   size={24}
+                   color={colorPalette.primary}
+                 />
+                 <View style={styles.serviceDetails}>
+                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
+                     {svc.title}
+                   </ThemedText>
+                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
+                     Car & Motor Parts
+                   </ThemedText>
+                 </View>
+               </View>
+             </View>
+
+             {/* Booking Details */}
+             <View style={styles.bookingDetails}>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="event" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   Reserved
+                 </ThemedText>
+               </View>
+               <View style={styles.detailRow}>
+                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                   {formatPHP(svc.price)}
+                 </ThemedText>
+               </View>
+             </View>
+
+             {/* Booking Actions */}
+             <View style={styles.bookingActions}>
+               <TouchableOpacity 
+                 style={[styles.actionButton, { borderColor }]}
+                 onPress={() => router.push({ pathname: '/reservation-details/[id]', params: { id: svc.id, type: 'auto' } })}
+               > 
+                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
+                   View Details
+                 </ThemedText>
+               </TouchableOpacity>
+             </View>
+           </View>
+         ))
+       )}
+
+       {/* Empty state */}
+       {reservedApartments.length === 0 && reservedLaundryServices.length === 0 && (!reservedAutoServices || reservedAutoServices.length === 0) && (
+         <View style={{ alignItems: 'center', marginTop: 250 }}>
            <ThemedText style={{ color: subtitleColor }}>No reservations yet.</ThemedText>
          </View>
        )}
@@ -165,7 +294,7 @@ const styles = StyleSheet.create({
   },
   bookingCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 0,
     marginBottom: 16,
     borderWidth: 1,
     shadowColor: '#000',
@@ -173,12 +302,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: 160,
+  },
+  cardBody: {
+    padding: 16,
   },
   bookingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   serviceInfo: {
     flexDirection: 'row',
@@ -209,6 +348,7 @@ const styles = StyleSheet.create({
   },
   bookingDetails: {
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   detailRow: {
     flexDirection: 'row',
@@ -222,6 +362,8 @@ const styles = StyleSheet.create({
   bookingActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   actionButton: {
     flex: 1,

@@ -6,6 +6,9 @@ export type RootStackParamList = {
     recipientEmail: string;
     currentUserEmail: string;
   };
+  ReservationDetails: {
+    id: string;
+  };
   // Add other screens here
 };
 

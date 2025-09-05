@@ -3,8 +3,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { equalTo, off, onValue, orderByChild, push, query, ref } from 'firebase/database';
-import React, { useEffect, useState } from 'react';
+import { equalTo, off, onValue, orderByChild, push, query, ref, remove } from 'firebase/database';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     FlatList,
@@ -44,6 +44,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const currentUserEmail = user?.email || '';
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const isDark = colorScheme === 'dark';
 
   // Debug logging for user context
@@ -149,7 +150,29 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const confirmAndDeleteMessage = (messageId: string) => {
+    Alert.alert(
+      'Delete message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await remove(ref(db, `messages/${messageId}`));
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete message');
+              console.error('Failed to delete message', error);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const renderMessage = ({ item, index }: { item: Message, index: number }) => {
     // Determine if this message is from the current user
     const isCurrentUser = item.senderEmail === currentUserEmail;
     
@@ -169,26 +192,71 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     // Add case-insensitive comparison as fallback
     const isCurrentUserFallback = item.senderEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
     
+    // Day divider logic
+    let showDayDivider = false;
+    if (index === 0) {
+      showDayDivider = true;
+    } else {
+      const prev = messages[index - 1];
+      const d1 = new Date(item.timestamp);
+      const d0 = new Date(prev.timestamp);
+      showDayDivider = d1.toDateString() !== d0.toDateString();
+    }
+
     return (
-      <View style={[
-        styles.messageBubble, 
-        (isCurrentUser || isCurrentUserFallback) ? styles.currentUserBubble : styles.otherUserBubble,
-        { backgroundColor: (isCurrentUser || isCurrentUserFallback) ? adminBubbleBgColor : bubbleBgColor }
-      ]}>
-        <ThemedText style={[styles.messageText, { color: textColor }]}>
-          {item.text}
-        </ThemedText>
-        <ThemedText style={[styles.timestamp, { color: isDark ? '#aaa' : '#666' }]}>
-          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </ThemedText>
-        <ThemedText style={[styles.senderLabel, { color: isDark ? '#aaa' : '#666', fontSize: 10 }]}>
-          {(isCurrentUser || isCurrentUserFallback) ? 'You' : (item.senderName || 'User')}
-        </ThemedText>
+      <View>
+        {showDayDivider && (
+          <View style={styles.dayDivider}> 
+            <ThemedText style={styles.dayDividerText}>
+              {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </ThemedText>
+          </View>
+        )}
+        <View style={[styles.messageRow, (isCurrentUser || isCurrentUserFallback) ? styles.rowRight : styles.rowLeft]}>
+          {!(isCurrentUser || isCurrentUserFallback) && (
+            <View style={[styles.avatar, { backgroundColor: isDark ? '#333' : '#e5e7eb' }]}>
+              <ThemedText style={styles.avatarText}>{(item.senderName || 'U').charAt(0).toUpperCase()}</ThemedText>
+            </View>
+          )}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onLongPress={() => {
+              if (isCurrentUser || isCurrentUserFallback) {
+                confirmAndDeleteMessage(item.id);
+              }
+            }}
+          >
+          <View style={[
+            styles.messageBubble, 
+            (isCurrentUser || isCurrentUserFallback) ? styles.currentUserBubble : styles.otherUserBubble,
+            { backgroundColor: (isCurrentUser || isCurrentUserFallback) ? adminBubbleBgColor : bubbleBgColor }
+          ]}>
+            <ThemedText style={[styles.messageText, { color: textColor }]}>
+              {item.text}
+            </ThemedText>
+            <View style={styles.bubbleMetaRow}>
+              <ThemedText style={[styles.timestamp, { color: isDark ? '#aaa' : '#666' }]}>
+                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </ThemedText>
+              <ThemedText style={[styles.senderLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                {(isCurrentUser || isCurrentUserFallback) ? 'You' : (item.senderName || 'User')}
+              </ThemedText>
+            </View>
+          </View>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
 
+  const listRef = useRef<FlatList>(null);
+
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.select({ ios: 90, android: 0 }) as number}
+    >
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: isDark ? '#333' : '#eee' }]}>
@@ -213,12 +281,30 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         renderItem={renderMessage}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.messagesList}
+        ref={listRef}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+        onScroll={(e) => {
+          const y = e.nativeEvent.contentOffset.y;
+          setShowScrollToBottom(y > 100);
+        }}
       />
+
+      {showScrollToBottom && (
+        <TouchableOpacity
+          style={styles.scrollFab}
+          onPress={() => listRef.current?.scrollToEnd({ animated: true })}
+        >
+          <Ionicons name="chevron-down" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
       
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.inputContainer}
-      >
+      <View style={styles.inputContainer}>
+        <TouchableOpacity style={styles.attachButton} onPress={() => Alert.alert('Coming soon', 'Attachments support will be added')}>
+          <Ionicons name="attach" size={22} color={isDark ? '#aaa' : '#666'} />
+        </TouchableOpacity>
         <TextInput
           style={[
             styles.textInput, 
@@ -243,8 +329,9 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         >
           <Ionicons name="send" size={20} color="#fff" />
         </TouchableOpacity>
-      </KeyboardAvoidingView>
+      </View>
     </ThemedView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -278,6 +365,29 @@ const styles = StyleSheet.create({
   messagesList: {
     padding: 16,
   },
+  dayDivider: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  dayDividerText: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  rowRight: {
+    justifyContent: 'flex-end',
+  },
+  rowLeft: {
+    justifyContent: 'flex-start',
+  },
   messageBubble: {
     maxWidth: '80%',
     padding: 12,
@@ -291,6 +401,11 @@ const styles = StyleSheet.create({
   otherUserBubble: {
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
+  },
+  bubbleMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
   messageText: {
     fontSize: 16,
@@ -306,11 +421,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
     opacity: 0.7,
   },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  avatarText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 12,
+    backgroundColor: 'transparent',
+  },
+  attachButton: {
+    marginRight: 8,
+    padding: 6,
   },
   textInput: {
     flex: 1,
@@ -328,5 +460,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  scrollFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 90,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
   },
 });

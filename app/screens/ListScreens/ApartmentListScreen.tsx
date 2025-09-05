@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useReservation } from '../../contexts/ReservationContext';
 import { getApartments } from '../../services/apartmentService';
+import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
 
@@ -223,7 +224,7 @@ export default function ApartmentListScreen() {
         
         <View style={styles.priceRow}>
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
-            {item.price || '$0'}
+            {formatPHP(item.price || '0')}
           </ThemedText>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
@@ -363,7 +364,7 @@ export default function ApartmentListScreen() {
                         </ThemedText>
                       </View>
                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                        {selectedApartment.price || '$0'}
+                        {formatPHP(selectedApartment.price || '0')}
                       </ThemedText>
                     </View>
                     

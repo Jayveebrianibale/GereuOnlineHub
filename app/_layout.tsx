@@ -27,9 +27,11 @@ function AppContent() {
         <Stack.Screen name="debug-tabs" options={{ headerShown: false }} />
         <Stack.Screen name="user-dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="(user-tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="apartment-list" options={{ headerShown: false }} />
         <Stack.Screen name="laundry-list" options={{ headerShown: false }} />
         <Stack.Screen name="auto-list" options={{ headerShown: false }} />
+        <Stack.Screen name="reservation-details/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="admin-apartment" options={{ headerShown: false }} />
         <Stack.Screen name="admin-laundry" options={{ headerShown: false }} />
         <Stack.Screen name="admin-auto" options={{ headerShown: false }} />

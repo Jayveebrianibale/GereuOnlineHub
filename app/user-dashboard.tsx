@@ -9,6 +9,7 @@ import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, Touchabl
 import { getApartments } from './services/apartmentService';
 import { getAutoServices } from './services/autoService';
 import { getLaundryServices } from './services/laundryService';
+import { formatPHP } from './utils/currency';
 import { getImageSource } from './utils/imageUtils';
 
 const colorPalette = {
@@ -103,7 +104,7 @@ export default function UserHome() {
           <ThemedText style={styles.ratingText}>{item.rating}</ThemedText>
         </View>
         <View style={styles.priceTag}> 
-          <ThemedText style={styles.priceText}>{item.price}</ThemedText>
+          <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
         </View>
       </View>
       <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
@@ -147,7 +148,7 @@ export default function UserHome() {
           <View style={styles.detailRow}> 
             <FontAwesome name="money" size={14} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}> 
-              {item.price}
+              {formatPHP(item.price)}
             </ThemedText>
           </View>
           <View style={styles.detailRow}> 
@@ -349,7 +350,7 @@ export default function UserHome() {
               <View style={styles.sectionHeader}>
                 <MaterialIcons name="directions-car" size={24} color={colorPalette.primary} />
                 <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                  Auto Services
+                  Car and Motor Parts
                 </ThemedText>
                 {autoServices.length > 0 && (
                   <TouchableOpacity 

@@ -6,10 +6,30 @@ export type Apartment = {
   [key: string]: any;
 };
 
+export type LaundryService = {
+  id: string;
+  // Add other laundry properties as needed
+  [key: string]: any;
+};
+
+export type AutoService = {
+  id: string;
+  // Add other auto properties as needed
+  [key: string]: any;
+};
+
 interface ReservationContextType {
   reservedApartments: Apartment[];
   reserveApartment: (apartment: Apartment) => void;
   removeReservation: (apartmentId: string) => void;
+
+  reservedLaundryServices: LaundryService[];
+  reserveLaundryService: (service: LaundryService) => void;
+  removeLaundryReservation: (serviceId: string) => void;
+
+  reservedAutoServices: AutoService[];
+  reserveAutoService: (service: AutoService) => void;
+  removeAutoReservation: (serviceId: string) => void;
 }
 
 const ReservationContext = createContext<ReservationContextType | undefined>(undefined);
@@ -24,6 +44,8 @@ export const useReservation = () => {
 
 export const ReservationProvider = ({ children }: { children: ReactNode }) => {
   const [reservedApartments, setReservedApartments] = useState<Apartment[]>([]);
+  const [reservedLaundryServices, setReservedLaundryServices] = useState<LaundryService[]>([]);
+  const [reservedAutoServices, setReservedAutoServices] = useState<AutoService[]>([]);
 
   const reserveApartment = (apartment: Apartment) => {
     setReservedApartments(prev => {
@@ -36,8 +58,42 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     setReservedApartments(prev => prev.filter(a => a.id !== apartmentId));
   };
 
+  const reserveLaundryService = (service: LaundryService) => {
+    setReservedLaundryServices(prev => {
+      if (prev.find(s => s.id === service.id)) return prev;
+      return [...prev, service];
+    });
+  };
+
+  const removeLaundryReservation = (serviceId: string) => {
+    setReservedLaundryServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
+  const reserveAutoService = (service: AutoService) => {
+    setReservedAutoServices(prev => {
+      if (prev.find(s => s.id === service.id)) return prev;
+      return [...prev, service];
+    });
+  };
+
+  const removeAutoReservation = (serviceId: string) => {
+    setReservedAutoServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
   return (
-    <ReservationContext.Provider value={{ reservedApartments, reserveApartment, removeReservation }}>
+    <ReservationContext.Provider
+      value={{
+        reservedApartments,
+        reserveApartment,
+        removeReservation,
+        reservedLaundryServices,
+        reserveLaundryService,
+        removeLaundryReservation,
+        reservedAutoServices,
+        reserveAutoService,
+        removeAutoReservation,
+      }}
+    >
       {children}
     </ReservationContext.Provider>
   );

@@ -4,7 +4,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useReservation } from '../../contexts/ReservationContext';
 import { getLaundryServices } from '../../services/laundryService';
+import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -24,6 +26,7 @@ export default function LaundryListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
+  const { reservedLaundryServices, reserveLaundryService, removeLaundryReservation } = useReservation();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -37,6 +40,16 @@ export default function LaundryListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  
+  const handleLaundryReservation = (service: any) => {
+    const isReserved = reservedLaundryServices.some(s => s.id === service.id);
+    if (!isReserved) {
+      reserveLaundryService(service);
+      router.push('/(user-tabs)/bookings');
+    } else {
+      removeLaundryReservation(service.id);
+    }
+  };
 
   // Handle navigation parameters
   const params = useLocalSearchParams();
@@ -161,7 +174,7 @@ export default function LaundryListScreen() {
           <View style={styles.detailItem}>
             <FontAwesome name="money" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.price}
+              {formatPHP(item.price)}
             </ThemedText>
           </View>
           <View style={styles.detailItem}>
@@ -205,7 +218,7 @@ export default function LaundryListScreen() {
         
         <View style={styles.priceRow}>
           <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
-            {item.price}
+            {formatPHP(item.price)}
           </ThemedText>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
@@ -336,7 +349,7 @@ export default function LaundryListScreen() {
                          </ThemedText>
                        </View>
                        <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                         {selectedLaundryService.price}
+                         {formatPHP(selectedLaundryService.price)}
                        </ThemedText>
                      </View>
                      
@@ -348,7 +361,7 @@ export default function LaundryListScreen() {
                        <View style={styles.detailItem}>
                          <FontAwesome name="money" size={20} color={subtitleColor} />
                          <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedLaundryService.price}
+                           {formatPHP(selectedLaundryService.price)}
                          </ThemedText>
                        </View>
                        <View style={styles.detailItem}>
@@ -410,13 +423,28 @@ export default function LaundryListScreen() {
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
                        <TouchableOpacity
-                         style={[styles.bookButton, { borderColor: colorPalette.primary }]}
-                         onPress={() => {
-                           // TODO: Implement schedule pickup logic
-                           alert('Schedule Pickup feature coming soon!');
-                         }}
+                         style={[
+                           styles.bookButton,
+                           {
+                             borderColor: colorPalette.primary,
+                             backgroundColor: reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? colorPalette.primary : 'transparent',
+                           },
+                         ]}
+                         onPress={() => handleLaundryReservation(selectedLaundryService)}
                        >
-                         <ThemedText style={[styles.bookButtonText, { color: colorPalette.primary }]}>Reserved</ThemedText>
+                         <MaterialIcons
+                           name={reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? 'check-circle' : 'bookmark-border'}
+                           size={20}
+                           color={reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? '#fff' : colorPalette.primary}
+                         />
+                         <ThemedText
+                           style={[
+                             styles.bookButtonText,
+                             { color: reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? '#fff' : colorPalette.primary },
+                           ]}
+                         >
+                           {reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? 'Reserved' : 'Reserve'}
+                         </ThemedText>
                        </TouchableOpacity>
                      </View>
                    </View>
