@@ -1,6 +1,6 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { getImagePath, getImageSource } from '../utils/imageUtils';
+import { getImagePath } from '../utils/imageUtils';
 
 // Define the Apartment type
 export interface Apartment {
@@ -52,8 +52,6 @@ export const getApartments = async () => {
       const data = snapshot.val();
       Object.keys(data).forEach((key) => {
         const apartment = { id: key, ...data[key] };
-        // Convert image path to require() statement
-        apartment.image = getImageSource(apartment.image);
         apartments.push(apartment);
       });
     }

@@ -5,12 +5,12 @@ import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from './components/RobustImage';
 import { getApartments } from './services/apartmentService';
 import { getAutoServices } from './services/autoService';
 import { getLaundryServices } from './services/laundryService';
 import { formatPHP } from './utils/currency';
-import { getImageSource } from './utils/imageUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -97,7 +97,11 @@ export default function UserHome() {
 
   const renderApartmentItem = ({ item }: { item: any }) => (
     <View style={[styles.carouselItem, { width: screenWidth - 40 }]}> 
-      <Image source={getImageSource(item.image)} style={styles.carouselImage} resizeMode="cover" />
+      <RobustImage 
+        source={item.image} 
+        style={styles.carouselImage} 
+        resizeMode="cover"
+      />
       <View style={styles.itemOverlay}> 
         <View style={styles.ratingBadge}> 
           <MaterialIcons name="star" size={16} color="#FFD700" />
@@ -139,7 +143,11 @@ export default function UserHome() {
 
   const renderServiceItem = ({ item, serviceType }: { item: any, serviceType: string }) => (
     <View style={[styles.serviceItem, { width: screenWidth - 40, backgroundColor: cardBgColor }]}> 
-      <Image source={getImageSource(item.image)} style={styles.serviceImage} resizeMode="cover" />
+      <RobustImage 
+        source={item.image} 
+        style={styles.serviceImage} 
+        resizeMode="cover"
+      />
       <View style={styles.serviceContent}> 
         <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}> 
           {item.title}

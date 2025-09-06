@@ -31,6 +31,7 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
     // If imagePath is a URI or data URL, return it as an object source
     const lower = imagePath.toLowerCase();
     if (lower.startsWith('file:') || lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
+      console.log('🖼️ Using URI image source:', imagePath);
       return { uri: imagePath } as ImageSourcePropType;
     }
 
@@ -39,6 +40,7 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
     
     // Check if the image exists in our map
     if (imageMap[fileName]) {
+      console.log('🖼️ Using mapped image:', fileName);
       return imageMap[fileName];
     }
     
