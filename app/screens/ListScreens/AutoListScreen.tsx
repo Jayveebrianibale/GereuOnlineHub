@@ -4,14 +4,17 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from '../../components/RobustImage';
+import { useAdminReservation } from '../../contexts/AdminReservationContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
     AutoService,
     getAutoServices,
 } from '../../services/autoService';
 import { formatPHP } from '../../utils/currency';
-import { getImageSource } from '../../utils/imageUtils';
+import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -29,6 +32,8 @@ export default function AutoListScreen() {
   const router = useRouter();
   const isDark = colorScheme === 'dark';
   const { reservedAutoServices, reserveAutoService, removeAutoReservation } = useReservation();
+  const { addAdminReservation } = useAdminReservation();
+  const { user } = useAuthContext();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -42,13 +47,36 @@ export default function AutoListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
-  const handleAutoReservation = (service: any) => {
+  const handleAutoReservation = async (service: any) => {
     const isReserved = reservedAutoServices.some(s => s.id === service.id);
     if (!isReserved) {
-      reserveAutoService(service);
-      router.push('/(user-tabs)/bookings');
+      try {
+        // Add to user reservations with pending status
+        const serviceWithStatus = { ...service, status: 'pending' as const };
+        await reserveAutoService(serviceWithStatus);
+        
+        // Create admin reservation
+        if (user) {
+          const adminReservationData = mapServiceToAdminReservation(
+            service,
+            'auto',
+            user.uid,
+            user.displayName || 'Unknown User',
+            user.email || 'No email'
+          );
+          await addAdminReservation(adminReservationData);
+        }
+        
+        router.push('/(user-tabs)/bookings');
+      } catch (error) {
+        console.error('Error reserving auto service:', error);
+      }
     } else {
-      removeAutoReservation(service.id);
+      try {
+        await removeAutoReservation(service.id);
+      } catch (error) {
+        console.error('Error removing auto reservation:', error);
+      }
     }
   };
   // Removed unused loading state
@@ -102,7 +130,7 @@ export default function AutoListScreen() {
     <View
       style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={getImageSource(item.image)} style={styles.autoImage} resizeMode="cover" />
+      <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
       <View style={styles.autoContent}>
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
@@ -340,7 +368,7 @@ export default function AutoListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <Image source={getImageSource(selectedAutoService.image)} style={styles.detailImage} resizeMode="cover" />
+                   <RobustImage source={selectedAutoService.image} style={styles.detailImage} resizeMode="cover" />
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>

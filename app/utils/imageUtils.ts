@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import { ImageSourcePropType } from 'react-native';
 
 // Image mapping utility to convert between string paths and require() statements
@@ -28,9 +29,76 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
       return imagePath;
     }
     
-    // If imagePath is a URI or data URL, return it as an object source
+    // Handle different URI types
     const lower = imagePath.toLowerCase();
-    if (lower.startsWith('file:') || lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
+    
+    // For local file URIs (like from ImageManipulator), we need to handle them specially
+    if (lower.startsWith('file://')) {
+      // Check if it's a problematic local cache file
+      if (imagePath.includes('/cache/ImageManipulator/') || imagePath.includes('/data/user/0/host.exp.exponent/cache/')) {
+        console.warn('⚠️ Local cache file detected, using fallback image:', imagePath);
+        return require('@/assets/images/apartment1.webp');
+      }
+      console.log('🖼️ Using local file URI:', imagePath);
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+    
+    // For HTTP/HTTPS URIs and data URLs
+    if (lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
+      console.log('🖼️ Using URI image source:', imagePath);
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+
+    // If the imagePath is a full path, extract just the filename
+    const fileName = imagePath.split('/').pop() || imagePath;
+    
+    // Check if the image exists in our map
+    if (imageMap[fileName]) {
+      console.log('🖼️ Using mapped image:', fileName);
+      return imageMap[fileName];
+    }
+    
+    // If not found (like "26"), log warning and return default
+    console.warn(`⚠️ Invalid image reference: "${fileName}". Using default image.`);
+    return require('@/assets/images/apartment1.webp');
+    
+  } catch (error) {
+    console.error('❌ Error loading image:', error);
+    return require('@/assets/images/apartment1.webp');
+  }
+};
+
+// Async function to get image source with base64 conversion for problematic URIs
+export const getImageSourceAsync = async (imagePath: string | ImageSourcePropType): Promise<ImageSourcePropType> => {
+  try {
+    // If imagePath is already a require() statement or object, return it directly
+    if (typeof imagePath !== 'string') {
+      return imagePath;
+    }
+    
+    // Handle different URI types
+    const lower = imagePath.toLowerCase();
+    
+    // For local file URIs (like from ImageManipulator), try to convert to base64
+    if (lower.startsWith('file://')) {
+      // Check if it's a problematic local cache file
+      if (imagePath.includes('/cache/ImageManipulator/') || imagePath.includes('/data/user/0/host.exp.exponent/cache/')) {
+        console.log('🔄 Attempting to convert problematic local file to base64:', imagePath);
+        const base64Uri = await convertLocalFileToBase64(imagePath);
+        if (base64Uri) {
+          console.log('✅ Successfully converted to base64');
+          return { uri: base64Uri } as ImageSourcePropType;
+        } else {
+          console.warn('⚠️ Failed to convert to base64, using fallback image');
+          return require('@/assets/images/apartment1.webp');
+        }
+      }
+      console.log('🖼️ Using local file URI:', imagePath);
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+    
+    // For HTTP/HTTPS URIs and data URLs
+    if (lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
       console.log('🖼️ Using URI image source:', imagePath);
       return { uri: imagePath } as ImageSourcePropType;
     }
@@ -73,6 +141,34 @@ export const getImagePath = (imageSource: ImageSourcePropType): string => {
   } catch (error) {
     console.error('❌ Error getting image path:', error);
     return 'apartment1.webp';
+  }
+};
+
+// Function to convert problematic local file URIs to base64 data URIs
+const convertLocalFileToBase64 = async (fileUri: string): Promise<string | null> => {
+  try {
+    // Check if the file exists and is readable
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists || !fileInfo.isDirectory) {
+      console.warn('⚠️ File does not exist or is not accessible:', fileUri);
+      return null;
+    }
+    
+    // Read the file as base64
+    const base64 = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    
+    // Determine the file extension for proper MIME type
+    const extension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+    const mimeType = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : 
+                    extension === 'png' ? 'image/png' : 
+                    extension === 'webp' ? 'image/webp' : 'image/jpeg';
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error('❌ Error converting file to base64:', error);
+    return null;
   }
 };
 

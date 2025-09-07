@@ -6,7 +6,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from '../../components/RobustImage';
 import {
   createAutoService,
   deleteAutoService,
@@ -14,7 +15,6 @@ import {
   updateAutoService,
   type AutoService
 } from '../../services/autoService';
-import { getImageSource } from '../../utils/imageUtils';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
@@ -248,7 +248,7 @@ export default function AdminAutoManagement() {
 
   const renderServiceItem = ({ item }: { item: any }) => (
     <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}>
-      <Image source={getImageSource(item.image)} style={styles.serviceImage} resizeMode="cover" />
+      <RobustImage source={item.image} style={styles.serviceImage} resizeMode="cover" />
       <View style={styles.serviceContent}>
         <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
           {item.title}
@@ -392,11 +392,11 @@ export default function AdminAutoManagement() {
                   style={[styles.imagePreview, { borderColor }]}
                   onPress={() => setImageSelectionVisible(true)}
                 >
-                  <Image
-                    source={getImageSource(currentService.image)}
-                    style={styles.imagePreviewImage}
-                    resizeMode="cover"
-                  />
+                        <RobustImage
+                            source={currentService.image}
+                            style={styles.imagePreviewImage}
+                            resizeMode="cover"
+                        />
                   <View style={styles.imageOverlay}>
                     <MaterialIcons name="edit" size={20} color="#fff" />
                     <ThemedText style={styles.imageOverlayText}>Change Image</ThemedText>
@@ -614,8 +614,8 @@ export default function AdminAutoManagement() {
                         onPress={() => selectAndClose(img)}
                         activeOpacity={0.8}
                       >
-                        <Image
-                          source={getImageSource(img)}
+                        <RobustImage
+                          source={img}
                           style={styles.imageGridImage}
                           resizeMode="cover"
                         />

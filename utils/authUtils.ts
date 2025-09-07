@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { isAdminEmail } from '../app/config/adminConfig';
 import { auth } from '../app/firebaseConfig';
+import { storeUserData, updateUserLastActive } from './userUtils';
 
 export interface AuthError {
   code: string;
@@ -39,6 +40,9 @@ export const signUp = async (data: SignUpData): Promise<User> => {
       displayName: data.fullName 
     });
     
+    // Store user data in Firebase Realtime Database
+    await storeUserData(userCredential.user, data.fullName);
+    
     return userCredential.user;
   } catch (error: any) {
     throw {
@@ -56,6 +60,9 @@ export const signIn = async (data: SignInData): Promise<User> => {
       data.email, 
       data.password
     );
+    
+    // Update user's last active time
+    await updateUserLastActive(userCredential.user.uid);
     
     return userCredential.user;
   } catch (error: any) {

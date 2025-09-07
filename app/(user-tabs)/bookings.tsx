@@ -3,10 +3,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from "../components/RobustImage";
 import { useReservation } from "../contexts/ReservationContext";
 import { formatPHP } from "../utils/currency";
-import { getImageSource } from "../utils/imageUtils";
 
 
 const colorPalette = {
@@ -84,7 +84,7 @@ export default function Bookings() {
              key={apt.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <Image source={getImageSource((apt as any).image)} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(apt as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -109,10 +109,23 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="event" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {/* No booking date, show placeholder or add date if needed */}
                    Reserved
                  </ThemedText>
                </View>
+               {apt.status && (
+                 <View style={styles.detailRow}>
+                   <MaterialIcons 
+                     name={apt.status === 'confirmed' ? 'check-circle' : 
+                           apt.status === 'declined' ? 'cancel' : 
+                           apt.status === 'completed' ? 'done-all' : 'schedule'} 
+                     size={16} 
+                     color={getStatusColor(apt.status)} 
+                   />
+                   <ThemedText style={[styles.detailText, { color: getStatusColor(apt.status), fontWeight: '600' }]}> 
+                     Status: {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+                   </ThemedText>
+                 </View>
+               )}
                <View style={styles.detailRow}>
                  <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
@@ -152,7 +165,7 @@ export default function Bookings() {
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <Image source={getImageSource((svc as any).image)} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(svc as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -180,6 +193,20 @@ export default function Bookings() {
                    Reserved
                  </ThemedText>
                </View>
+               {svc.status && (
+                 <View style={styles.detailRow}>
+                   <MaterialIcons 
+                     name={svc.status === 'confirmed' ? 'check-circle' : 
+                           svc.status === 'declined' ? 'cancel' : 
+                           svc.status === 'completed' ? 'done-all' : 'schedule'} 
+                     size={16} 
+                     color={getStatusColor(svc.status)} 
+                   />
+                   <ThemedText style={[styles.detailText, { color: getStatusColor(svc.status), fontWeight: '600' }]}> 
+                     Status: {svc.status.charAt(0).toUpperCase() + svc.status.slice(1)}
+                   </ThemedText>
+                 </View>
+               )}
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
@@ -210,7 +237,7 @@ export default function Bookings() {
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <Image source={getImageSource((svc as any).image)} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(svc as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -238,6 +265,20 @@ export default function Bookings() {
                    Reserved
                  </ThemedText>
                </View>
+               {svc.status && (
+                 <View style={styles.detailRow}>
+                   <MaterialIcons 
+                     name={svc.status === 'confirmed' ? 'check-circle' : 
+                           svc.status === 'declined' ? 'cancel' : 
+                           svc.status === 'completed' ? 'done-all' : 'schedule'} 
+                     size={16} 
+                     color={getStatusColor(svc.status)} 
+                   />
+                   <ThemedText style={[styles.detailText, { color: getStatusColor(svc.status), fontWeight: '600' }]}> 
+                     Status: {svc.status.charAt(0).toUpperCase() + svc.status.slice(1)}
+                   </ThemedText>
+                 </View>
+               )}
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 

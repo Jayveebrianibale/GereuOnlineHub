@@ -4,12 +4,15 @@ import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { RobustImage } from '../../components/RobustImage';
+import { useAdminReservation } from '../../contexts/AdminReservationContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { getLaundryServices } from '../../services/laundryService';
 import { formatPHP } from '../../utils/currency';
-import { getImageSource } from '../../utils/imageUtils';
+import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -27,6 +30,8 @@ export default function LaundryListScreen() {
   const router = useRouter();
   const isDark = colorScheme === 'dark';
   const { reservedLaundryServices, reserveLaundryService, removeLaundryReservation } = useReservation();
+  const { addAdminReservation } = useAdminReservation();
+  const { user } = useAuthContext();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -41,13 +46,36 @@ export default function LaundryListScreen() {
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
   
-  const handleLaundryReservation = (service: any) => {
+  const handleLaundryReservation = async (service: any) => {
     const isReserved = reservedLaundryServices.some(s => s.id === service.id);
     if (!isReserved) {
-      reserveLaundryService(service);
-      router.push('/(user-tabs)/bookings');
+      try {
+        // Add to user reservations with pending status
+        const serviceWithStatus = { ...service, status: 'pending' as const };
+        await reserveLaundryService(serviceWithStatus);
+        
+        // Create admin reservation
+        if (user) {
+          const adminReservationData = mapServiceToAdminReservation(
+            service,
+            'laundry',
+            user.uid,
+            user.displayName || 'Unknown User',
+            user.email || 'No email'
+          );
+          await addAdminReservation(adminReservationData);
+        }
+        
+        router.push('/(user-tabs)/bookings');
+      } catch (error) {
+        console.error('Error reserving laundry service:', error);
+      }
     } else {
-      removeLaundryReservation(service.id);
+      try {
+        await removeLaundryReservation(service.id);
+      } catch (error) {
+        console.error('Error removing laundry reservation:', error);
+      }
     }
   };
 
@@ -151,7 +179,7 @@ export default function LaundryListScreen() {
     <View
       style={[styles.laundryCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={getImageSource(item.image)} style={styles.laundryImage} resizeMode="cover" />
+      <RobustImage source={item.image} style={styles.laundryImage} resizeMode="cover" />
       <View style={styles.laundryContent}>
         <View style={styles.laundryHeader}>
           <ThemedText type="subtitle" style={[styles.laundryTitle, { color: textColor }]}>
@@ -337,7 +365,7 @@ export default function LaundryListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <Image source={getImageSource(selectedLaundryService.image)} style={styles.detailImage} resizeMode="cover" />
+                   <RobustImage source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>

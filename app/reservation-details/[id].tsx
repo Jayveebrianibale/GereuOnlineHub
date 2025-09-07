@@ -3,10 +3,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from "../components/RobustImage";
 import { useReservation } from "../contexts/ReservationContext";
 import { formatPHP } from "../utils/currency";
-import { getImageSource } from "../utils/imageUtils";
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -98,8 +98,8 @@ export default function ReservationDetails() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Hero Header */}
         <View style={styles.heroContainer}>
-          <Image
-            source={getImageSource((reservation as any).image)}
+          <RobustImage
+            source={(reservation as any).image}
             style={styles.heroImage}
             resizeMode="cover"
           />

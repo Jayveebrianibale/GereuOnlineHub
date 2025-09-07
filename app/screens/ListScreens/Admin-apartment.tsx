@@ -6,7 +6,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from '../../components/RobustImage';
 import {
     createApartment,
     deleteApartment,
@@ -244,7 +245,7 @@ const colorPalette = {
     
     const renderApartmentItem = ({ item }: { item: any }) => (
         <View style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}>
-        <Image source={getImageSource(item.image)} style={styles.apartmentImage} resizeMode="cover" />
+        <RobustImage source={item.image} style={styles.apartmentImage} resizeMode="cover" />
         <View style={styles.apartmentContent}>
             <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
             {item.title}
@@ -384,8 +385,8 @@ const colorPalette = {
                         style={[styles.imagePreview, { borderColor }]}
                         onPress={() => setImageSelectionVisible(true)}
                     >
-                        <Image
-                            source={getImageSource(currentApartment.image)}
+                        <RobustImage
+                            source={currentApartment.image}
                             style={styles.imagePreviewImage}
                             resizeMode="cover"
                         />
@@ -617,8 +618,8 @@ const colorPalette = {
                                         onPress={() => selectAndClose(img)}
                                         activeOpacity={0.8}
                                     >
-                                        <Image
-                                            source={getImageSource(img)}
+                                        <RobustImage
+                                            source={img}
                                             style={styles.imageGridImage}
                                             resizeMode="cover"
                                         />

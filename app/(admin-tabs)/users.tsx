@@ -2,8 +2,10 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
+import { formatLastActive, listenToUsers, updateUserStatus, UserData } from '../../utils/userUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -16,54 +18,7 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Sample user data
-const users = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    role: 'Admin',
-    status: 'active',
-    lastActive: '2 hours ago',
-    avatar: 'AJ',
-  },
-  {
-    id: '2',
-    name: 'Maria Garcia',
-    email: 'maria.g@example.com',
-    role: 'Manager',
-    status: 'active',
-    lastActive: '1 day ago',
-    avatar: 'MG',
-  },
-  {
-    id: '3',
-    name: 'James Wilson',
-    email: 'james.w@example.com',
-    role: 'Staff',
-    status: 'inactive',
-    lastActive: '1 week ago',
-    avatar: 'JW',
-  },
-  {
-    id: '4',
-    name: 'Sarah Lee',
-    email: 'sarah.lee@example.com',
-    role: 'Staff',
-    status: 'active',
-    lastActive: '3 hours ago',
-    avatar: 'SL',
-  },
-  {
-    id: '5',
-    name: 'David Kim',
-    email: 'david.kim@example.com',
-    role: 'Customer',
-    status: 'active',
-    lastActive: '5 minutes ago',
-    avatar: 'DK',
-  },
-];
+// User data will be fetched from Firebase
 
 export default function UsersScreen() {
   const { colorScheme } = useColorScheme();
@@ -77,9 +32,64 @@ export default function UsersScreen() {
   const borderColor = isDark ? '#333' : '#eee';
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
 
-  // Temporary filtering state and logic
+  // State for users data and UI
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Fetch users from Firebase on component mount
+  useEffect(() => {
+    const initializeUsers = async () => {
+      try {
+        setLoading(true);
+        
+        // Check if migration is needed
+        const needsMigration = await isMigrationNeeded();
+        if (needsMigration) {
+          console.log('Running user migration...');
+          await migrateExistingUsers();
+        }
+        
+        // Set up real-time listener
+        const unsubscribe = listenToUsers((fetchedUsers) => {
+          setUsers(fetchedUsers);
+          setLoading(false);
+          setError(null);
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error initializing users:', error);
+        setError('Failed to load users. Please try again.');
+        setLoading(false);
+        return () => {};
+      }
+    };
+
+    let unsubscribe: (() => void) | undefined;
+    initializeUsers().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Handle user status toggle
+  const handleStatusToggle = async (userId: string, currentStatus: 'active' | 'inactive') => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      await updateUserStatus(userId, newStatus);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update user status. Please try again.');
+      console.error('Error updating user status:', error);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -89,6 +99,44 @@ export default function UsersScreen() {
       statusFilter === 'all' ? true : user.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Show loading state
+  if (loading) {
+    return (
+      <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colorPalette.primary} />
+          <ThemedText style={[styles.loadingText, { color: textColor }]}>
+            Loading users...
+          </ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#EF4444" />
+          <ThemedText style={[styles.errorText, { color: textColor }]}>
+            {error}
+          </ThemedText>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => {
+              setError(null);
+              setLoading(true);
+              // The useEffect will automatically refetch
+            }}
+          >
+            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -180,47 +228,64 @@ export default function UsersScreen() {
         </View>
 
         {/* User List */}
-        {filteredUsers.map((user) => (
-          <View key={user.id} style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
-            {/* User first */}
-            <View style={[styles.userInfo, { flex: 3 }]}>
-              <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
-                <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
-                  {user.avatar}
-                </ThemedText>
-              </View>
-              <View style={styles.userDetails}>
-                <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
-                  {user.name}
-                </ThemedText>
-                <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
-                  {user.email}
-                </ThemedText>
-              </View>
-            </View>
-            {/* Status next */}
-            <View style={{ flex: 2, }}>
-              <View style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: user.status === 'active' ? '#10B98120' : '#EF444420',
-                }
-              ]}>
-                <View style={[
-                  styles.statusDot,
-                  { backgroundColor: user.status === 'active' ? '#10B981' : '#EF4444' }
-                ]} />
-                <ThemedText style={[
-                  styles.statusText,
-                  { color: user.status === 'active' ? '#10B981' : '#EF4444' }
-                ]}>
-                  {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                </ThemedText>
-              </View>
-            </View>
-            {/* No 3 dots icon */}
+        {filteredUsers.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="people-outline" size={48} color={subtitleColor} />
+            <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+              {search || statusFilter !== 'all' ? 'No users found matching your criteria' : 'No users found'}
+            </ThemedText>
           </View>
-        ))}
+        ) : (
+          filteredUsers.map((user) => (
+            <View key={user.id} style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
+              {/* User first */}
+              <View style={[styles.userInfo, { flex: 3 }]}>
+                <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
+                  <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
+                    {user.avatar}
+                  </ThemedText>
+                </View>
+                <View style={styles.userDetails}>
+                  <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
+                    {user.name}
+                  </ThemedText>
+                  <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
+                    {user.email}
+                  </ThemedText>
+                  <ThemedText style={[styles.userRole, { color: subtitleColor }]}>
+                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                  </ThemedText>
+                </View>
+              </View>
+              {/* Status next */}
+              <View style={{ flex: 2, }}>
+                <TouchableOpacity
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor: user.status === 'active' ? '#10B98120' : '#EF444420',
+                    }
+                  ]}
+                  onPress={() => handleStatusToggle(user.id, user.status)}
+                >
+                  <View style={[
+                    styles.statusDot,
+                    { backgroundColor: user.status === 'active' ? '#10B981' : '#EF4444' }
+                  ]} />
+                  <ThemedText style={[
+                    styles.statusText,
+                    { color: user.status === 'active' ? '#10B981' : '#EF4444' }
+                  ]}>
+                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                  </ThemedText>
+                </TouchableOpacity>
+                <ThemedText style={[styles.lastActiveText, { color: subtitleColor }]}>
+                  {formatLastActive(user.lastActive)}
+                </ThemedText>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -391,5 +456,60 @@ const styles = StyleSheet.create({
   pageInfo: {
     marginHorizontal: 16,
     fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  userRole: {
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.8,
+  },
+  lastActiveText: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'right',
+    opacity: 0.7,
   },
 });

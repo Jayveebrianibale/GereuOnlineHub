@@ -5,10 +5,14 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RobustImage } from '../../components/RobustImage';
+import { useAdminReservation } from '../../contexts/AdminReservationContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { getApartments } from '../../services/apartmentService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
+import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
 
 
@@ -41,6 +45,8 @@ export default function ApartmentListScreen() {
   const [selectedApartment, setSelectedApartment] = useState<any>(null);
   const [apartments, setApartments] = useState<any[]>([]);
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
+  const { addAdminReservation } = useAdminReservation();
+  const { user } = useAuthContext();
 
   // Fetch apartments from Firebase
   useEffect(() => {
@@ -55,13 +61,37 @@ export default function ApartmentListScreen() {
     fetchApartments();
   }, []);
 
-  const handleReservation = (apartment: any) => {
+  const handleReservation = async (apartment: any) => {
     const isReserved = reservedApartments.some(a => a.id === apartment.id);
     if (!isReserved) {
-      reserveApartment(apartment);
-      router.push('/bookings');
+      try {
+        // Add to user reservations with pending status
+        const apartmentWithStatus = { ...apartment, status: 'pending' as const };
+        await reserveApartment(apartmentWithStatus);
+        
+        // Create admin reservation
+        if (user) {
+          const adminReservationData = mapServiceToAdminReservation(
+            apartment,
+            'apartment',
+            user.uid,
+            user.displayName || 'Unknown User',
+            user.email || 'No email'
+          );
+          await addAdminReservation(adminReservationData);
+        }
+        
+        router.push('/(user-tabs)/bookings');
+      } catch (error) {
+        console.error('Error reserving apartment:', error);
+        // You might want to show an error message to the user here
+      }
     } else {
-      removeReservation(apartment.id);
+      try {
+        await removeReservation(apartment.id);
+      } catch (error) {
+        console.error('Error removing reservation:', error);
+      }
     }
   };
 
@@ -162,7 +192,7 @@ export default function ApartmentListScreen() {
     <View
       style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <Image source={getApartmentImageSource(item)} style={styles.apartmentImage} resizeMode="cover" />
+      <RobustImage source={item.image} style={styles.apartmentImage} resizeMode="cover" />
       <View style={styles.apartmentContent}>
         <View style={styles.apartmentHeader}>
           <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>

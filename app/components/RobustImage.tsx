@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, ImageProps, ImageSourcePropType } from 'react-native';
-import { getImageSource } from '../utils/imageUtils';
+import { getImageSource, getImageSourceAsync } from '../utils/imageUtils';
 
 interface RobustImageProps extends Omit<ImageProps, 'source'> {
   source: string | ImageSourcePropType;
@@ -38,6 +38,31 @@ export const RobustImage: React.FC<RobustImageProps> = ({
       onError(error);
     }
   };
+
+  // Update current source when source prop changes
+  useEffect(() => {
+    const updateSource = async () => {
+      try {
+        // Check if this is a problematic local file URI
+        if (typeof source === 'string' && 
+            source.startsWith('file://') && 
+            (source.includes('/cache/ImageManipulator/') || source.includes('/data/user/0/host.exp.exponent/cache/'))) {
+          console.log('🔄 Using async conversion for problematic URI:', source);
+          const newSource = await getImageSourceAsync(source);
+          setCurrentSource(newSource);
+        } else {
+          const newSource = getImageSource(source);
+          setCurrentSource(newSource);
+        }
+        setHasError(false);
+      } catch (error) {
+        console.error('❌ Error updating image source:', error);
+        setCurrentSource(fallbackSource);
+      }
+    };
+    
+    updateSource();
+  }, [source, fallbackSource]);
 
   const handleLoad = () => {
     console.log('✅ Image loaded successfully');
