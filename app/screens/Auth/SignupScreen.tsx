@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
+import { storeUserData } from '../../../utils/userUtils';
 import { auth } from '../../firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
@@ -58,6 +59,8 @@ export default function SignupScreen() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: fullName });
+      // Create user profile in Realtime Database
+      await storeUserData(userCredential.user, fullName);
       
       setToast({ visible: true, message: 'Account created successfully!', type: 'success' });
       

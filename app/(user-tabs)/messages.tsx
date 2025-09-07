@@ -305,7 +305,7 @@ export default function MessagesScreen() {
             <View style={styles.messageInfo}>
               <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
               <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
-                No conversations yet. Start chatting with admins above.
+                No conversations yet.
               </ThemedText>
             </View>
           </View>

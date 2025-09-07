@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
     createApartment,
@@ -68,6 +69,11 @@ const colorPalette = {
     const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [recentImages, setRecentImages] = useState<string[]>([]);
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+        visible: false,
+        message: '',
+        type: 'success',
+    });
 
     useEffect(() => {
         if (imageSelectionVisible) {
@@ -190,6 +196,7 @@ const colorPalette = {
                 const { id, ...apartmentData } = currentApartment;
                 const newApartment = await createApartment(apartmentData);
                 setApartments([...apartments, newApartment]);
+                setToast({ visible: true, message: 'Apartment added successfully', type: 'success' });
             } else {
                 // Update existing apartment
                 const { id, ...apartmentData } = currentApartment;
@@ -646,6 +653,12 @@ const colorPalette = {
                 </View>
             </View>
         </Modal>
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onHide={() => setToast({ ...toast, visible: false })}
+            />
         </ThemedView>
     );
     }

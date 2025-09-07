@@ -220,10 +220,11 @@ export default function MessagesScreen() {
             backgroundColor: cardBgColor, 
             borderColor,
             opacity: 0.8,
+            paddingLeft: 9
           }]}>
-            <View style={styles.messageInfo}>
+            <View style={[styles.messageInfo, { flex: 1 }]}> 
               <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
-              <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
+              <ThemedText style={{ color: subtitleColor, fontSize: 14, flexShrink: 1 }}>
                 No messages yet. Users will appear here when they message you.
               </ThemedText>
             </View>
@@ -236,7 +237,8 @@ export default function MessagesScreen() {
               backgroundColor: cardBgColor, 
               borderColor,
               borderLeftWidth: message.unread ? 4 : 0,
-              borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
+              borderLeftColor: message.unread ? colorPalette.primary : 'transparent',
+              paddingLeft: message.unread ? 16 : 12
             }]}
             onPress={() => handleMessageClick(message)}
           >

@@ -680,6 +680,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bookButtonText: {
     color: '#fff',

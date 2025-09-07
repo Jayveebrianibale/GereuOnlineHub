@@ -151,9 +151,6 @@ export default function UsersScreen() {
               Manage user accounts and permissions
             </ThemedText>
           </View>
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: colorPalette.primary }]}>
-            <MaterialIcons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
         {/* Search and Filter */}

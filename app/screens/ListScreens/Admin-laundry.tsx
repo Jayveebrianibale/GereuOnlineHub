@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
     createLaundryService,
@@ -66,6 +67,11 @@ export default function AdminLaundryManagement() {
   const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [recentImages, setRecentImages] = useState<string[]>([]);
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    visible: false,
+    message: '',
+    type: 'success',
+  });
 
   useEffect(() => {
     if (imageSelectionVisible) {
@@ -193,6 +199,7 @@ export default function AdminLaundryManagement() {
         const { id, ...serviceData } = currentService;
         const newService = await createLaundryService(serviceData);
         setServices([...services, newService]);
+        setToast({ visible: true, message: 'Service added successfully', type: 'success' });
       } else {
         // Update existing service
         const { id, ...serviceData } = currentService;
@@ -638,6 +645,12 @@ export default function AdminLaundryManagement() {
             </View>
           </View>
         </Modal>
+        <Toast
+          visible={toast.visible}
+          message={toast.message}
+          type={toast.type}
+          onHide={() => setToast({ ...toast, visible: false })}
+        />
       </ThemedView>
     );
   }
