@@ -461,23 +461,45 @@ export default function ApartmentListScreen() {
                           styles.bookButton,
                           {
                             borderColor: colorPalette.primary,
-                            backgroundColor: reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? colorPalette.primary : 'transparent',
+                            backgroundColor: (() => {
+                              const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return active ? colorPalette.primary : 'transparent';
+                            })(),
                           },
                         ]}
                         onPress={() => handleReservation(selectedApartment)}
                       >
-                        <MaterialIcons
-                          name={reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? 'check-circle' : 'bookmark-border'}
-                          size={20}
-                          color={reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? '#fff' : colorPalette.primary}
-                        />
+                        {(() => {
+                          const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                          const status = (match as any)?.status;
+                          const active = status === 'pending' || status === 'confirmed';
+                          return (
+                            <MaterialIcons
+                              name={active ? 'check-circle' : 'bookmark-border'}
+                              size={20}
+                              color={active ? '#fff' : colorPalette.primary}
+                            />
+                          );
+                        })()}
                         <ThemedText
                           style={[
                             styles.bookButtonText,
-                            { color: reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? '#fff' : colorPalette.primary },
+                            (() => {
+                              const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return { color: active ? '#fff' : colorPalette.primary };
+                            })(),
                           ]}
                         >
-                          {reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? 'Reserved' : 'Reserve'}
+                          {(() => {
+                            const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                            const status = (match as any)?.status;
+                            const active = status === 'pending' || status === 'confirmed';
+                            return active ? 'Reserved' : 'Reserve';
+                          })()}
                         </ThemedText>
                       </TouchableOpacity>
                     </View>

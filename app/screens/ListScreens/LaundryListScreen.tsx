@@ -457,23 +457,45 @@ export default function LaundryListScreen() {
                            styles.bookButton,
                            {
                              borderColor: colorPalette.primary,
-                             backgroundColor: reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? colorPalette.primary : 'transparent',
+                             backgroundColor: (() => {
+                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                               const status = (match as any)?.status;
+                               const active = status === 'pending' || status === 'confirmed';
+                               return active ? colorPalette.primary : 'transparent';
+                             })(),
                            },
                          ]}
                          onPress={() => handleLaundryReservation(selectedLaundryService)}
                        >
-                         <MaterialIcons
-                           name={reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? 'check-circle' : 'bookmark-border'}
-                           size={20}
-                           color={reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? '#fff' : colorPalette.primary}
-                         />
+                         {(() => {
+                           const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                           const status = (match as any)?.status;
+                           const active = status === 'pending' || status === 'confirmed';
+                           return (
+                             <MaterialIcons
+                               name={active ? 'check-circle' : 'bookmark-border'}
+                               size={20}
+                               color={active ? '#fff' : colorPalette.primary}
+                             />
+                           );
+                         })()}
                          <ThemedText
                            style={[
                              styles.bookButtonText,
-                             { color: reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? '#fff' : colorPalette.primary },
+                             (() => {
+                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                               const status = (match as any)?.status;
+                               const active = status === 'pending' || status === 'confirmed';
+                               return { color: active ? '#fff' : colorPalette.primary };
+                             })(),
                            ]}
                          >
-                           {reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? 'Reserved' : 'Reserve'}
+                           {(() => {
+                             const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                             const status = (match as any)?.status;
+                             const active = status === 'pending' || status === 'confirmed';
+                             return active ? 'Reserved' : 'Reserve';
+                           })()}
                          </ThemedText>
                        </TouchableOpacity>
                      </View>

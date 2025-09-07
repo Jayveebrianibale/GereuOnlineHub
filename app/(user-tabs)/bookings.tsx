@@ -105,6 +105,26 @@ export default function Bookings() {
     );
   };
 
+  // Sort helpers to show newest first
+  const getTimestamp = (item: any) => {
+    const value = (item as any).reservationDate || (item as any).createdAt || (item as any).updatedAt;
+    const t = value ? new Date(value).getTime() : 0;
+    return Number.isFinite(t) ? t : 0;
+  };
+
+  const sortNewestFirst = (arr: any[]) => {
+    if (!Array.isArray(arr)) return [] as any[];
+    const withTime = arr.some(i => getTimestamp(i) !== 0);
+    if (withTime) {
+      return arr.slice().sort((a, b) => getTimestamp(b) - getTimestamp(a));
+    }
+    return arr.slice().reverse();
+  };
+
+  const apartmentsSorted = sortNewestFirst(reservedApartments as any[]);
+  const laundrySorted = sortNewestFirst(reservedLaundryServices as any[]);
+  const autoSorted = sortNewestFirst(reservedAutoServices as any[]);
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -119,8 +139,8 @@ export default function Bookings() {
         </View>
 
         {/* Booking Cards - Apartments */}
-       {reservedApartments.length > 0 && (
-         reservedApartments.map((apt) => (
+       {apartmentsSorted.length > 0 && (
+         apartmentsSorted.map((apt) => (
            <View
              key={apt.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
@@ -203,8 +223,8 @@ export default function Bookings() {
        )}
 
        {/* Booking Cards - Laundry */}
-       {reservedLaundryServices.length > 0 && (
-         reservedLaundryServices.map((svc) => (
+       {laundrySorted.length > 0 && (
+         laundrySorted.map((svc) => (
            <View
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
@@ -281,8 +301,8 @@ export default function Bookings() {
        )}
 
        {/* Booking Cards - Car & Motor Parts */}
-       {reservedAutoServices && reservedAutoServices.length > 0 && (
-         reservedAutoServices.map((svc) => (
+       {autoSorted && autoSorted.length > 0 && (
+         autoSorted.map((svc) => (
            <View
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
@@ -359,7 +379,7 @@ export default function Bookings() {
        )}
 
        {/* Empty state */}
-       {reservedApartments.length === 0 && reservedLaundryServices.length === 0 && (!reservedAutoServices || reservedAutoServices.length === 0) && (
+       {apartmentsSorted.length === 0 && laundrySorted.length === 0 && (!autoSorted || autoSorted.length === 0) && (
          <View style={{ alignItems: 'center', marginTop: 250 }}>
            <ThemedText style={{ color: subtitleColor }}>No reservations yet.</ThemedText>
          </View>

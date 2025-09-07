@@ -2,7 +2,8 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
 import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
@@ -39,6 +40,8 @@ export default function ReservationsScreen() {
   const isPortrait = height > width;
   const { adminReservations, updateReservationStatus, loading, error } = useAdminReservation();
   const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
+  const [filterVisible, setFilterVisible] = useState(false);
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';
@@ -66,6 +69,16 @@ export default function ReservationsScreen() {
         return textColor;
     }
   };
+
+  // Sort newest first and apply status filter
+  const displayReservations = (adminReservations || [])
+    .slice()
+    .sort((a, b) => {
+      const aTime = a?.reservationDate ? new Date(a.reservationDate).getTime() : 0;
+      const bTime = b?.reservationDate ? new Date(b.reservationDate).getTime() : 0;
+      return bTime - aTime;
+    })
+    .filter(r => statusFilter === 'all' ? true : (r.status === statusFilter));
 
   const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
     const performUpdate = async () => {
@@ -177,7 +190,7 @@ export default function ReservationsScreen() {
           <TouchableOpacity style={[
             styles.dateFilter, 
             { marginTop: isPortrait ? 25 : 12 }
-          ]}>
+          ]} onPress={() => setFilterVisible(true)}>
             <ThemedText style={{ color: colorPalette.primary, fontSize: subtitleSize }}>
               Filter
             </ThemedText>
@@ -187,6 +200,52 @@ export default function ReservationsScreen() {
 
         {/* Reservations List */}
         <View style={styles.reservationsContainer}>
+          {/* Filter Modal */}
+          <Modal
+            visible={filterVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setFilterVisible(false)}
+          >
+            <View style={styles.filterModalOverlay}>
+              <View style={[styles.filterModal, { backgroundColor: cardBgColor, borderColor }]}> 
+                <View style={styles.filterModalHeader}>
+                  <ThemedText type="subtitle" style={[styles.filterTitle, { color: textColor }]}>Filter by Status</ThemedText>
+                  <TouchableOpacity onPress={() => setFilterVisible(false)}>
+                    <MaterialIcons name="close" size={22} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'pending', label: 'Pending' },
+                  { id: 'cancelled', label: 'Cancelled' },
+                  { id: 'declined', label: 'Declined' },
+                ].map((opt: any) => {
+                  const active = statusFilter === opt.id;
+                  return (
+                    <TouchableOpacity
+                      key={opt.id}
+                      style={[
+                        styles.filterOption,
+                        { borderColor, backgroundColor: active ? colorPalette.primary + '20' : 'transparent' }
+                      ]}
+                      onPress={() => {
+                        setStatusFilter(opt.id);
+                        setFilterVisible(false);
+                      }}
+                    >
+                      <ThemedText style={{ color: active ? colorPalette.primary : subtitleColor }}>
+                        {opt.label}
+                      </ThemedText>
+                      {active && (
+                        <MaterialIcons name="check" size={18} color={colorPalette.primary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </Modal>
           {loading ? (
             <View style={styles.loadingState}>
               <MaterialIcons name="refresh" size={48} color={subtitleColor} />
@@ -212,7 +271,7 @@ export default function ReservationsScreen() {
               </ThemedText>
             </View>
           ) : (
-            adminReservations.map((reservation) => (
+            displayReservations.map((reservation) => (
               <View 
                 key={reservation.id} 
                 style={[
@@ -405,6 +464,39 @@ const styles = StyleSheet.create({
   },
   reservationsContainer: {
     marginBottom: 20,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  filterModal: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  filterOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
   },
   reservationCard: {
     borderRadius: 12,

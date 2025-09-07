@@ -455,23 +455,45 @@ export default function AutoListScreen() {
                            styles.bookButton,
                            {
                              borderColor: colorPalette.primary,
-                             backgroundColor: reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? colorPalette.primary : 'transparent',
+                             backgroundColor: (() => {
+                               const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                               const status = (match as any)?.status;
+                               const active = status === 'pending' || status === 'confirmed';
+                               return active ? colorPalette.primary : 'transparent';
+                             })(),
                            }
                          ]}
                          onPress={() => handleAutoReservation(selectedAutoService)}
                        >
-                         <MaterialIcons
-                           name={reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? 'check-circle' : 'bookmark-border'}
-                           size={20}
-                           color={reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? '#fff' : colorPalette.primary}
-                         />
+                         {(() => {
+                           const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                           const status = (match as any)?.status;
+                           const active = status === 'pending' || status === 'confirmed';
+                           return (
+                             <MaterialIcons
+                               name={active ? 'check-circle' : 'bookmark-border'}
+                               size={20}
+                               color={active ? '#fff' : colorPalette.primary}
+                             />
+                           );
+                         })()}
                          <ThemedText
                            style={[
                              styles.bookButtonText,
-                             { color: reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? '#fff' : colorPalette.primary }
+                             (() => {
+                               const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                               const status = (match as any)?.status;
+                               const active = status === 'pending' || status === 'confirmed';
+                               return { color: active ? '#fff' : colorPalette.primary };
+                             })()
                            ]}
                          >
-                           {reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? 'Reserved' : 'Reserve'}
+                           {(() => {
+                             const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                             const status = (match as any)?.status;
+                             const active = status === 'pending' || status === 'confirmed';
+                             return active ? 'Reserved' : 'Reserve';
+                           })()}
                          </ThemedText>
                        </TouchableOpacity>
                      </View>

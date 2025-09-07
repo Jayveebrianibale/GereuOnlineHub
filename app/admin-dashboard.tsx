@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [modules, setModules] = useState(initialModules);
   const [totalServices, setTotalServices] = useState(0);
   const [activeReservations, setActiveReservations] = useState(0);
+  const [reservationsCount, setReservationsCount] = useState(0);
 
   // Real-time listeners for all services
   useEffect(() => {
@@ -109,11 +110,24 @@ export default function AdminDashboard() {
       setLaundryServices(laundryServicesData);
     });
 
+    // Set up real-time listener for admin reservations count
+    const adminReservationsRef = ref(db, 'adminReservations');
+    const adminReservationsListener = onValue(adminReservationsRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setReservationsCount(0);
+        return;
+      }
+      const data = snapshot.val();
+      const count = Object.keys(data).length;
+      setReservationsCount(count);
+    });
+
     // Cleanup listeners when component unmounts
     return () => {
       off(apartmentsRef, 'value', apartmentsListener);
       off(autoServicesRef, 'value', autoServicesListener);
       off(laundryServicesRef, 'value', laundryServicesListener);
+      off(adminReservationsRef, 'value', adminReservationsListener);
     };
   }, []);
 
@@ -237,10 +251,10 @@ export default function AdminDashboard() {
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
             <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Active Reservations
+              Reservations
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
-              {activeReservations}
+              {reservationsCount}
             </ThemedText>
           </View>
         </View>
