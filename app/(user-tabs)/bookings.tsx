@@ -2,10 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from "../components/RobustImage";
+import { useAuthContext } from "../contexts/AuthContext";
 import { useReservation } from "../contexts/ReservationContext";
+import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
 
 
@@ -23,9 +24,8 @@ const colorPalette = {
 
 export default function Bookings() {
   const { colorScheme } = useColorScheme();
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  const { reservedApartments, reservedLaundryServices, reservedAutoServices } = useReservation();
+  const { reservedApartments, reservedLaundryServices, reservedAutoServices, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
+  const { user } = useAuthContext();
 
   const isDark = colorScheme === "dark";
   const bgColor = isDark ? "#121212" : "#fff";
@@ -37,15 +37,18 @@ export default function Bookings() {
   // No need for local bookings state, use reservedApartments from context
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Confirmed":
-        return "#4CAF50";
-      case "Completed":
-        return "#2196F3";
-      case "In Progress":
-        return "#FF9800";
-      case "Cancelled":
-        return "#F44336";
+    const normalized = (status || '').toLowerCase();
+    switch (normalized) {
+      case 'confirmed':
+        return '#4CAF50';
+      case 'completed':
+        return '#2196F3';
+      case 'pending':
+      case 'in progress':
+        return '#FF9800';
+      case 'cancelled':
+      case 'declined':
+        return '#F44336';
       default:
         return colorPalette.primary;
     }
@@ -64,15 +67,53 @@ export default function Bookings() {
     }
   };
 
+  const cancelAdminReservation = async (serviceType: 'apartment' | 'laundry' | 'auto', serviceId: string) => {
+    if (!user) return;
+    const all = await getAdminReservations();
+    const match = all.find(r => r.serviceType === serviceType && r.serviceId === serviceId && r.userId === user.uid);
+    if (match) {
+      await updateAdminReservationStatus(match.id, 'cancelled');
+    }
+  };
+
+  const confirmCancel = (onConfirm: () => Promise<void>) => {
+    if (Platform.OS === 'web') {
+      onConfirm()
+        .then(() => Alert.alert('Cancelled', 'Reservation has been cancelled.'))
+        .catch(() => Alert.alert('Error', 'Failed to cancel reservation.'));
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Reservation',
+      'Are you sure you want to cancel this reservation?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onConfirm();
+              Alert.alert('Cancelled', 'Reservation has been cancelled.');
+            } catch (e) {
+              Alert.alert('Error', 'Failed to cancel reservation.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
-    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="title" style={[styles.title, { color: textColor }]}>
+          <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
             My Reservations
           </ThemedText>
-          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
+          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}> 
             Track your service reservations
           </ThemedText>
         </View>
@@ -84,7 +125,7 @@ export default function Bookings() {
              key={apt.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(apt as any).image} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(apt as any).serviceImage || (apt as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -95,7 +136,7 @@ export default function Bookings() {
                  />
                  <View style={styles.serviceDetails}>
                    <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {apt.title}
+                     {(apt as any).serviceTitle || (apt as any).title}
                    </ThemedText>
                    <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
                      Apartment Rental
@@ -129,30 +170,33 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {apt.location}
+                   {(apt as any).serviceLocation || (apt as any).location}
                  </ThemedText>
                </View>
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP(apt.price)}
+                   {formatPHP((apt as any).servicePrice ?? (apt as any).price ?? 0)}
                  </ThemedText>
                </View>
              </View>
 
-             {/* Booking Actions (only "View Details") */}
+             {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={[styles.actionButton, { borderColor }]}
-                 onPress={() => router.push({
-                   pathname: "/reservation-details/[id]",
-                   params: { id: apt.id }
-                 })}
-               > 
-                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
-                   View Details
-                 </ThemedText>
-               </TouchableOpacity>
+               {((apt as any).status || 'pending') === 'pending' && (
+                 <TouchableOpacity 
+                   style={styles.cancelButton}
+                   onPress={() => confirmCancel(async () => {
+                     const serviceId = (apt as any).serviceId || (apt as any).id;
+                     await updateApartmentStatus(serviceId, 'cancelled');
+                     await cancelAdminReservation('apartment', serviceId);
+                   })}
+                 > 
+                   <ThemedText style={styles.cancelButtonText}> 
+                     Cancel
+                   </ThemedText>
+                 </TouchableOpacity>
+               )}
              </View>
            </View>
          ))
@@ -165,7 +209,7 @@ export default function Bookings() {
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(svc as any).image} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(svc as any).serviceImage || (svc as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -176,7 +220,7 @@ export default function Bookings() {
                  />
                  <View style={styles.serviceDetails}>
                    <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {svc.title}
+                     {(svc as any).serviceTitle || (svc as any).title}
                    </ThemedText>
                    <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
                      Laundry Service
@@ -210,21 +254,27 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP(svc.price)}
+                   {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
              </View>
 
              {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={[styles.actionButton, { borderColor }]}
-                 onPress={() => router.push({ pathname: '/reservation-details/[id]', params: { id: svc.id, type: 'laundry' } })}
-               > 
-                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
-                   View Details
-                 </ThemedText>
-               </TouchableOpacity>
+               {((svc as any).status || 'pending') === 'pending' && (
+                 <TouchableOpacity 
+                   style={styles.cancelButton}
+                   onPress={() => confirmCancel(async () => {
+                     const serviceId = (svc as any).serviceId || (svc as any).id;
+                     await updateLaundryStatus(serviceId, 'cancelled');
+                     await cancelAdminReservation('laundry', serviceId);
+                   })}
+                 > 
+                   <ThemedText style={styles.cancelButtonText}> 
+                     Cancel
+                   </ThemedText>
+                 </TouchableOpacity>
+               )}
              </View>
            </View>
          ))
@@ -237,7 +287,7 @@ export default function Bookings() {
              key={svc.id}
              style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(svc as any).image} style={styles.coverImage} resizeMode="cover" />
+             <RobustImage source={(svc as any).serviceImage || (svc as any).image} style={styles.coverImage} resizeMode="cover" />
              {/* Booking Header */}
              <View style={styles.bookingHeader}>
                <View style={styles.serviceInfo}>
@@ -248,7 +298,7 @@ export default function Bookings() {
                  />
                  <View style={styles.serviceDetails}>
                    <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {svc.title}
+                     {(svc as any).serviceTitle || (svc as any).title}
                    </ThemedText>
                    <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
                      Car & Motor Parts
@@ -282,21 +332,27 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP(svc.price)}
+                   {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
              </View>
 
              {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={[styles.actionButton, { borderColor }]}
-                 onPress={() => router.push({ pathname: '/reservation-details/[id]', params: { id: svc.id, type: 'auto' } })}
-               > 
-                 <ThemedText style={[styles.actionButtonText, { color: colorPalette.primary }]}> 
-                   View Details
-                 </ThemedText>
-               </TouchableOpacity>
+               {((svc as any).status || 'pending') === 'pending' && (
+                 <TouchableOpacity 
+                   style={styles.cancelButton}
+                   onPress={() => confirmCancel(async () => {
+                     const serviceId = (svc as any).serviceId || (svc as any).id;
+                     await updateAutoStatus(serviceId, 'cancelled');
+                     await cancelAdminReservation('auto', serviceId);
+                   })}
+                 > 
+                   <ThemedText style={styles.cancelButtonText}> 
+                     Cancel
+                   </ThemedText>
+                 </TouchableOpacity>
+               )}
              </View>
            </View>
          ))
@@ -402,17 +458,29 @@ const styles = StyleSheet.create({
   },
   bookingActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
   actionButton: {
-    flex: 1,
+    flex: 0,
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
-    marginHorizontal: 4,
+    paddingHorizontal: 16,
+  },
+  cancelButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   actionButtonText: {
     fontSize: 14,

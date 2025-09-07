@@ -134,7 +134,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const isReserved = reservedApartments.some(a => a.id === apartment.id);
+      const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
       if (isReserved) return;
 
       const reservationData = mapServiceToReservation(apartment, 'apartment');
@@ -151,7 +151,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const reservation = reservedApartments.find(a => a.id === apartmentId);
+      const reservation = reservedApartments.find(a => (a as any).serviceId === apartmentId);
       if (!reservation) return;
 
       // Find the Firebase reservation ID
@@ -173,7 +173,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const isReserved = reservedLaundryServices.some(s => s.id === service.id);
+      const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
       if (isReserved) return;
 
       const reservationData = mapServiceToReservation(service, 'laundry');
@@ -190,7 +190,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const reservation = reservedLaundryServices.find(s => s.id === serviceId);
+      const reservation = reservedLaundryServices.find(s => (s as any).serviceId === serviceId);
       if (!reservation) return;
 
       const reservations = await getUserReservations(user.uid);
@@ -211,7 +211,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const isReserved = reservedAutoServices.some(s => s.id === service.id);
+      const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
       if (isReserved) return;
 
       const reservationData = mapServiceToReservation(service, 'auto');
@@ -228,7 +228,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setError(null);
-      const reservation = reservedAutoServices.find(s => s.id === serviceId);
+      const reservation = reservedAutoServices.find(s => (s as any).serviceId === serviceId);
       if (!reservation) return;
 
       const reservations = await getUserReservations(user.uid);

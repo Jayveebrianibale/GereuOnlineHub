@@ -47,7 +47,7 @@ export default function LaundryListScreen() {
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
   
   const handleLaundryReservation = async (service: any) => {
-    const isReserved = reservedLaundryServices.some(s => s.id === service.id);
+    const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
         // Add to user reservations with pending status
@@ -66,6 +66,8 @@ export default function LaundryListScreen() {
           await addAdminReservation(adminReservationData);
         }
         
+        setDetailModalVisible(false);
+        setSelectedLaundryService(null);
         router.push('/(user-tabs)/bookings');
       } catch (error) {
         console.error('Error reserving laundry service:', error);
@@ -258,9 +260,9 @@ export default function LaundryListScreen() {
             <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
-              </View>
       </View>
-    );
+    </View>
+  );
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -455,23 +457,23 @@ export default function LaundryListScreen() {
                            styles.bookButton,
                            {
                              borderColor: colorPalette.primary,
-                             backgroundColor: reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? colorPalette.primary : 'transparent',
+                             backgroundColor: reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? colorPalette.primary : 'transparent',
                            },
                          ]}
                          onPress={() => handleLaundryReservation(selectedLaundryService)}
                        >
                          <MaterialIcons
-                           name={reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? 'check-circle' : 'bookmark-border'}
+                           name={reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? 'check-circle' : 'bookmark-border'}
                            size={20}
-                           color={reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? '#fff' : colorPalette.primary}
+                           color={reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? '#fff' : colorPalette.primary}
                          />
                          <ThemedText
                            style={[
                              styles.bookButtonText,
-                             { color: reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? '#fff' : colorPalette.primary },
+                             { color: reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? '#fff' : colorPalette.primary },
                            ]}
                          >
-                           {reservedLaundryServices.some(s => s.id === selectedLaundryService.id) ? 'Reserved' : 'Reserve'}
+                           {reservedLaundryServices.some(s => (s as any).serviceId === selectedLaundryService.id) ? 'Reserved' : 'Reserve'}
                          </ThemedText>
                        </TouchableOpacity>
                      </View>

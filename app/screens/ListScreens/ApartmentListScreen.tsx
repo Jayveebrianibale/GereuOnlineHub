@@ -62,7 +62,7 @@ export default function ApartmentListScreen() {
   }, []);
 
   const handleReservation = async (apartment: any) => {
-    const isReserved = reservedApartments.some(a => a.id === apartment.id);
+    const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
     if (!isReserved) {
       try {
         // Add to user reservations with pending status
@@ -81,6 +81,8 @@ export default function ApartmentListScreen() {
           await addAdminReservation(adminReservationData);
         }
         
+        setDetailModalVisible(false);
+        setSelectedApartment(null);
         router.push('/(user-tabs)/bookings');
       } catch (error) {
         console.error('Error reserving apartment:', error);
@@ -459,23 +461,23 @@ export default function ApartmentListScreen() {
                           styles.bookButton,
                           {
                             borderColor: colorPalette.primary,
-                            backgroundColor: reservedApartments.some(a => a.id === selectedApartment.id) ? colorPalette.primary : 'transparent',
+                            backgroundColor: reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? colorPalette.primary : 'transparent',
                           },
                         ]}
                         onPress={() => handleReservation(selectedApartment)}
                       >
                         <MaterialIcons
-                          name={reservedApartments.some(a => a.id === selectedApartment.id) ? 'check-circle' : 'bookmark-border'}
+                          name={reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? 'check-circle' : 'bookmark-border'}
                           size={20}
-                          color={reservedApartments.some(a => a.id === selectedApartment.id) ? '#fff' : colorPalette.primary}
+                          color={reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? '#fff' : colorPalette.primary}
                         />
                         <ThemedText
                           style={[
                             styles.bookButtonText,
-                            { color: reservedApartments.some(a => a.id === selectedApartment.id) ? '#fff' : colorPalette.primary },
+                            { color: reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? '#fff' : colorPalette.primary },
                           ]}
                         >
-                          {reservedApartments.some(a => a.id === selectedApartment.id) ? 'Reserved' : 'Reserve'}
+                          {reservedApartments.some(a => (a as any).serviceId === selectedApartment.id) ? 'Reserved' : 'Reserve'}
                         </ThemedText>
                       </TouchableOpacity>
                     </View>

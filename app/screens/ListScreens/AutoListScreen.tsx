@@ -48,7 +48,7 @@ export default function AutoListScreen() {
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
   const handleAutoReservation = async (service: any) => {
-    const isReserved = reservedAutoServices.some(s => s.id === service.id);
+    const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
         // Add to user reservations with pending status
@@ -67,6 +67,8 @@ export default function AutoListScreen() {
           await addAdminReservation(adminReservationData);
         }
         
+        setDetailModalVisible(false);
+        setSelectedAutoService(null);
         router.push('/(user-tabs)/bookings');
       } catch (error) {
         console.error('Error reserving auto service:', error);
@@ -453,23 +455,23 @@ export default function AutoListScreen() {
                            styles.bookButton,
                            {
                              borderColor: colorPalette.primary,
-                             backgroundColor: reservedAutoServices.some(s => s.id === selectedAutoService.id) ? colorPalette.primary : 'transparent',
+                             backgroundColor: reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? colorPalette.primary : 'transparent',
                            }
                          ]}
                          onPress={() => handleAutoReservation(selectedAutoService)}
                        >
                          <MaterialIcons
-                           name={reservedAutoServices.some(s => s.id === selectedAutoService.id) ? 'check-circle' : 'bookmark-border'}
+                           name={reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? 'check-circle' : 'bookmark-border'}
                            size={20}
-                           color={reservedAutoServices.some(s => s.id === selectedAutoService.id) ? '#fff' : colorPalette.primary}
+                           color={reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? '#fff' : colorPalette.primary}
                          />
                          <ThemedText
                            style={[
                              styles.bookButtonText,
-                             { color: reservedAutoServices.some(s => s.id === selectedAutoService.id) ? '#fff' : colorPalette.primary }
+                             { color: reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? '#fff' : colorPalette.primary }
                            ]}
                          >
-                           {reservedAutoServices.some(s => s.id === selectedAutoService.id) ? 'Reserved' : 'Reserve'}
+                           {reservedAutoServices.some(s => (s as any).serviceId === selectedAutoService.id) ? 'Reserved' : 'Reserve'}
                          </ThemedText>
                        </TouchableOpacity>
                      </View>

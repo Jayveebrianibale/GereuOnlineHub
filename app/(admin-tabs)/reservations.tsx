@@ -2,9 +2,10 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
+import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
 const colorPalette = {
@@ -66,65 +67,75 @@ export default function ReservationsScreen() {
     }
   };
 
-  const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string) => {
+  const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
+    const performUpdate = async () => {
+      try {
+        await updateReservationStatus(reservationId, 'confirmed');
+        // Update corresponding user's reservation regardless of current auth context
+        try {
+          const userReservations = await getUserReservations(userId);
+          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+          if (target) {
+            await updateUserReservationStatus(userId, target.id, 'confirmed');
+          }
+        } catch (e) {
+          // Non-fatal: log and continue
+          console.warn('Failed updating user reservation status:', e);
+        }
+        Alert.alert('Success', 'Reservation has been accepted successfully!');
+      } catch (error) {
+        console.error('Error accepting reservation:', error);
+        Alert.alert('Error', 'Failed to accept reservation. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      performUpdate();
+      return;
+    }
+
     Alert.alert(
       'Accept Reservation',
       'Are you sure you want to accept this reservation?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            try {
-              await updateReservationStatus(reservationId, 'confirmed');
-              // Update the corresponding service status in user context
-              if (serviceType === 'apartment') {
-                await updateApartmentStatus(serviceId, 'confirmed');
-              } else if (serviceType === 'laundry') {
-                await updateLaundryStatus(serviceId, 'confirmed');
-              } else if (serviceType === 'auto') {
-                await updateAutoStatus(serviceId, 'confirmed');
-              }
-              // Show success message
-              Alert.alert('Success', 'Reservation has been accepted successfully!');
-            } catch (error) {
-              console.error('Error accepting reservation:', error);
-              Alert.alert('Error', 'Failed to accept reservation. Please try again.');
-            }
-          }
-        }
+        { text: 'Accept', onPress: performUpdate }
       ]
     );
   };
 
-  const handleDeclineReservation = (reservationId: string, serviceType: string, serviceId: string) => {
+  const handleDeclineReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
+    const performUpdate = async () => {
+      try {
+        await updateReservationStatus(reservationId, 'declined');
+        // Update corresponding user's reservation regardless of current auth context
+        try {
+          const userReservations = await getUserReservations(userId);
+          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+          if (target) {
+            await updateUserReservationStatus(userId, target.id, 'declined');
+          }
+        } catch (e) {
+          console.warn('Failed updating user reservation status:', e);
+        }
+        Alert.alert('Success', 'Reservation has been declined successfully!');
+      } catch (error) {
+        console.error('Error declining reservation:', error);
+        Alert.alert('Error', 'Failed to decline reservation. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      performUpdate();
+      return;
+    }
+
     Alert.alert(
       'Decline Reservation',
       'Are you sure you want to decline this reservation?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateReservationStatus(reservationId, 'declined');
-              // Update the corresponding service status in user context
-              if (serviceType === 'apartment') {
-                await updateApartmentStatus(serviceId, 'declined');
-              } else if (serviceType === 'laundry') {
-                await updateLaundryStatus(serviceId, 'declined');
-              } else if (serviceType === 'auto') {
-                await updateAutoStatus(serviceId, 'declined');
-              }
-              // Show success message
-              Alert.alert('Success', 'Reservation has been declined successfully!');
-            } catch (error) {
-              console.error('Error declining reservation:', error);
-              Alert.alert('Error', 'Failed to decline reservation. Please try again.');
-            }
-          }
-        }
+        { text: 'Decline', style: 'destructive', onPress: performUpdate }
       ]
     );
   };
@@ -301,7 +312,7 @@ export default function ReservationsScreen() {
                     <>
                       <TouchableOpacity 
                         style={[styles.actionButton, styles.acceptButton]}
-                        onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId)}
+                        onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                       >
                         <MaterialIcons name="check" size={18} color="#10B981" />
                         <ThemedText style={[
@@ -314,7 +325,7 @@ export default function ReservationsScreen() {
                       
                       <TouchableOpacity 
                         style={[styles.actionButton, styles.declineButton]}
-                        onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId)}
+                        onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                       >
                         <MaterialIcons name="close" size={18} color="#EF4444" />
                         <ThemedText style={[

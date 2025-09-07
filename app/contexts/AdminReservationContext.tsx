@@ -92,11 +92,15 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
   const updateReservationStatus = async (reservationId: string, status: AdminReservation['status']) => {
     try {
       setError(null);
+      // Optimistically update local state so UI reflects the change immediately
+      setAdminReservations(prev => prev.map(r => r.id === reservationId ? { ...r, status, updatedAt: new Date().toISOString() } : r));
       await updateAdminReservationStatus(reservationId, status);
       // The real-time listener will update the state automatically
     } catch (err) {
       console.error('Error updating reservation status:', err);
       setError('Failed to update reservation status');
+      // Revert optimistic update by reloading from listener on next tick
+      // No-op here; the live listener will resync the correct state
       throw err;
     }
   };

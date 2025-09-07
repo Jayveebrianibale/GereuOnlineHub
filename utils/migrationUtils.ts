@@ -119,3 +119,4 @@ export const isMigrationNeeded = async (): Promise<boolean> => {
     return false;
   }
 };
+
