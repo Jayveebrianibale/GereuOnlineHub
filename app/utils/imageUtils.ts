@@ -12,7 +12,6 @@ const imageMap: { [key: string]: ImageSourcePropType } = {
   'laundry1.webp': require('@/assets/images/laundry1.webp'),
   'laundry2.webp': require('@/assets/images/laundry2.webp'),
   'laundry3.webp': require('@/assets/images/laundry3.webp'),
-  'laundry3.jpg': require('@/assets/images/laundry3.jpg'),
 };
 
 // Reverse mapping for getting path from require() statement
