@@ -92,9 +92,12 @@ export default function UsersScreen() {
   };
 
   const filteredUsers = users.filter(user => {
+    const safeName = (user.name || '').toLowerCase();
+    const safeEmail = (user.email || '').toLowerCase();
+    const searchText = (search || '').toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
+      safeName.includes(searchText) ||
+      safeEmail.includes(searchText);
     const matchesStatus =
       statusFilter === 'all' ? true : user.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -243,14 +246,14 @@ export default function UsersScreen() {
                   </ThemedText>
                 </View>
                 <View style={styles.userDetails}>
-                  <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
-                    {user.name}
+                  <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}> 
+                    {user.name || 'Unnamed User'}
                   </ThemedText>
                   <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
-                    {user.email}
+                    {user.email || 'no-email'}
                   </ThemedText>
                   <ThemedText style={[styles.userRole, { color: subtitleColor }]}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    {(user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown')}
                   </ThemedText>
                 </View>
               </View>
@@ -260,20 +263,20 @@ export default function UsersScreen() {
                   style={[
                     styles.statusBadge,
                     {
-                      backgroundColor: user.status === 'active' ? '#10B98120' : '#EF444420',
+                      backgroundColor: user.status === 'active' ? '#10B98120' : user.status === 'inactive' ? '#EF444420' : '#9CA3AF20',
                     }
                   ]}
                   onPress={() => handleStatusToggle(user.id, user.status)}
                 >
                   <View style={[
                     styles.statusDot,
-                    { backgroundColor: user.status === 'active' ? '#10B981' : '#EF4444' }
+                    { backgroundColor: user.status === 'active' ? '#10B981' : user.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
                   ]} />
                   <ThemedText style={[
                     styles.statusText,
-                    { color: user.status === 'active' ? '#10B981' : '#EF4444' }
+                    { color: user.status === 'active' ? '#10B981' : user.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
                   ]}>
-                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    {(user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : 'Unknown')}
                   </ThemedText>
                 </TouchableOpacity>
                 <ThemedText style={[styles.lastActiveText, { color: subtitleColor }]}>

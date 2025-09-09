@@ -3,8 +3,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { get, ref, set } from 'firebase/database';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { useAuthContext } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -21,8 +24,10 @@ export default function SettingsScreen() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { user } = useAuthContext();
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false);
   const [currentVersion] = useState('1.2.3');
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -44,6 +49,34 @@ export default function SettingsScreen() {
     }
   };
 
+  // Load Email Notifications preference
+  useEffect(() => {
+    const loadEmailPreference = async () => {
+      try {
+        if (!user) return;
+        const prefRef = ref(db, `users/${user.uid}/preferences/emailNotifications`);
+        const snapshot = await get(prefRef);
+        if (snapshot.exists()) {
+          setEmailNotificationsEnabled(!!snapshot.val());
+        }
+      } catch (error) {
+        console.error('Failed to load email notifications preference:', error);
+      }
+    };
+    loadEmailPreference();
+  }, [user]);
+
+  const toggleEmailNotifications = async (value: boolean) => {
+    try {
+      setEmailNotificationsEnabled(value);
+      if (!user) return;
+      const prefRef = ref(db, `users/${user.uid}/preferences/emailNotifications`);
+      await set(prefRef, value);
+    } catch (error) {
+      console.error('Failed to save email notifications preference:', error);
+    }
+  };
+
   const settingsSections = [
     {
       title: "Appearance",
@@ -60,12 +93,6 @@ export default function SettingsScreen() {
               trackColor={{ false: '#767577', true: colorPalette.primaryLight }}
             />
           ),
-        },
-        {
-          title: "Theme Color",
-          icon: "color-lens",
-          value: "Blue",
-          action: <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />,
         },
       ],
     },
@@ -88,7 +115,14 @@ export default function SettingsScreen() {
         {
           title: "Email Notifications",
           icon: "email",
-          action: <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />,
+          action: (
+            <Switch
+              value={emailNotificationsEnabled}
+              onValueChange={toggleEmailNotifications}
+              thumbColor={emailNotificationsEnabled ? colorPalette.primary : '#f4f3f4'}
+              trackColor={{ false: '#767577', true: colorPalette.primaryLight }}
+            />
+          ),
         },
       ],
     },

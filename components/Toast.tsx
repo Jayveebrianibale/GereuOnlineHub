@@ -5,7 +5,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 interface ToastProps {
   visible: boolean;
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
   onHide: () => void;
 }
 
@@ -57,8 +57,8 @@ export default function Toast({ visible, message, type, onHide }: ToastProps) {
 
   if (!visible) return null;
 
-  const backgroundColor = type === 'success' ? '#4CAF50' : '#F44336';
-  const iconName = type === 'success' ? 'check-circle' : 'error';
+  const backgroundColor = type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : '#2196F3';
+  const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'error' : 'info';
 
   return (
     <Animated.View

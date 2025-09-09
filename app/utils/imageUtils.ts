@@ -42,6 +42,11 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
       return { uri: imagePath } as ImageSourcePropType;
     }
     
+    // For Android content URIs
+    if (lower.startsWith('content://')) {
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+    
     // For HTTP/HTTPS URIs and data URLs
     if (lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
       console.log('🖼️ Using URI image source:', imagePath);
@@ -96,6 +101,11 @@ export const getImageSourceAsync = async (imagePath: string | ImageSourcePropTyp
       return { uri: imagePath } as ImageSourcePropType;
     }
     
+    // For Android content URIs
+    if (lower.startsWith('content://')) {
+      return { uri: imagePath } as ImageSourcePropType;
+    }
+
     // For HTTP/HTTPS URIs and data URLs
     if (lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('data:')) {
       console.log('🖼️ Using URI image source:', imagePath);
@@ -146,9 +156,9 @@ export const getImagePath = (imageSource: ImageSourcePropType): string => {
 // Function to convert problematic local file URIs to base64 data URIs
 const convertLocalFileToBase64 = async (fileUri: string): Promise<string | null> => {
   try {
-    // Check if the file exists and is readable
+    // Check if the file exists and is a regular file (not a directory)
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    if (!fileInfo.exists || !fileInfo.isDirectory) {
+    if (!fileInfo.exists || fileInfo.isDirectory) {
       console.warn('⚠️ File does not exist or is not accessible:', fileUri);
       return null;
     }
