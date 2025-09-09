@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 // ✅ Import your custom color scheme provider
 import { ColorSchemeProvider, useColorScheme } from '../components/ColorSchemeContext';
+import PushRegistrar from './components/PushRegistrar';
 import { AdminReservationProvider } from './contexts/AdminReservationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { ReservationProvider } from './contexts/ReservationContext';
@@ -58,6 +59,7 @@ export default function RootLayout() {
         <AdminReservationProvider>
           <ColorSchemeProvider>
             <AppContent />
+            <PushRegistrar />
           </ColorSchemeProvider>
         </AdminReservationProvider>
       </ReservationProvider>

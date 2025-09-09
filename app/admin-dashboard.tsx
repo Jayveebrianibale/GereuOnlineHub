@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { off, onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
@@ -67,6 +68,7 @@ export default function AdminDashboard() {
   const [totalServices, setTotalServices] = useState(0);
   const [activeReservations, setActiveReservations] = useState(0);
   const [reservationsCount, setReservationsCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Real-time listeners for all services
   useEffect(() => {
@@ -131,6 +133,39 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Admin notifications badge listener (pending + changes since last seen)
+  useEffect(() => {
+    let isActive = true;
+    const storageKey = `admin:lastSeenAdminReservations`;
+    const unsubscribe = onValue(ref(db, 'adminReservations'), async (snapshot) => {
+      if (!isActive) return;
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        const lastSeen = raw ? Number(raw) : 0;
+        if (!snapshot.exists()) {
+          setUnreadCount(0);
+          return;
+        }
+        const data = snapshot.val();
+        const list = Object.values(data) as any[];
+        const relevant = list.filter(r => r.status === 'pending' || r.status === 'confirmed' || r.status === 'declined' || r.status === 'cancelled');
+        const count = relevant.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
+        setUnreadCount(count);
+      } catch {
+        setUnreadCount(0);
+      }
+    });
+    return () => { isActive = false; unsubscribe(); };
+  }, []);
+
+  const handleAdminNotificationsPress = async () => {
+    try {
+      const storageKey = `admin:lastSeenAdminReservations`;
+      await AsyncStorage.setItem(storageKey, String(Date.now()));
+      setUnreadCount(0);
+      router.push('/(admin-tabs)/reservations');
+    } catch {}
+  };
   // Update modules and calculate totals whenever any service data changes
   useEffect(() => {
     // Update modules with actual counts
@@ -233,8 +268,15 @@ export default function AdminDashboard() {
                 color={iconColor} 
               /> */}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileButton}>
-              <MaterialIcons name="notifications-none" size={32} color={iconColor} />
+            <TouchableOpacity style={styles.profileButton} onPress={handleAdminNotificationsPress}>
+              <View>
+                <MaterialIcons name="notifications-none" size={32} color={iconColor} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <ThemedText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -344,6 +386,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
   statsContainer: {
     flexDirection: 'row',

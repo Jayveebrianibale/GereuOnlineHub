@@ -1,10 +1,11 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { notifyAdmins } from '../services/notificationService';
 import {
-    getUserReservations,
-    listenToUserReservations,
-    removeUserReservation,
-    saveUserReservation,
-    updateUserReservationStatus
+  getUserReservations,
+  listenToUserReservations,
+  removeUserReservation,
+  saveUserReservation,
+  updateUserReservationStatus
 } from '../services/reservationService';
 import { mapServiceToReservation } from '../utils/reservationUtils';
 import { useAuthContext } from './AuthContext';
@@ -139,6 +140,10 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
 
       const reservationData = mapServiceToReservation(apartment, 'apartment');
       await saveUserReservation(user.uid, reservationData);
+      // Notify admins new reservation
+      await notifyAdmins('New apartment reservation', `${apartment.title} reserved`, {
+        serviceType: 'apartment', serviceId: apartment.id, userId: user.uid,
+      });
     } catch (err) {
       console.error('Error reserving apartment:', err);
       setError('Failed to reserve apartment');
@@ -160,6 +165,10 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       
       if (firebaseReservation) {
         await removeUserReservation(user.uid, firebaseReservation.id);
+        // Notify admins cancellation
+        await notifyAdmins('Reservation cancelled', `Apartment reservation cancelled`, {
+          serviceType: 'apartment', serviceId: apartmentId, userId: user.uid,
+        });
       }
     } catch (err) {
       console.error('Error removing apartment reservation:', err);
@@ -178,6 +187,9 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
 
       const reservationData = mapServiceToReservation(service, 'laundry');
       await saveUserReservation(user.uid, reservationData);
+      await notifyAdmins('New laundry reservation', `${service.title} reserved`, {
+        serviceType: 'laundry', serviceId: service.id, userId: user.uid,
+      });
     } catch (err) {
       console.error('Error reserving laundry service:', err);
       setError('Failed to reserve laundry service');
@@ -198,6 +210,9 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       
       if (firebaseReservation) {
         await removeUserReservation(user.uid, firebaseReservation.id);
+        await notifyAdmins('Reservation cancelled', `Laundry reservation cancelled`, {
+          serviceType: 'laundry', serviceId, userId: user.uid,
+        });
       }
     } catch (err) {
       console.error('Error removing laundry reservation:', err);
@@ -216,6 +231,9 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
 
       const reservationData = mapServiceToReservation(service, 'auto');
       await saveUserReservation(user.uid, reservationData);
+      await notifyAdmins('New auto reservation', `${service.title} reserved`, {
+        serviceType: 'auto', serviceId: service.id, userId: user.uid,
+      });
     } catch (err) {
       console.error('Error reserving auto service:', err);
       setError('Failed to reserve auto service');
@@ -236,6 +254,9 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       
       if (firebaseReservation) {
         await removeUserReservation(user.uid, firebaseReservation.id);
+        await notifyAdmins('Reservation cancelled', `Auto reservation cancelled`, {
+          serviceType: 'auto', serviceId, userId: user.uid,
+        });
       }
     } catch (err) {
       console.error('Error removing auto reservation:', err);

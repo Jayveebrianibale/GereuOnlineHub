@@ -2,6 +2,7 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +11,7 @@ import { RobustImage } from './components/RobustImage';
 import { getApartments } from './services/apartmentService';
 import { getAutoServices } from './services/autoService';
 import { getLaundryServices } from './services/laundryService';
+import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
 
 const colorPalette = {
@@ -32,6 +34,7 @@ export default function UserHome() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
@@ -44,6 +47,53 @@ export default function UserHome() {
       setFirstName(user.displayName.split(' ')[0]);
     }
   }, []);
+
+  // Notifications badge listener
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    let isActive = true;
+    const storageKey = `user:lastSeenReservations:${user.uid}`;
+
+    const init = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        const lastSeen = raw ? Number(raw) : 0;
+
+        const unsubscribe = listenToUserReservations(user.uid, (reservations: FirebaseUserReservation[]) => {
+          if (!isActive) return;
+          const latestRelevant = reservations.filter(r => (
+            r.status === 'pending' || r.status === 'confirmed' || r.status === 'declined' || r.status === 'cancelled'
+          ));
+          const count = latestRelevant.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
+          setUnreadCount(count);
+        });
+
+        return unsubscribe;
+      } catch (e) {
+        setUnreadCount(0);
+      }
+    };
+
+    let cleanup: any;
+    init().then(unsub => { cleanup = unsub; });
+    return () => { isActive = false; if (cleanup) cleanup(); };
+  }, []);
+
+  const handleNotificationsPress = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+      const storageKey = `user:lastSeenReservations:${user.uid}`;
+      await AsyncStorage.setItem(storageKey, String(Date.now()));
+      setUnreadCount(0);
+      // Optionally navigate to a notifications/reservations screen
+      router.push('/bookings');
+    } catch {}
+  };
 
   useEffect(() => {
     const fetchApartments = async () => {
@@ -208,11 +258,15 @@ export default function UserHome() {
                 </ThemedText>
               </View>
               <View style={styles.headerIcons}> 
-                <TouchableOpacity style={styles.iconButton}> 
-                  <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}> 
-                  <MaterialIcons name="account-circle" size={28} color={colorPalette.primary} />
+                <TouchableOpacity style={styles.iconButton} onPress={handleNotificationsPress}> 
+                  <View>
+                    <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
+                    {unreadCount > 0 && (
+                      <View style={styles.badge}> 
+                        <ThemedText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText>
+                      </View>
+                    )}
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -441,6 +495,24 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     marginLeft: 5,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
   title: {
     fontSize: 24,

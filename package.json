@@ -46,7 +46,9 @@
     "react-native-webview": "13.13.5",
     "socket.io-client": "^4.8.1",
     "expo-image-picker": "~16.1.4",
-    "expo-image-manipulator": "~13.1.7"
+    "expo-image-manipulator": "~13.1.7",
+    "expo-notifications": "~0.31.4",
+    "expo-device": "~7.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
