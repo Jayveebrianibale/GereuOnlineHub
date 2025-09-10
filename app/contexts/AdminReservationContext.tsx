@@ -1,10 +1,10 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { notifyUser } from '../services/notificationService';
 import {
-    getAdminReservations,
-    listenToAdminReservations,
-    saveAdminReservation,
-    updateAdminReservationStatus
+  getAdminReservations,
+  listenToAdminReservations,
+  saveAdminReservation,
+  updateAdminReservationStatus
 } from '../services/reservationService';
 
 export type AdminReservation = {

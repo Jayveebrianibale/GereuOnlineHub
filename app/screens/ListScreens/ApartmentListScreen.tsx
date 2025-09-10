@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -384,7 +384,7 @@ export default function ApartmentListScreen() {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.detailScrollContent}
                 >
-                  <Image source={getApartmentImageSource(selectedApartment)} style={styles.detailImage} resizeMode="cover" />
+                  <RobustImage source={selectedApartment.image} style={styles.detailImage} resizeMode="cover" />
                   
                   <View style={styles.detailContent}>
                     <View style={styles.detailRatingRow}>

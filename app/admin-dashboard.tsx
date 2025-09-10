@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { off, onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
 import { db } from './firebaseConfig';
 
@@ -69,6 +69,9 @@ export default function AdminDashboard() {
   const [activeReservations, setActiveReservations] = useState(0);
   const [reservationsCount, setReservationsCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Real-time listeners for all services
   useEffect(() => {
@@ -247,6 +250,84 @@ export default function AdminDashboard() {
     }
   };
 
+  // Search functionality
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    
+    if (query.trim() === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const results: any[] = [];
+
+    // Search in apartments
+    apartments.forEach(apartment => {
+      if (
+        apartment.name?.toLowerCase().includes(query.toLowerCase()) ||
+        apartment.description?.toLowerCase().includes(query.toLowerCase()) ||
+        apartment.location?.toLowerCase().includes(query.toLowerCase()) ||
+        apartment.type?.toLowerCase().includes(query.toLowerCase())
+      ) {
+        results.push({
+          ...apartment,
+          type: 'apartment',
+          category: 'Apartment Rentals'
+        });
+      }
+    });
+
+    // Search in auto services
+    autoServices.forEach(auto => {
+      if (
+        auto.name?.toLowerCase().includes(query.toLowerCase()) ||
+        auto.description?.toLowerCase().includes(query.toLowerCase()) ||
+        auto.serviceType?.toLowerCase().includes(query.toLowerCase()) ||
+        auto.brand?.toLowerCase().includes(query.toLowerCase()) ||
+        auto.model?.toLowerCase().includes(query.toLowerCase())
+      ) {
+        results.push({
+          ...auto,
+          type: 'auto',
+          category: 'Car and Motor Parts'
+        });
+      }
+    });
+
+    // Search in laundry services
+    laundryServices.forEach(laundry => {
+      if (
+        laundry.name?.toLowerCase().includes(query.toLowerCase()) ||
+        laundry.description?.toLowerCase().includes(query.toLowerCase()) ||
+        laundry.serviceType?.toLowerCase().includes(query.toLowerCase())
+      ) {
+        results.push({
+          ...laundry,
+          type: 'laundry',
+          category: 'Laundry Services'
+        });
+      }
+    });
+
+    setSearchResults(results);
+  };
+
+  const handleSearchResultPress = (item: any) => {
+    switch (item.type) {
+      case 'apartment':
+        router.push('/admin-apartment');
+        break;
+      case 'auto':
+        router.push('/admin-auto');
+        break;
+      case 'laundry':
+        router.push('/admin-laundry');
+        break;
+    }
+  };
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: pageBackground }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -281,6 +362,23 @@ export default function AdminDashboard() {
           </View>
         </View>
 
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { backgroundColor: cardBackground }]}>
+          <MaterialIcons name="search" size={20} color={subtitleColor} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: textColor }]}
+            placeholder="Search services..."
+            placeholderTextColor={subtitleColor}
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <MaterialIcons name="clear" size={20} color={subtitleColor} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Stats Overview */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
@@ -301,43 +399,103 @@ export default function AdminDashboard() {
           </View>
         </View>
 
+        {/* Search Results */}
+        {isSearching && (
+          <View style={styles.searchResultsContainer}>
+            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+              Search Results ({searchResults.length})
+            </ThemedText>
+            {searchResults.length > 0 ? (
+              <View style={styles.searchResultsList}>
+                {searchResults.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.type}-${item.id}-${index}`}
+                    style={[styles.searchResultItem, { backgroundColor: cardBackground }]}
+                    onPress={() => handleSearchResultPress(item)}
+                  >
+                    <View style={styles.searchResultHeader}>
+                      <MaterialIcons 
+                        name={
+                          item.type === 'apartment' ? 'apartment' :
+                          item.type === 'auto' ? 'directions-car' :
+                          'local-laundry-service'
+                        } 
+                        size={20} 
+                        color={
+                          item.type === 'apartment' ? colorPalette.primaryDark :
+                          item.type === 'auto' ? colorPalette.dark :
+                          colorPalette.primary
+                        } 
+                      />
+                      <ThemedText type="subtitle" style={[styles.searchResultTitle, { color: textColor }]}>
+                        {item.name || item.title || 'Untitled'}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={[styles.searchResultCategory, { color: subtitleColor }]}>
+                      {item.category}
+                    </ThemedText>
+                    <ThemedText style={[styles.searchResultDescription, { color: subtitleColor }]}>
+                      {item.description || 'No description available'}
+                    </ThemedText>
+                    <MaterialIcons name="arrow-forward" size={16} color={subtitleColor} style={styles.searchResultArrow} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={[styles.noResultsContainer, { backgroundColor: cardBackground }]}>
+                <MaterialIcons name="search-off" size={48} color={subtitleColor} />
+                <ThemedText style={[styles.noResultsText, { color: textColor }]}>
+                  No services found
+                </ThemedText>
+                <ThemedText style={[styles.noResultsSubtext, { color: subtitleColor }]}>
+                  Try searching with different keywords
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Main Services */}
-        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-          Manage Services
-        </ThemedText>
-        <View style={styles.cardGrid}>
-          {modules.map((mod) => (
-            <TouchableOpacity 
-              key={mod.key} 
-              style={[
-                styles.card, 
-                { 
-                  backgroundColor: cardBackground,
-                  borderTopColor: mod.color,
-                  shadowColor: isDark ? '#222' : colorPalette.dark,
-                }
-              ]}
-              onPress={() => handleModulePress(mod.key)}
-            >
-              <View style={styles.cardHeader}>
-                <MaterialIcons name={mod.icon as any} size={24} color={mod.color} />
-                <ThemedText type="subtitle" style={[styles.cardTitle, { color: textColor }]}>
-                  {mod.title}
-                </ThemedText>
-              </View>
-              <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
-              <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
-                {mod.description}
-              </ThemedText>
-              <View style={styles.cardFooter}>
-                <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
-                  {mod.stats}
-                </ThemedText>
-                <MaterialIcons name="arrow-forward" size={20} color={iconColor} />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {!isSearching && (
+          <>
+            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+              Manage Services
+            </ThemedText>
+            <View style={styles.cardGrid}>
+              {modules.map((mod) => (
+                <TouchableOpacity 
+                  key={mod.key} 
+                  style={[
+                    styles.card, 
+                    { 
+                      backgroundColor: cardBackground,
+                      borderTopColor: mod.color,
+                      shadowColor: isDark ? '#222' : colorPalette.dark,
+                    }
+                  ]}
+                  onPress={() => handleModulePress(mod.key)}
+                >
+                  <View style={styles.cardHeader}>
+                    <MaterialIcons name={mod.icon as any} size={24} color={mod.color} />
+                    <ThemedText type="subtitle" style={[styles.cardTitle, { color: textColor }]}>
+                      {mod.title}
+                    </ThemedText>
+                  </View>
+                  <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
+                  <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
+                    {mod.description}
+                  </ThemedText>
+                  <View style={styles.cardFooter}>
+                    <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
+                      {mod.stats}
+                    </ThemedText>
+                    <MaterialIcons name="arrow-forward" size={20} color={iconColor} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -497,5 +655,91 @@ const styles = StyleSheet.create({
   cardStats: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Search styles
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  searchResultsContainer: {
+    marginBottom: 24,
+  },
+  searchResultsList: {
+    gap: 12,
+  },
+  searchResultItem: {
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    position: 'relative',
+  },
+  searchResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  searchResultTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
+  },
+  searchResultCategory: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  searchResultDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  searchResultArrow: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  noResultsContainer: {
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

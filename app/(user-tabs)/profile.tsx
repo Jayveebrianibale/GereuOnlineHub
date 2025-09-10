@@ -2,10 +2,12 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -73,6 +75,9 @@ export default function Profile() {
     email: "",
     avatar: null,
   });
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -83,6 +88,9 @@ export default function Profile() {
           email: user.email || "No Email",
           avatar: require('@/assets/images/logo.png'),
         });
+        if (user.photoURL) {
+          setAvatarUri(user.photoURL);
+        }
       }
     });
 
@@ -108,6 +116,92 @@ export default function Profile() {
     }
   };
 
+  const processImage = async (uri: string) => {
+    try {
+      setIsProcessingImage(true);
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 300 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return manipResult.uri;
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  const pickImageFromDevice = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow photo library access to choose an image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const processed = await processImage(result.assets[0].uri);
+        setAvatarUri(processed);
+        setPhotoModalVisible(false);
+        Alert.alert('Success', 'Profile photo updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error picking image: ', error);
+      Alert.alert('Error', 'Failed to pick image from device');
+    }
+  };
+
+  const takePhotoWithCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 1,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const processed = await processImage(result.assets[0].uri);
+        setAvatarUri(processed);
+        setPhotoModalVisible(false);
+        Alert.alert('Success', 'Profile photo updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error taking photo: ', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const removeProfilePhoto = () => {
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setAvatarUri(null);
+            setPhotoModalVisible(false);
+            Alert.alert('Success', 'Profile photo removed successfully!');
+          }
+        }
+      ]
+    );
+  };
+ 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -124,7 +218,16 @@ export default function Profile() {
         {/* User Info Card */}
         <View style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
           <View style={styles.userHeader}>
-            <Image source={userData.avatar as any} style={styles.avatar} />
+            <TouchableOpacity onPress={() => setPhotoModalVisible(true)}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              ) : (
+                <Image source={userData.avatar as any} style={styles.avatar} />
+              )}
+              <View style={styles.avatarEditBadge}>
+                <MaterialIcons name="edit" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <View style={styles.userInfo}>
               <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
                 {userData.name}
@@ -163,6 +266,62 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Photo Selection Modal */}
+        <Modal
+          visible={photoModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setPhotoModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.photoModal, { backgroundColor: cardBgColor }]}>
+              <View style={styles.modalHeader}>
+                <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>Update Profile Photo</ThemedText>
+                <TouchableOpacity onPress={() => setPhotoModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.photoOptions}>
+                <TouchableOpacity 
+                  style={[styles.photoOption, { borderColor }]}
+                  onPress={takePhotoWithCamera}
+                  disabled={isProcessingImage}
+                >
+                  <MaterialIcons name="camera-alt" size={28} color={colorPalette.primary} />
+                  <ThemedText style={[styles.photoOptionText, { color: textColor }]}>Take Photo</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.photoOption, { borderColor }]}
+                  onPress={pickImageFromDevice}
+                  disabled={isProcessingImage}
+                >
+                  <MaterialIcons name="photo-library" size={28} color={colorPalette.primary} />
+                  <ThemedText style={[styles.photoOptionText, { color: textColor }]}>Choose from Gallery</ThemedText>
+                </TouchableOpacity>
+
+                {avatarUri && (
+                  <TouchableOpacity 
+                    style={[styles.photoOption, { borderColor, backgroundColor: '#F44336' }]}
+                    onPress={removeProfilePhoto}
+                    disabled={isProcessingImage}
+                  >
+                    <MaterialIcons name="delete" size={28} color="#fff" />
+                    <ThemedText style={[styles.photoOptionText, { color: '#fff' }]}>Remove Photo</ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {isProcessingImage && (
+                <View style={styles.processingContainer}>
+                  <ThemedText style={[styles.processingText, { color: subtitleColor }]}>Processing image...</ThemedText>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Profile Menu */}
         <View style={styles.menuSection}>
@@ -244,6 +403,19 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginRight: 16,
   },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colorPalette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   userInfo: {
     flex: 1,
   },
@@ -316,6 +488,56 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Photo modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  photoModal: {
+    width: '90%',
+    borderRadius: 16,
+    maxHeight: '60%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  photoOptions: {
+    padding: 16,
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    backgroundColor: 'transparent',
+    gap: 12,
+  },
+  photoOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  processingContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  processingText: {
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   menuSection: {
     marginBottom: 24,
