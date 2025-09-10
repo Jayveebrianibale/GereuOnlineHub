@@ -191,7 +191,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     
     // Add case-insensitive comparison as fallback
     const isCurrentUserFallback = item.senderEmail?.toLowerCase() === currentUserEmail?.toLowerCase();
-    
+
+    // Determine grouping and spacing (Messenger-like)
+    const previousMessage = index > 0 ? messages[index - 1] : undefined;
+    const isSameSenderAsPrev = previousMessage ? (previousMessage.senderEmail?.toLowerCase() === item.senderEmail?.toLowerCase()) : false;
+    const isSameDayAsPrev = previousMessage ? (new Date(item.timestamp).toDateString() === new Date(previousMessage.timestamp).toDateString()) : false;
+    const isGroupedWithPrev = isSameSenderAsPrev && isSameDayAsPrev;
+
     // Day divider logic
     let showDayDivider = false;
     if (index === 0) {
@@ -203,6 +209,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       showDayDivider = d1.toDateString() !== d0.toDateString();
     }
 
+    const isOutgoing = (isCurrentUser || isCurrentUserFallback);
+    const outgoingBg = '#007AFF';
+    const incomingBg = bubbleBgColor;
+
     return (
       <View>
         {showDayDivider && (
@@ -212,8 +222,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             </ThemedText>
           </View>
         )}
-        <View style={[styles.messageRow, (isCurrentUser || isCurrentUserFallback) ? styles.rowRight : styles.rowLeft]}>
-          {!(isCurrentUser || isCurrentUserFallback) && (
+        <View style={[styles.messageRow, isOutgoing ? styles.rowRight : styles.rowLeft, { marginTop: isGroupedWithPrev ? 2 : 10 }]}>
+          {!isOutgoing && (
             <View style={[styles.avatar, { backgroundColor: isDark ? '#333' : '#e5e7eb' }]}>
               <ThemedText style={styles.avatarText}>{(item.senderName || 'U').charAt(0).toUpperCase()}</ThemedText>
             </View>
@@ -221,25 +231,22 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           <TouchableOpacity
             activeOpacity={0.8}
             onLongPress={() => {
-              if (isCurrentUser || isCurrentUserFallback) {
+              if (isOutgoing) {
                 confirmAndDeleteMessage(item.id);
               }
             }}
           >
           <View style={[
             styles.messageBubble, 
-            (isCurrentUser || isCurrentUserFallback) ? styles.currentUserBubble : styles.otherUserBubble,
-            { backgroundColor: (isCurrentUser || isCurrentUserFallback) ? adminBubbleBgColor : bubbleBgColor }
+            isOutgoing ? styles.currentUserBubble : styles.otherUserBubble,
+            { backgroundColor: isOutgoing ? outgoingBg : incomingBg }
           ]}>
-            <ThemedText style={[styles.messageText, { color: textColor }]}>
+            <ThemedText style={[styles.messageText, { color: isOutgoing ? '#fff' : textColor }]}>
               {item.text}
             </ThemedText>
             <View style={styles.bubbleMetaRow}>
-              <ThemedText style={[styles.timestamp, { color: isDark ? '#aaa' : '#666' }]}>
+              <ThemedText style={[styles.timestamp, { color: isOutgoing ? 'rgba(255,255,255,0.85)' : (isDark ? '#aaa' : '#666') }]}>
                 {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </ThemedText>
-              <ThemedText style={[styles.senderLabel, { color: isDark ? '#aaa' : '#666' }]}>
-                {(isCurrentUser || isCurrentUserFallback) ? 'You' : (item.senderName || 'User')}
               </ThemedText>
             </View>
           </View>
@@ -258,23 +265,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       keyboardVerticalOffset={Platform.select({ ios: 90, android: 0 }) as number}
     >
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: isDark ? '#333' : '#eee' }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-            {recipientName}
-          </ThemedText>
-          <ThemedText type="default" style={[styles.headerSubtitle, { color: isDark ? '#aaa' : '#666' }]}>
-            {recipientEmail}
-          </ThemedText>
-        </View>
-      </View>
+      {/* Header removed as requested */}
       
       <FlatList
         data={messages}
@@ -364,6 +355,7 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     padding: 16,
+    paddingBottom: 96,
   },
   dayDivider: {
     alignSelf: 'center',
@@ -380,7 +372,8 @@ const styles = StyleSheet.create({
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 8,
+    marginBottom: 2,
+    width: '100%',
   },
   rowRight: {
     justifyContent: 'flex-end',
@@ -389,30 +382,39 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 8,
+    maxWidth: '78%',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    marginBottom: 0,
+    flexShrink: 1,
+    overflow: 'hidden',
   },
   currentUserBubble: {
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 6,
+    borderTopRightRadius: 18,
+    borderTopLeftRadius: 18,
   },
   otherUserBubble: {
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 6,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
   },
   bubbleMetaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
+    justifyContent: 'flex-end',
+    marginTop: 4,
   },
   messageText: {
     fontSize: 16,
-    marginBottom: 4,
+    marginBottom: 2,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   timestamp: {
-    fontSize: 10,
+    fontSize: 11,
     alignSelf: 'flex-end',
   },
   senderLabel: {
@@ -453,6 +455,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 8,
     maxHeight: 100,
+    backgroundColor: 'transparent',
   },
   sendButton: {
     width: 40,
@@ -460,6 +463,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#007AFF',
   },
   scrollFab: {
     position: 'absolute',

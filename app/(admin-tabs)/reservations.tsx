@@ -4,6 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
 import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
@@ -282,6 +283,13 @@ export default function ReservationsScreen() {
                   }
                 ]}
               >
+                {reservation.serviceImage && (
+                  <RobustImage
+                    source={reservation.serviceImage}
+                    style={styles.reservationImage}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={styles.reservationHeader}>
                   <ThemedText type="subtitle" style={[
                     styles.reservationService, 
@@ -513,6 +521,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  reservationImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
     marginBottom: 12,
   },
   reservationService: {
