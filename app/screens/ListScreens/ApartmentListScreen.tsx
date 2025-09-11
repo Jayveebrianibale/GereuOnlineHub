@@ -3,12 +3,14 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
+import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
@@ -60,6 +62,39 @@ export default function ApartmentListScreen() {
     };
     fetchApartments();
   }, []);
+
+  const handleMessageAdmin = async (apartment: any) => {
+    try {
+      if (!user?.email) return;
+      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
+      const ADMIN_NAME = 'Jayvee Brian';
+      const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
+
+      const priceText = typeof apartment?.price !== 'undefined' ? `Price: ${formatPHP(apartment.price)}` : '';
+      const messageText = `I'm interested in Apartment: ${apartment?.title || 'Apartment'}\n${priceText}\nLocation: ${apartment?.location || 'N/A'}`;
+
+      const newMsgRef = push(ref(db, 'messages'));
+      await set(newMsgRef, {
+        id: newMsgRef.key,
+        chatId,
+        text: messageText,
+        image: apartment?.image || null,
+        category: 'apartment',
+        serviceId: apartment?.id || null,
+        senderEmail: user.email,
+        senderName: user.displayName || 'User',
+        recipientEmail: ADMIN_EMAIL,
+        recipientName: ADMIN_NAME,
+        timestamp: Date.now(),
+        time: Date.now(),
+      });
+
+      setDetailModalVisible(false);
+      router.push(`/chat/${encodeURIComponent(chatId)}?recipientName=${encodeURIComponent(ADMIN_NAME)}&recipientEmail=${encodeURIComponent(ADMIN_EMAIL)}&currentUserEmail=${encodeURIComponent(user.email)}`);
+    } catch (e) {
+      console.error('Error sending interest message:', e);
+    }
+  };
 
   const handleReservation = async (apartment: any) => {
     const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
@@ -451,7 +486,7 @@ export default function ApartmentListScreen() {
                     <View style={styles.detailActions}>
                      <TouchableOpacity 
                       style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
-                        onPress={() => router.push('/(user-tabs)/messages')}
+                        onPress={() => handleMessageAdmin(selectedApartment)}
                     >
                       <MaterialIcons name="message" size={20} color="#fff" />
                       <ThemedText style={styles.contactButtonText}>Message</ThemedText>

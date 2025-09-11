@@ -3,12 +3,14 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
+import { db } from '../../firebaseConfig';
 import {
     AutoService,
     getAutoServices,
@@ -47,6 +49,38 @@ export default function AutoListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  const handleMessageAdmin = async (service: any) => {
+    try {
+      if (!user?.email) return;
+      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
+      const ADMIN_NAME = 'Jayvee Briani';
+      const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
+
+      const priceText = typeof service?.price !== 'undefined' ? `Price: ${formatPHP(service.price)}` : '';
+      const messageText = `I'm interested in Auto Service: ${service?.title || 'Auto Service'}\n${priceText}\nDuration: ${service?.duration || 'N/A'}`;
+
+      const newMsgRef = push(ref(db, 'messages'));
+      await set(newMsgRef, {
+        id: newMsgRef.key,
+        chatId,
+        text: messageText,
+        image: service?.image || null,
+        category: 'auto',
+        serviceId: service?.id || null,
+        senderEmail: user.email,
+        senderName: user.displayName || 'User',
+        recipientEmail: ADMIN_EMAIL,
+        recipientName: ADMIN_NAME,
+        timestamp: Date.now(),
+        time: Date.now(),
+      });
+
+      setDetailModalVisible(false);
+      router.push(`/chat/${encodeURIComponent(chatId)}?recipientName=${encodeURIComponent(ADMIN_NAME)}&recipientEmail=${encodeURIComponent(ADMIN_EMAIL)}&currentUserEmail=${encodeURIComponent(user.email)}`);
+    } catch (e) {
+      console.error('Error sending interest message:', e);
+    }
+  };
   const handleAutoReservation = async (service: any) => {
     const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
@@ -446,7 +480,7 @@ export default function AutoListScreen() {
                      </View>
                      
                      <View style={styles.detailActions}>
-                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} onPress={() => router.push('/(user-tabs)/messages')}>
+                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} onPress={() => handleMessageAdmin(selectedAutoService)}>
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>

@@ -11,8 +11,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.alfredosaysin.gereuonlinehub",
+<<<<<<< HEAD
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+=======
+      "entitlements": {
+        "aps-environment": "development"
+>>>>>>> ed955cff3e567d22f245cba9a2aa8cd13e26d153
       }
     },
     "android": {
@@ -21,7 +26,8 @@
         "backgroundColor": "#0E7490"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.alfredosaysin.gereuonlinehub"
+      "package": "com.alfredosaysin.gereuonlinehub",
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +45,8 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

@@ -12,7 +12,9 @@ import { getLaundryServices } from '../../services/laundryService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
+import { push, ref, set } from 'firebase/database';
 import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { db } from '../../firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -45,6 +47,39 @@ export default function LaundryListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  
+  const handleMessageAdmin = async (service: any) => {
+    try {
+      if (!user?.email) return;
+      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
+      const ADMIN_NAME = 'Jayvee Briani';
+      const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
+
+      const priceText = typeof service?.price !== 'undefined' ? `Price: ${formatPHP(service.price)}` : '';
+      const messageText = `I'm interested in Laundry Service: ${service?.title || 'Laundry'}\n${priceText}\nTurnaround: ${service?.turnaround || 'N/A'}`;
+
+      const newMsgRef = push(ref(db, 'messages'));
+      await set(newMsgRef, {
+        id: newMsgRef.key,
+        chatId,
+        text: messageText,
+        image: service?.image || null,
+        category: 'laundry',
+        serviceId: service?.id || null,
+        senderEmail: user.email,
+        senderName: user.displayName || 'User',
+        recipientEmail: ADMIN_EMAIL,
+        recipientName: ADMIN_NAME,
+        timestamp: Date.now(),
+        time: Date.now(),
+      });
+
+      setDetailModalVisible(false);
+      router.push(`/chat/${encodeURIComponent(chatId)}?recipientName=${encodeURIComponent(ADMIN_NAME)}&recipientEmail=${encodeURIComponent(ADMIN_EMAIL)}&currentUserEmail=${encodeURIComponent(user.email)}`);
+    } catch (e) {
+      console.error('Error sending interest message:', e);
+    }
+  };
   
   const handleLaundryReservation = async (service: any) => {
     const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
@@ -447,7 +482,7 @@ export default function LaundryListScreen() {
                      <View style={styles.detailActions}>
                        <TouchableOpacity
                          style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
-                         onPress={() => router.push('/(user-tabs)/messages')}
+                         onPress={() => handleMessageAdmin(selectedLaundryService)}
                          >
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
