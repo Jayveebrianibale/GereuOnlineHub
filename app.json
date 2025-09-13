@@ -11,13 +11,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.alfredosaysin.gereuonlinehub",
-<<<<<<< HEAD
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-=======
+      },
       "entitlements": {
         "aps-environment": "development"
->>>>>>> ed955cff3e567d22f245cba9a2aa8cd13e26d153
       }
     },
     "android": {
@@ -27,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.alfredosaysin.gereuonlinehub",
-      "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "${GOOGLE_SERVICES_JSON}"
     },
     "web": {
       "bundler": "metro",

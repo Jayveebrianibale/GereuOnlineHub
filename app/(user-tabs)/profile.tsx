@@ -78,6 +78,14 @@ export default function Profile() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
+    services: false,
+    mission: false,
+    contact: false,
+    appInfo: false,
+  });
 
   useEffect(() => {
     const auth = getAuth();
@@ -201,6 +209,35 @@ export default function Profile() {
       ]
     );
   };
+
+  const handleMenuAction = (action: string) => {
+    switch (action) {
+      case 'info':
+        setAboutModalVisible(true);
+        break;
+      case 'edit':
+        // Handle personal information edit
+        Alert.alert('Coming Soon', 'Personal information editing will be available soon!');
+        break;
+      case 'settings':
+        // Handle settings
+        Alert.alert('Coming Soon', 'Settings will be available soon!');
+        break;
+      case 'support':
+        // Handle help & support
+        setSupportModalVisible(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const toggleSection = (sectionKey: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
  
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -323,6 +360,498 @@ export default function Profile() {
           </View>
         </Modal>
 
+        {/* About Modal */}
+        <Modal
+          visible={aboutModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setAboutModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.aboutModal, { backgroundColor: cardBgColor }]}>
+              {/* Professional Header with Gradient */}
+              <View style={[styles.professionalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
+                <View style={styles.headerContent}>
+                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
+                    <Image source={require('@/assets/images/logo.png')} style={styles.appLogo} />
+                  </View>
+                  
+                  <View style={styles.appInfoContainer}>
+                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
+                      Gereu Online Hub
+                    </ThemedText>
+                    <View style={[styles.versionBadge, { backgroundColor: colorPalette.primaryLight }]}>
+                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
+                        v1.0.0
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
+                  onPress={() => setAboutModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.aboutContent} showsVerticalScrollIndicator={false}>
+                {/* App Information */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <MaterialIcons name="info" size={24} color={colorPalette.primary} />
+                    <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                      About Gereu Online Hub
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                    Gereu Online Hub is a comprehensive digital platform designed to streamline and modernize community services. 
+                    Our mission is to provide residents with convenient, reliable, and efficient access to essential services 
+                    through innovative technology solutions.
+                  </ThemedText>
+                </View>
+
+                {/* What We Offer */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.dropdownHeader}
+                    onPress={() => toggleSection('services')}
+                  >
+                    <View style={styles.infoHeader}>
+                      <MaterialIcons name="business" size={24} color={colorPalette.primary} />
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        What We Offer
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons 
+                      name={expandedSections.services ? "expand-less" : "expand-more"} 
+                      size={24} 
+                      color={subtitleColor} 
+                    />
+                  </TouchableOpacity>
+                  
+                  {expandedSections.services && (
+                    <View style={styles.serviceList}>
+                      <View style={styles.serviceItem}>
+                        <MaterialIcons name="apartment" size={20} color={colorPalette.primary} />
+                        <View style={styles.serviceContent}>
+                          <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
+                            Apartment Rentals
+                          </ThemedText>
+                          <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
+                            Browse and book modern apartments with digital amenities, smart home features, and flexible lease options.
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <View style={styles.serviceItem}>
+                        <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
+                        <View style={styles.serviceContent}>
+                          <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
+                            Auto Services
+                          </ThemedText>
+                          <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
+                            Professional automotive maintenance, repairs, and services with certified technicians and quality parts.
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <View style={styles.serviceItem}>
+                        <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                        <View style={styles.serviceContent}>
+                          <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
+                            Laundry Facilities
+                          </ThemedText>
+                          <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
+                            State-of-the-art laundry facilities with modern equipment, mobile app controls, and flexible scheduling.
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <View style={styles.serviceItem}>
+                        <MaterialIcons name="chat" size={20} color={colorPalette.primary} />
+                        <View style={styles.serviceContent}>
+                          <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
+                            Customer Support
+                          </ThemedText>
+                          <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
+                            24/7 customer support with real-time messaging, quick response times, and dedicated assistance.
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* Our Mission */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.dropdownHeader}
+                    onPress={() => toggleSection('mission')}
+                  >
+                    <View style={styles.infoHeader}>
+                      <MaterialIcons name="flag" size={24} color={colorPalette.primary} />
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Our Mission
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons 
+                      name={expandedSections.mission ? "expand-less" : "expand-more"} 
+                      size={24} 
+                      color={subtitleColor} 
+                    />
+                  </TouchableOpacity>
+                  
+                  {expandedSections.mission && (
+                    <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                      To create a connected community where residents can easily access all essential services through a single, 
+                      user-friendly platform. We believe in leveraging technology to improve quality of life and build stronger 
+                      community relationships.
+                    </ThemedText>
+                  )}
+                </View>
+
+                {/* Contact Information */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.dropdownHeader}
+                    onPress={() => toggleSection('contact')}
+                  >
+                    <View style={styles.infoHeader}>
+                      <MaterialIcons name="contact-support" size={24} color={colorPalette.primary} />
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Contact Us
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons 
+                      name={expandedSections.contact ? "expand-less" : "expand-more"} 
+                      size={24} 
+                      color={subtitleColor} 
+                    />
+                  </TouchableOpacity>
+                  
+                  {expandedSections.contact && (
+                    <View style={styles.contactInfo}>
+                      <View style={styles.contactRow}>
+                        <MaterialIcons name="email" size={18} color={colorPalette.primary} />
+                        <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+                          support@gereuonline.com
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={styles.contactRow}>
+                        <MaterialIcons name="phone" size={18} color={colorPalette.primary} />
+                        <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+                          +1 (555) 123-4567
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={styles.contactRow}>
+                        <MaterialIcons name="location-on" size={18} color={colorPalette.primary} />
+                        <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+                          Gereu Community Center, Main Office
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={styles.contactRow}>
+                        <MaterialIcons name="schedule" size={18} color={colorPalette.primary} />
+                        <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+                          Monday - Friday: 8:00 AM - 6:00 PM
+                        </ThemedText>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* App Details */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.dropdownHeader}
+                    onPress={() => toggleSection('appInfo')}
+                  >
+                    <View style={styles.infoHeader}>
+                      <MaterialIcons name="settings" size={24} color={colorPalette.primary} />
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        App Information
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons 
+                      name={expandedSections.appInfo ? "expand-less" : "expand-more"} 
+                      size={24} 
+                      color={subtitleColor} 
+                    />
+                  </TouchableOpacity>
+                  
+                  {expandedSections.appInfo && (
+                    <View style={styles.appDetails}>
+                      <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Version:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>1.0.0</ThemedText>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Platform:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>React Native & Expo</ThemedText>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Last Updated:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>December 2025</ThemedText>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Developer:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Online Hub Team</ThemedText>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* Footer */}
+                <View style={styles.footerSection}>
+                  <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
+                    © 2025 Gereu Online Hub. All rights reserved.
+                  </ThemedText>
+                  <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
+                    Built with ❤️ for our community
+                  </ThemedText>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Help & Support Modal */}
+        <Modal
+          visible={supportModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSupportModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.aboutModal, { backgroundColor: cardBgColor }]}>
+              {/* Professional Header */}
+              <View style={[styles.professionalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
+                <View style={styles.headerContent}>
+                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="help" size={24} color="#fff" />
+                  </View>
+                  
+                  <View style={styles.appInfoContainer}>
+                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
+                      Help & Support
+                    </ThemedText>
+                    <View style={[styles.versionBadge, { backgroundColor: '#4CAF50' }]}>
+                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
+                        24/7 Available
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
+                  onPress={() => setSupportModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.aboutContent} showsVerticalScrollIndicator={false}>
+                {/* Hero Section */}
+                <View style={[styles.heroSection, { backgroundColor: colorPalette.primary }]}>
+                  <View style={styles.heroContent}>
+                    <MaterialIcons name="support-agent" size={48} color="#fff" />
+                    <ThemedText style={[styles.heroTitle, { color: '#fff' }]}>
+                      We're Here to Help!
+                    </ThemedText>
+                    <ThemedText style={[styles.heroSubtitle, { color: '#fff' }]}>
+                      Get instant support for all your needs
+                    </ThemedText>
+                  </View>
+                </View>
+
+                {/* Quick Actions Grid */}
+                <View style={styles.quickActionsGrid}>
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: '#4CAF50' }]}>
+                      <MaterialIcons name="chat" size={24} color="#fff" />
+                    </View>
+                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
+                      Live Chat
+                    </ThemedText>
+                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
+                      Instant help
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: '#2196F3' }]}>
+                      <MaterialIcons name="phone" size={24} color="#fff" />
+                    </View>
+                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
+                      Call Us
+                    </ThemedText>
+                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
+                      Mon-Fri 8AM-6PM
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: '#FF9800' }]}>
+                      <MaterialIcons name="email" size={24} color="#fff" />
+                    </View>
+                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
+                      Email Us
+                    </ThemedText>
+                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
+                      2-4 hour response
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <View style={[styles.quickActionIcon, { backgroundColor: '#9C27B0' }]}>
+                      <MaterialIcons name="help" size={24} color="#fff" />
+                    </View>
+                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
+                      FAQ
+                    </ThemedText>
+                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
+                      Common questions
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Popular Topics */}
+                <View style={[styles.topicsSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                    Popular Topics
+                  </ThemedText>
+                  
+                  <View style={styles.topicsList}>
+                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="apartment" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Booking Apartments
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Learn how to find and book your perfect apartment
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Auto Services
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Schedule maintenance and repairs for your vehicle
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Laundry Services
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Use our smart laundry facilities
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="account-circle" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Account Settings
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Manage your profile and preferences
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Contact Information */}
+                <View style={[styles.contactSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                    Get in Touch
+                  </ThemedText>
+                  
+                  <View style={styles.contactGrid}>
+                    <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <MaterialIcons name="email" size={24} color={colorPalette.primary} />
+                      <ThemedText style={[styles.contactLabel, { color: textColor }]}>
+                        Email
+                      </ThemedText>
+                      <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
+                        support@gereuonline.com
+                      </ThemedText>
+                    </View>
+
+                    <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
+                      <ThemedText style={[styles.contactLabel, { color: textColor }]}>
+                        Phone
+                      </ThemedText>
+                      <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
+                        +1 (555) 123-4567
+                      </ThemedText>
+                    </View>
+
+                    <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <MaterialIcons name="schedule" size={24} color={colorPalette.primary} />
+                      <ThemedText style={[styles.contactLabel, { color: textColor }]}>
+                        Hours
+                      </ThemedText>
+                      <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
+                        Mon-Fri: 8AM-6PM
+                      </ThemedText>
+                    </View>
+
+                    <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                      <MaterialIcons name="location-on" size={24} color={colorPalette.primary} />
+                      <ThemedText style={[styles.contactLabel, { color: textColor }]}>
+                        Location
+                      </ThemedText>
+                      <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
+                        Gereu Community Center
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Footer */}
+                <View style={styles.footerSection}>
+                  <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
+                    Need more help? We're here 24/7!
+                  </ThemedText>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Profile Menu */}
         <View style={styles.menuSection}>
           <ThemedText type="subtitle" style={[styles.menuTitle, { color: textColor }]}>
@@ -333,6 +862,7 @@ export default function Profile() {
             <TouchableOpacity 
               key={item.id} 
               style={[styles.menuItem, { backgroundColor: cardBgColor, borderColor }]}
+              onPress={() => handleMenuAction(item.action)}
             >
               <View style={styles.menuItemContent}>
                 <MaterialIcons name={item.icon as any} size={20} color={colorPalette.primary} />
@@ -588,4 +1118,317 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-}); 
+  // Professional About modal styles
+  aboutModal: {
+    width: '95%',
+    borderRadius: 20,
+    maxHeight: '85%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  professionalHeader: {
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+    position: 'relative',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  appLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  appInfoContainer: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  versionBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  appVersion: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aboutContent: {
+    padding: 20,
+  },
+  infoSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  infoDescription: {
+    fontSize: 15,
+    lineHeight: 24,
+    opacity: 0.9,
+  },
+  serviceList: {
+    gap: 16,
+  },
+  serviceItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  serviceContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  serviceDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  contactInfo: {
+    gap: 12,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactText: {
+    fontSize: 14,
+    marginLeft: 12,
+    opacity: 0.9,
+  },
+  appDetails: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailValue: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  footerSection: {
+    alignItems: 'center',
+    paddingTop: 16,
+    marginTop: 8,
+  },
+  copyright: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  // New Help & Support modal styles
+  heroSection: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  heroContent: {
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    opacity: 0.9,
+    textAlign: 'center',
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  quickActionCard: {
+    width: '48%',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  quickActionSubtitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  topicsSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  topicsList: {
+    gap: 12,
+  },
+  topicItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  topicContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  topicText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  topicTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  topicDescription: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  contactSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  contactGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  contactItem: {
+    width: '48%',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  contactLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  contactValue: {
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+});

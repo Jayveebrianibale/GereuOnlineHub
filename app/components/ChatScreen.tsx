@@ -6,14 +6,14 @@ import { useRouter } from 'expo-router';
 import { equalTo, off, onValue, orderByChild, push, query, ref, remove } from 'firebase/database';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
