@@ -4,17 +4,17 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { auth } from '../../firebaseConfig';
@@ -113,7 +113,7 @@ export default function SigninScreen() {
                 </LinearGradient>
               </View>
               <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to your Gereu Smart Services account</Text>
+              <Text style={styles.subtitle}>Sign in to your Gereu Smart Services Account</Text>
             </View>
 
             <View style={styles.formCard}>
