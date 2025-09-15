@@ -13,6 +13,7 @@ import {
     AutoService,
     getAutoServices,
 } from '../../services/autoService';
+import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
@@ -65,6 +66,18 @@ export default function AutoListScreen() {
             user.email || 'No email'
           );
           await addAdminReservation(adminReservationData);
+
+          // Notify admins of new auto service reservation
+          await notifyAdmins(
+            'New Auto Reservation',
+            `${user.displayName || 'A user'} reserved ${service.title || 'an auto service'}.`,
+            {
+              serviceType: 'auto',
+              serviceId: service.id,
+              userId: user.uid,
+              action: 'reserved',
+            }
+          );
         }
         
         setDetailModalVisible(false);

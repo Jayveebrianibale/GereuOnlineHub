@@ -7,6 +7,7 @@ import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View,
 import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
+import { notifyUser } from '../services/notificationService';
 import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
@@ -96,6 +97,14 @@ export default function ReservationsScreen() {
           // Non-fatal: log and continue
           console.warn('Failed updating user reservation status:', e);
         }
+        try {
+          await notifyUser(
+            userId,
+            'Reservation Accepted',
+            `Your ${getServiceTypeDisplayName(serviceType)} has been accepted.`,
+            { serviceType, serviceId, action: 'accepted' }
+          );
+        } catch {}
         Alert.alert('Success', 'Reservation has been accepted successfully!');
       } catch (error) {
         console.error('Error accepting reservation:', error);
@@ -132,6 +141,14 @@ export default function ReservationsScreen() {
         } catch (e) {
           console.warn('Failed updating user reservation status:', e);
         }
+        try {
+          await notifyUser(
+            userId,
+            'Reservation Declined',
+            `Your ${getServiceTypeDisplayName(serviceType)} has been declined.`,
+            { serviceType, serviceId, action: 'declined' }
+          );
+        } catch {}
         Alert.alert('Success', 'Reservation has been declined successfully!');
       } catch (error) {
         console.error('Error declining reservation:', error);
@@ -421,6 +438,14 @@ export default function ReservationsScreen() {
                             } else if (reservation.serviceType === 'auto') {
                               await updateAutoStatus(reservation.serviceId, 'completed');
                             }
+                            try {
+                              await notifyUser(
+                                reservation.userId,
+                                'Reservation Completed',
+                                `Your ${getServiceTypeDisplayName(reservation.serviceType)} is marked completed.`,
+                                { serviceType: reservation.serviceType, serviceId: reservation.serviceId, action: 'completed' }
+                              );
+                            } catch {}
                             Alert.alert('Success', 'Reservation has been marked as completed!');
                           } catch (error) {
                             console.error('Error marking reservation as completed:', error);

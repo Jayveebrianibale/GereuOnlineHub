@@ -20,6 +20,14 @@ export async function saveExpoPushToken(userId: string, token: string): Promise<
   }
 }
 
+export async function saveFcmToken(userId: string, token: string): Promise<void> {
+  try {
+    await set(ref(db, `users/${userId}/fcmToken`), token);
+  } catch (error) {
+    console.error('Failed to save FCM token:', error);
+  }
+}
+
 export async function getUserPushToken(userId: string): Promise<string | null> {
   try {
     const snap = await get(ref(db, `users/${userId}/expoPushToken`));
@@ -27,6 +35,17 @@ export async function getUserPushToken(userId: string): Promise<string | null> {
     return null;
   } catch (error) {
     console.error('Failed to get user push token:', error);
+    return null;
+  }
+}
+
+export async function getUserFcmToken(userId: string): Promise<string | null> {
+  try {
+    const snap = await get(ref(db, `users/${userId}/fcmToken`));
+    if (snap.exists()) return snap.val();
+    return null;
+  } catch (error) {
+    console.error('Failed to get user FCM token:', error);
     return null;
   }
 }
@@ -58,7 +77,7 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
 
     if (messages.length === 0) return;
 
-    await fetch(EXPO_PUSH_ENDPOINT, {
+    const response = await fetch(EXPO_PUSH_ENDPOINT, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -67,6 +86,19 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
       },
       body: JSON.stringify(messages),
     });
+
+    // Inspect Expo push API response for errors
+    const json: any = await (response as any).json().catch(() => null);
+    if (!response.ok) {
+      console.error('Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
+      return;
+    }
+
+    const data = (json && json.data) || [];
+    const errors = (Array.isArray(data) ? data : [data]).filter((item: any) => item?.status !== 'ok');
+    if (errors.length > 0) {
+      console.warn('Expo push returned errors:', errors);
+    }
   } catch (error) {
     console.error('Failed to send Expo push:', error);
   }
