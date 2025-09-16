@@ -5,9 +5,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { ref as dbRef, onValue, set } from 'firebase/database';
+// Storage upload removed; we will store data URL directly in Realtime Database
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -99,6 +102,49 @@ export default function Profile() {
     vibrationEnabled: true,
   });
 
+  const uploadAndSaveProfilePhoto = async (localUri: string) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Not signed in', 'Please sign in to update your profile photo.');
+        return;
+      }
+
+      // Generate base64 using ImageManipulator (avoids deprecated FileSystem API)
+      const base64Result = await ImageManipulator.manipulateAsync(
+        localUri,
+        [],
+        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      const base64 = base64Result.base64 || '';
+      if (!base64) {
+        throw new Error('Failed to convert image to base64');
+      }
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+
+      // Optionally update Firebase Auth profile (data URLs may be large; safe to skip)
+      try { await updateProfile(user, { photoURL: dataUrl }); } catch {}
+
+      // Save to Realtime Database (legacy path for compatibility)
+      await set(dbRef(db, `users/${user.uid}/avatar`), dataUrl);
+      await set(dbRef(db, `users/${user.uid}/updatedAt`), new Date().toISOString());
+
+      // Save to separate profile image table
+      await set(dbRef(db, `userProfileImages/${user.uid}`), {
+        url: dataUrl,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local state
+      setAvatarUri(dataUrl);
+      Alert.alert('Success', 'Profile photo saved.');
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      Alert.alert('Error', 'Could not upload and save profile photo.');
+    }
+  };
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -108,9 +154,18 @@ export default function Profile() {
           email: user.email || "No Email",
           avatar: require('@/assets/images/logo.png'),
         });
-        if (user.photoURL) {
-          setAvatarUri(user.photoURL);
-        }
+        // Prefer separate table value; fallback to Auth photoURL
+        const imageRef = dbRef(db, `userProfileImages/${user.uid}/url`);
+        const off = onValue(imageRef, (snap) => {
+          const url = snap.val();
+          if (url) {
+            setAvatarUri(url);
+          } else if (user.photoURL) {
+            setAvatarUri(user.photoURL);
+          } else {
+            setAvatarUri(null);
+          }
+        });
       }
     });
 
@@ -167,9 +222,8 @@ export default function Profile() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const processed = await processImage(result.assets[0].uri);
-        setAvatarUri(processed);
         setPhotoModalVisible(false);
-        Alert.alert('Success', 'Profile photo updated successfully!');
+        await uploadAndSaveProfilePhoto(processed);
       }
     } catch (error) {
       console.error('Error picking image: ', error);
@@ -193,9 +247,8 @@ export default function Profile() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const processed = await processImage(result.assets[0].uri);
-        setAvatarUri(processed);
         setPhotoModalVisible(false);
-        Alert.alert('Success', 'Profile photo updated successfully!');
+        await uploadAndSaveProfilePhoto(processed);
       }
     } catch (error) {
       console.error('Error taking photo: ', error);
@@ -213,9 +266,27 @@ export default function Profile() {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            setAvatarUri(null);
-            setPhotoModalVisible(false);
-            Alert.alert('Success', 'Profile photo removed successfully!');
+            (async () => {
+              try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+                setAvatarUri(null);
+                setPhotoModalVisible(false);
+                if (user) {
+                  await updateProfile(user, { photoURL: null as any });
+                  await set(dbRef(db, `users/${user.uid}/avatar`), '');
+                  await set(dbRef(db, `users/${user.uid}/updatedAt`), new Date().toISOString());
+                  await set(dbRef(db, `userProfileImages/${user.uid}`), {
+                    url: '',
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
+                Alert.alert('Success', 'Profile photo removed successfully!');
+              } catch (e) {
+                console.error('Error removing profile photo:', e);
+                Alert.alert('Error', 'Failed to remove photo');
+              }
+            })();
           }
         }
       ]
@@ -290,14 +361,19 @@ export default function Profile() {
         {/* User Info Card */}
         <View style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
           <View style={styles.userHeader}>
-            <TouchableOpacity onPress={() => setPhotoModalVisible(true)}>
+            <TouchableOpacity 
+              onPress={() => setPhotoModalVisible(true)}
+              style={styles.avatarContainer}
+            >
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatar} />
               ) : (
-                <Image source={userData.avatar as any} style={styles.avatar} />
+                <View style={styles.avatarPlaceholder}>
+                  <MaterialIcons name="person" size={24} color="#888" />
+                </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <MaterialIcons name="edit" size={14} color="#fff" />
+                <MaterialIcons name="edit" size={12} color="#fff" />
               </View>
             </TouchableOpacity>
             <View style={styles.userInfo}>
@@ -307,11 +383,8 @@ export default function Profile() {
               <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
                 {userData.email}
               </ThemedText>
-             
             </View>
-            <TouchableOpacity style={styles.editButton}>
-              <MaterialIcons name="edit" size={20} color={colorPalette.primary} />
-            </TouchableOpacity>
+            <View style={styles.buttonRow} />
           </View>
         </View>
         {/* Theme Toggle */}
@@ -358,20 +431,11 @@ export default function Profile() {
               <View style={styles.photoOptions}>
                 <TouchableOpacity 
                   style={[styles.photoOption, { borderColor }]}
-                  onPress={takePhotoWithCamera}
-                  disabled={isProcessingImage}
-                >
-                  <MaterialIcons name="camera-alt" size={28} color={colorPalette.primary} />
-                  <ThemedText style={[styles.photoOptionText, { color: textColor }]}>Take Photo</ThemedText>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.photoOption, { borderColor }]}
                   onPress={pickImageFromDevice}
                   disabled={isProcessingImage}
                 >
-                  <MaterialIcons name="photo-library" size={28} color={colorPalette.primary} />
-                  <ThemedText style={[styles.photoOptionText, { color: textColor }]}>Choose from Gallery</ThemedText>
+                  <MaterialIcons name="file-upload" size={24} color={colorPalette.primary} />
+                  <ThemedText style={[styles.photoOptionText, { color: textColor }]}>Upload Photo</ThemedText>
                 </TouchableOpacity>
 
                 {avatarUri && (
@@ -380,7 +444,7 @@ export default function Profile() {
                     onPress={removeProfilePhoto}
                     disabled={isProcessingImage}
                   >
-                    <MaterialIcons name="delete" size={28} color="#fff" />
+                    <MaterialIcons name="delete" size={24} color="#fff" />
                     <ThemedText style={[styles.photoOptionText, { color: '#fff' }]}>Remove Photo</ThemedText>
                   </TouchableOpacity>
                 )}
@@ -1266,16 +1330,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     marginRight: 16,
+  },
+  avatarPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginRight: 16,
+    backgroundColor: '#EAEAEA',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarEditBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    bottom: 0,
+    right: 12,
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -1291,16 +1367,33 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: '600',
-    marginTop: 20,
+    marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
+    marginBottom: 4,
   },
-  userPhone: {
-    fontSize: 14,
+  editHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
-  editButton: {
-    padding: 8,
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  smallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colorPalette.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  smallButtonText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   userStats: {
     flexDirection: 'row',
@@ -1459,6 +1552,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+<<<<<<< HEAD
   // Professional About modal styles
   aboutModal: {
     width: '95%',
@@ -1847,4 +1941,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+=======
+>>>>>>> 4ffc0182410acf7231ae4b088aa92c3f84ca116c
 });
