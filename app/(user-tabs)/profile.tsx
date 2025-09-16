@@ -1552,7 +1552,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-<<<<<<< HEAD
   // Professional About modal styles
   aboutModal: {
     width: '95%',
@@ -1941,6 +1940,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-=======
->>>>>>> 4ffc0182410acf7231ae4b088aa92c3f84ca116c
 });
