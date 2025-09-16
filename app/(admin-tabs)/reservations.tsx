@@ -300,29 +300,6 @@ export default function ReservationsScreen() {
                   }
                 ]}
               >
-<<<<<<< HEAD
-                {reservation.serviceImage && (
-                  <RobustImage
-                    source={reservation.serviceImage}
-                    style={styles.reservationImage}
-                    resizeMode="cover"
-                  />
-                )}
-                <View style={styles.reservationHeader}>
-                  <ThemedText type="subtitle" style={[
-                    styles.reservationService, 
-                    { color: textColor }
-                  ]}>
-                    {reservation.serviceTitle}
-                  </ThemedText>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(reservation.status) + '20' }
-                  ]}>
-                    <ThemedText style={[
-                      styles.statusText,
-                      { color: getStatusColor(reservation.status) }
-=======
                 {/* Service Image */}
                 {reservation.serviceImage && (
                   <RobustImage 
@@ -337,7 +314,6 @@ export default function ReservationsScreen() {
                     <ThemedText type="subtitle" style={[
                       styles.reservationService, 
                       { color: textColor }
->>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
                     ]}>
                       {reservation.serviceTitle}
                     </ThemedText>
@@ -569,10 +545,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
     overflow: 'hidden',
-  },
-  reservationImage: {
-    width: '100%',
-    height: 160,
   },
   reservationContent: {
     padding: 16,

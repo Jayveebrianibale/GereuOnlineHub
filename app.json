@@ -10,7 +10,7 @@
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.alfredosaysin.gereuonlinehub",
+      "bundleIdentifier": "com.onlinegereu.hub",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -24,12 +24,8 @@
         "backgroundColor": "#0E7490"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.alfredosaysin.gereuonlinehub",
-<<<<<<< HEAD
-      "googleServicesFile": "${GOOGLE_SERVICES_JSON}"
-=======
+      "package": "com.onlinegereu.hub",
       "googleServicesFile": "./google-services.json"
->>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
     },
     "web": {
       "bundler": "metro",
@@ -48,9 +44,6 @@
         }
       ],
       "expo-secure-store",
-<<<<<<< HEAD
-      "expo-notifications"
-=======
       [
         "expo-notifications",
         {
@@ -58,7 +51,6 @@
           "color": "#cb044d"
         }
       ]
->>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
     ],
     "experiments": {
       "typedRoutes": true

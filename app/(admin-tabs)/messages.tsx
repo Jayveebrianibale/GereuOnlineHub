@@ -4,8 +4,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { onValue, orderByChild, query, ref } from "firebase/database";
-import React, { useEffect, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
@@ -146,13 +146,16 @@ export default function MessagesScreen() {
 
   const handleMessageClick = (message: Message) => {
     // Navigate to chat with the user
+    const recipientEmail = message.senderEmail === user?.email ? message.recipientEmail : message.senderEmail;
+    const recipientName = message.senderEmail === user?.email ? message.recipientName || 'User' : message.name;
+    
     router.push({
       pathname: '/chat/[id]',
       params: {
         id: message.chatId,
         chatId: message.chatId,
-        recipientName: message.name,
-        recipientEmail: message.senderEmail === user?.email ? message.recipientEmail || 'user@example.com' : message.senderEmail,
+        recipientName: recipientName,
+        recipientEmail: recipientEmail || 'user@example.com',
         currentUserEmail: user?.email || '',
       }
     });
@@ -171,6 +174,19 @@ export default function MessagesScreen() {
               Your recent conversations
             </ThemedText>
           </View>
+          <TouchableOpacity 
+            style={[styles.newMessageButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => {
+              // For now, show an alert. In a real app, you'd navigate to a user selection screen
+              Alert.alert(
+                'New Chat',
+                'To start a new chat, users need to message you first. You can then reply to them from this list.',
+                [{ text: 'OK' }]
+              );
+            }}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {/* Search and Filter */}
@@ -225,7 +241,7 @@ export default function MessagesScreen() {
             <View style={[styles.messageInfo, { flex: 1 }]}> 
               <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
               <ThemedText style={{ color: subtitleColor, fontSize: 14, flexShrink: 1 }}>
-                No messages yet. Users will appear here when they message you.
+                {search ? 'No messages found matching your search.' : 'No messages yet. Users will appear here when they message you.'}
               </ThemedText>
             </View>
           </View>

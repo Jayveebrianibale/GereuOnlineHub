@@ -166,7 +166,7 @@ const convertLocalFileToBase64 = async (fileUri: string): Promise<string | null>
     
     // Read the file as base64
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
     
     // Determine the file extension for proper MIME type

@@ -25,7 +25,13 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Responsive breakpoints
+const isTablet = screenWidth >= 768;
+const isLargeScreen = screenWidth >= 1024;
+const itemWidth = isLargeScreen ? screenWidth * 0.3 : isTablet ? screenWidth * 0.45 : screenWidth - 40;
+const itemSpacing = isLargeScreen ? 16 : 20;
 // ...existing code...
 
 
@@ -146,10 +152,10 @@ export default function UserHome() {
   const autoScrollX = useRef(new Animated.Value(0)).current;
 
   const renderApartmentItem = ({ item }: { item: any }) => (
-    <View style={[styles.carouselItem, { width: screenWidth - 40 }]}> 
+    <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
       <RobustImage 
         source={item.image} 
-        style={styles.carouselImage} 
+        style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
         resizeMode="cover"
       />
       <View style={styles.itemOverlay}> 
@@ -162,7 +168,7 @@ export default function UserHome() {
         </View>
       </View>
       <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
-        <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor }]}> 
+        <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 16 : 18 }]}> 
           {item.title}
         </ThemedText>
         <View style={styles.locationRow}> 
@@ -172,7 +178,7 @@ export default function UserHome() {
           </ThemedText>
         </View>
         <View style={styles.amenitiesContainer}> 
-          {item.amenities?.map((amenity: string, index: number) => (
+          {item.amenities?.slice(0, isLargeScreen ? 2 : isTablet ? 3 : 4).map((amenity: string, index: number) => (
             <View key={index} style={styles.amenityBadge}> 
               <ThemedText style={styles.amenityText}>{amenity}</ThemedText>
             </View>
@@ -192,20 +198,20 @@ export default function UserHome() {
   );
 
   const renderServiceItem = ({ item, serviceType }: { item: any, serviceType: string }) => (
-    <View style={[styles.serviceItem, { width: screenWidth - 40, backgroundColor: cardBgColor }]}> 
+    <View style={[styles.serviceItem, { width: itemWidth, marginRight: itemSpacing, backgroundColor: cardBgColor }]}> 
       <RobustImage 
         source={item.image} 
-        style={styles.serviceImage} 
+        style={[styles.serviceImage, { height: isLargeScreen ? 100 : isTablet ? 110 : 120 }]} 
         resizeMode="cover"
       />
       <View style={styles.serviceContent}> 
-        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}> 
+        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor, fontSize: isLargeScreen ? 14 : 16 }]}> 
           {item.title}
         </ThemedText>
         <View style={styles.serviceDetails}> 
           <View style={styles.detailRow}> 
             <FontAwesome name="money" size={14} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}> 
+            <ThemedText style={[styles.detailText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}> 
               {formatPHP(item.price)}
             </ThemedText>
           </View>
@@ -215,7 +221,7 @@ export default function UserHome() {
               size={14} 
               color={subtitleColor} 
             />
-            <ThemedText style={[styles.detailText, { color: textColor }]}> 
+            <ThemedText style={[styles.detailText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}> 
               {serviceType === 'laundry' ? item.turnaround : item.duration}
             </ThemedText>
           </View>
@@ -236,7 +242,7 @@ export default function UserHome() {
             }
           }}
         >
-          <ThemedText style={styles.serviceButtonText}> 
+          <ThemedText style={[styles.serviceButtonText, { fontSize: isLargeScreen ? 12 : 14 }]}> 
             View Details
           </ThemedText>
         </TouchableOpacity>
@@ -304,14 +310,17 @@ export default function UserHome() {
                   data={apartments}
                   renderItem={renderApartmentItem}
                   horizontal
-                  pagingEnabled
+                  pagingEnabled={!isLargeScreen}
+                  snapToInterval={itemWidth + itemSpacing}
+                  decelerationRate="fast"
                   showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: isLargeScreen ? 0 : 0 }}
                   onScroll={Animated.event(
                     [{ nativeEvent: { contentOffset: { x: apartmentScrollX } } }],
                     { useNativeDriver: false }
                   )}
                   onMomentumScrollEnd={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
+                    const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                     setActiveApartmentIndex(index);
                   }}
                   keyExtractor={(item) => item.id}
@@ -369,14 +378,17 @@ export default function UserHome() {
                     data={laundryServices}
                     renderItem={({ item }) => renderServiceItem({ item, serviceType: 'laundry' })}
                     horizontal
-                    pagingEnabled
+                    pagingEnabled={!isLargeScreen}
+                    snapToInterval={itemWidth + itemSpacing}
+                    decelerationRate="fast"
                     showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: isLargeScreen ? 0 : 0 }}
                     onScroll={Animated.event(
                       [{ nativeEvent: { contentOffset: { x: laundryScrollX } } }],
                       { useNativeDriver: false }
                     )}
                     onMomentumScrollEnd={(e) => {
-                      const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
+                      const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                       setActiveLaundryIndex(index);
                     }}
                     keyExtractor={(item) => item.id}
@@ -433,14 +445,17 @@ export default function UserHome() {
                     data={autoServices}
                     renderItem={({ item }) => renderServiceItem({ item, serviceType: 'auto' })}
                     horizontal
-                    pagingEnabled
+                    pagingEnabled={!isLargeScreen}
+                    snapToInterval={itemWidth + itemSpacing}
+                    decelerationRate="fast"
                     showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: isLargeScreen ? 0 : 0 }}
                     onScroll={Animated.event(
                       [{ nativeEvent: { contentOffset: { x: autoScrollX } } }],
                       { useNativeDriver: false }
                     )}
                     onMomentumScrollEnd={(e) => {
-                      const index = Math.round(e.nativeEvent.contentOffset.x / (screenWidth - 40));
+                      const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                       setActiveAutoIndex(index);
                     }}
                     keyExtractor={(item) => item.id}
@@ -480,7 +495,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
+    padding: isLargeScreen ? 24 : 20,
   },
   header: {
     flexDirection: 'row',
@@ -536,7 +551,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   sectionContainer: {
-    marginBottom: 32,
+    marginBottom: isLargeScreen ? 40 : 32,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -559,7 +574,6 @@ const styles = StyleSheet.create({
   carouselItem: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 20,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -646,7 +660,6 @@ const styles = StyleSheet.create({
   serviceItem: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 20,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 8,

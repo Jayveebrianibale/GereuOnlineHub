@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -12,6 +13,14 @@ export default function FCMRegistrar() {
     let isMounted = true;
     async function register() {
       if (!user) return;
+      
+      // Check if running in Expo Go
+      const isExpoGo = Constants.appOwnership === 'expo';
+      if (isExpoGo) {
+        console.log('Running in Expo Go - Push notifications not available. Use development build for full functionality.');
+        return;
+      }
+      
       try {
         // Native (iOS/Android) via Expo Notifications
         if (Platform.OS === 'ios' || Platform.OS === 'android') {

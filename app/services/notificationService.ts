@@ -1,4 +1,4 @@
-import { get, ref, set, update } from 'firebase/database';
+import { get, ref, set } from 'firebase/database';
 import { db } from '../firebaseConfig';
 
 type ExpoPushMessage = {
@@ -20,23 +20,16 @@ export async function saveExpoPushToken(userId: string, token: string): Promise<
   }
 }
 
-<<<<<<< HEAD
-// FCM token storage (supports multiple tokens per user)
-export async function addFcmToken(userId: string, token: string): Promise<void> {
-  try {
-    const path = `users/${userId}/fcmTokens/${token}`;
-    await update(ref(db), { [path]: true });
-  } catch (error) {
-    console.error('Failed to add FCM token:', error);
-=======
 export async function saveFcmToken(userId: string, token: string): Promise<void> {
   try {
     await set(ref(db, `users/${userId}/fcmToken`), token);
   } catch (error) {
     console.error('Failed to save FCM token:', error);
->>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
   }
 }
+
+// Alias for compatibility
+export const addFcmToken = saveFcmToken;
 
 export async function getUserPushToken(userId: string): Promise<string | null> {
   try {
