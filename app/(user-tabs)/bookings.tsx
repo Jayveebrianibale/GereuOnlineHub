@@ -2,6 +2,7 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from "../components/RobustImage";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -24,6 +25,7 @@ const colorPalette = {
 
 
 export default function Bookings() {
+  const [activeTab, setActiveTab] = useState<'reservations' | 'bills'>('reservations');
   const { colorScheme } = useColorScheme();
   const { reservedApartments, reservedLaundryServices, reservedAutoServices, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
   const { user } = useAuthContext();
@@ -133,8 +135,52 @@ export default function Bookings() {
   const laundrySorted = sortNewestFirst(reservedLaundryServices as any[]);
   const autoSorted = sortNewestFirst(reservedAutoServices as any[]);
 
+  // Bills helpers
+  const isAccepted = (status: string | undefined) => {
+    const s = (status || '').toLowerCase();
+    return s === 'confirmed' || s === 'completed';
+  };
+
+  const getPrice = (item: any) => {
+    const value = item?.servicePrice ?? item?.price ?? 0;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const accepted = useMemo(() => {
+    const apartments = (apartmentsSorted || [])
+      .filter((i: any) => isAccepted(i?.status))
+      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Apartment Rental' as const }));
+    const laundry = (laundrySorted || [])
+      .filter((i: any) => isAccepted(i?.status))
+      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Laundry Service' as const }));
+    const auto = (autoSorted || [])
+      .filter((i: any) => isAccepted(i?.status))
+      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Car & Motor Parts' as const }));
+    return { apartments, laundry, auto };
+  }, [apartmentsSorted, laundrySorted, autoSorted]);
+
+  const totals = useMemo(() => {
+    const sum = (arr: { amount: number }[]) => arr.reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+    const apartments = sum(accepted.apartments);
+    const laundry = sum(accepted.laundry);
+    const auto = sum(accepted.auto);
+    const grand = apartments + laundry + auto;
+    return { apartments, laundry, auto, grand };
+  }, [accepted]);
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
+      <View style={[styles.tabBar, { borderColor }]}>
+        <TouchableOpacity onPress={() => setActiveTab('reservations')} style={[styles.tabButton, activeTab === 'reservations' && styles.tabButtonActive]}>
+          <ThemedText style={[styles.tabButtonText, { color: activeTab === 'reservations' ? colorPalette.primary : subtitleColor }]}>Reservations</ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setActiveTab('bills')} style={[styles.tabButton, activeTab === 'bills' && styles.tabButtonActive]}>
+          <ThemedText style={[styles.tabButtonText, { color: activeTab === 'bills' ? colorPalette.primary : subtitleColor }]}>Bills</ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'reservations' ? (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
@@ -393,6 +439,104 @@ export default function Bookings() {
          </View>
        )}
       </ScrollView>
+      ) : (
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Bills Header */}
+        <View style={styles.header}>
+          <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
+            Billing Summary
+          </ThemedText>
+          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}> 
+            Accepted services and totals
+          </ThemedText>
+        </View>
+
+        {/* Grand Total */}
+        <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
+          <View style={styles.cardBody}>
+            <ThemedText style={[styles.serviceName, { color: textColor }]}>Total Amount</ThemedText>
+            <ThemedText type="subtitle" style={{ color: colorPalette.primary, fontSize: 22, fontWeight: '700' }}>
+              {formatPHP(totals.grand)}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Apartments */}
+        {accepted.apartments.length > 0 && (
+          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.cardBody}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <ThemedText style={[styles.serviceName, { color: textColor }]}>Apartment Rental</ThemedText>
+                <ThemedText style={{ color: subtitleColor }}>{accepted.apartments.length} item(s)</ThemedText>
+              </View>
+              {accepted.apartments.map((i) => (
+                <View key={i.id} style={styles.billRow}>
+                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Apartment'}</ThemedText>
+                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+                </View>
+              ))}
+              <View style={styles.billDivider} />
+              <View style={styles.billRow}>
+                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
+                <ThemedText style={styles.billAmount}>{formatPHP(totals.apartments)}</ThemedText>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Laundry */}
+        {accepted.laundry.length > 0 && (
+          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.cardBody}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <ThemedText style={[styles.serviceName, { color: textColor }]}>Laundry Service</ThemedText>
+                <ThemedText style={{ color: subtitleColor }}>{accepted.laundry.length} item(s)</ThemedText>
+              </View>
+              {accepted.laundry.map((i) => (
+                <View key={i.id} style={styles.billRow}>
+                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Laundry'}</ThemedText>
+                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+                </View>
+              ))}
+              <View style={styles.billDivider} />
+              <View style={styles.billRow}>
+                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
+                <ThemedText style={styles.billAmount}>{formatPHP(totals.laundry)}</ThemedText>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Auto */}
+        {accepted.auto.length > 0 && (
+          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.cardBody}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <ThemedText style={[styles.serviceName, { color: textColor }]}>Car & Motor Parts</ThemedText>
+                <ThemedText style={{ color: subtitleColor }}>{accepted.auto.length} item(s)</ThemedText>
+              </View>
+              {accepted.auto.map((i) => (
+                <View key={i.id} style={styles.billRow}>
+                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Auto'}</ThemedText>
+                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+                </View>
+              ))}
+              <View style={styles.billDivider} />
+              <View style={styles.billRow}>
+                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
+                <ThemedText style={styles.billAmount}>{formatPHP(totals.auto)}</ThemedText>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {accepted.apartments.length === 0 && accepted.laundry.length === 0 && accepted.auto.length === 0 && (
+          <View style={{ alignItems: 'center', marginTop: 250 }}>
+            <ThemedText style={{ color: subtitleColor }}>No accepted services yet.</ThemedText>
+          </View>
+        )}
+      </ScrollView>
+      )}
     </ThemedView>
   );
 }
@@ -406,7 +550,6 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
-    marginTop: 20,
   },
   title: {
     fontSize: 24,
@@ -513,5 +656,50 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Tabs
+  tabBar: {
+    marginTop: 40,
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  tabButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#00B2FF',
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // Bills
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  billTitle: {
+    flex: 1,
+    marginRight: 12,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  billSubtitle: {
+    fontSize: 14,
+  },
+  billAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#00B2FF',
+  },
+  billDivider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 8,
   },
 }); 
