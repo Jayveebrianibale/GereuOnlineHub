@@ -12,6 +12,7 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
+import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -114,6 +115,18 @@ export default function ApartmentListScreen() {
             user.email || 'No email'
           );
           await addAdminReservation(adminReservationData);
+
+          // Notify admins of new reservation
+          await notifyAdmins(
+            'New Apartment Reservation',
+            `${user.displayName || 'A user'} reserved ${apartment.title || 'an apartment'}.`,
+            {
+              serviceType: 'apartment',
+              serviceId: apartment.id,
+              userId: user.uid,
+              action: 'reserved',
+            }
+          );
         }
         
         setDetailModalVisible(false);

@@ -7,6 +7,7 @@ import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View,
 import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
+import { notifyUser } from '../services/notificationService';
 import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
@@ -96,6 +97,14 @@ export default function ReservationsScreen() {
           // Non-fatal: log and continue
           console.warn('Failed updating user reservation status:', e);
         }
+        try {
+          await notifyUser(
+            userId,
+            'Reservation Accepted',
+            `Your ${getServiceTypeDisplayName(serviceType)} has been accepted.`,
+            { serviceType, serviceId, action: 'accepted' }
+          );
+        } catch {}
         Alert.alert('Success', 'Reservation has been accepted successfully!');
       } catch (error) {
         console.error('Error accepting reservation:', error);
@@ -132,6 +141,14 @@ export default function ReservationsScreen() {
         } catch (e) {
           console.warn('Failed updating user reservation status:', e);
         }
+        try {
+          await notifyUser(
+            userId,
+            'Reservation Declined',
+            `Your ${getServiceTypeDisplayName(serviceType)} has been declined.`,
+            { serviceType, serviceId, action: 'declined' }
+          );
+        } catch {}
         Alert.alert('Success', 'Reservation has been declined successfully!');
       } catch (error) {
         console.error('Error declining reservation:', error);
@@ -283,6 +300,7 @@ export default function ReservationsScreen() {
                   }
                 ]}
               >
+<<<<<<< HEAD
                 {reservation.serviceImage && (
                   <RobustImage
                     source={reservation.serviceImage}
@@ -304,11 +322,37 @@ export default function ReservationsScreen() {
                     <ThemedText style={[
                       styles.statusText,
                       { color: getStatusColor(reservation.status) }
+=======
+                {/* Service Image */}
+                {reservation.serviceImage && (
+                  <RobustImage 
+                    source={reservation.serviceImage} 
+                    style={styles.reservationImage} 
+                    resizeMode="cover" 
+                  />
+                )}
+                
+                <View style={styles.reservationContent}>
+                  <View style={styles.reservationHeader}>
+                    <ThemedText type="subtitle" style={[
+                      styles.reservationService, 
+                      { color: textColor }
+>>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
                     ]}>
-                      {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
+                      {reservation.serviceTitle}
                     </ThemedText>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(reservation.status) + '20' }
+                    ]}>
+                      <ThemedText style={[
+                        styles.statusText,
+                        { color: getStatusColor(reservation.status) }
+                      ]}>
+                        {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
+                      </ThemedText>
+                    </View>
                   </View>
-                </View>
                 
                 <View style={styles.reservationDetails}>
                   <View style={styles.detailRow}>
@@ -374,66 +418,75 @@ export default function ReservationsScreen() {
                   </View>
                 </View>
                 
-                <View style={styles.reservationActions}>
-                  {reservation.status === 'pending' && (
-                    <>
+                  <View style={styles.reservationActions}>
+                    {reservation.status === 'pending' && (
+                      <>
+                        <TouchableOpacity 
+                          style={[styles.actionButton, styles.acceptButton]}
+                          onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
+                        >
+                          <MaterialIcons name="check" size={18} color="#10B981" />
+                          <ThemedText style={[
+                            styles.actionText, 
+                            { color: '#10B981' }
+                          ]}>
+                            Accept
+                          </ThemedText>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                          style={[styles.actionButton, styles.declineButton]}
+                          onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
+                        >
+                          <MaterialIcons name="close" size={18} color="#EF4444" />
+                          <ThemedText style={[
+                            styles.actionText, 
+                            { color: '#EF4444' }
+                          ]}>
+                            Decline
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    
+                    {reservation.status === 'confirmed' && (
                       <TouchableOpacity 
-                        style={[styles.actionButton, styles.acceptButton]}
-                        onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
-                      >
-                        <MaterialIcons name="check" size={18} color="#10B981" />
-                        <ThemedText style={[
-                          styles.actionText, 
-                          { color: '#10B981' }
-                        ]}>
-                          Accept
-                        </ThemedText>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity 
-                        style={[styles.actionButton, styles.declineButton]}
-                        onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
-                      >
-                        <MaterialIcons name="close" size={18} color="#EF4444" />
-                        <ThemedText style={[
-                          styles.actionText, 
-                          { color: '#EF4444' }
-                        ]}>
-                          Decline
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  
-                  {reservation.status === 'confirmed' && (
-                    <TouchableOpacity 
-                      style={[styles.actionButton, styles.completeButton]}
-                      onPress={async () => {
-                        try {
-                          await updateReservationStatus(reservation.id, 'completed');
-                          if (reservation.serviceType === 'apartment') {
-                            await updateApartmentStatus(reservation.serviceId, 'completed');
-                          } else if (reservation.serviceType === 'laundry') {
-                            await updateLaundryStatus(reservation.serviceId, 'completed');
-                          } else if (reservation.serviceType === 'auto') {
-                            await updateAutoStatus(reservation.serviceId, 'completed');
+                        style={[styles.actionButton, styles.completeButton]}
+                        onPress={async () => {
+                          try {
+                            await updateReservationStatus(reservation.id, 'completed');
+                            if (reservation.serviceType === 'apartment') {
+                              await updateApartmentStatus(reservation.serviceId, 'completed');
+                            } else if (reservation.serviceType === 'laundry') {
+                              await updateLaundryStatus(reservation.serviceId, 'completed');
+                            } else if (reservation.serviceType === 'auto') {
+                              await updateAutoStatus(reservation.serviceId, 'completed');
+                            }
+                            try {
+                              await notifyUser(
+                                reservation.userId,
+                                'Reservation Completed',
+                                `Your ${getServiceTypeDisplayName(reservation.serviceType)} is marked completed.`,
+                                { serviceType: reservation.serviceType, serviceId: reservation.serviceId, action: 'completed' }
+                              );
+                            } catch {}
+                            Alert.alert('Success', 'Reservation has been marked as completed!');
+                          } catch (error) {
+                            console.error('Error marking reservation as completed:', error);
+                            Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.');
                           }
-                          Alert.alert('Success', 'Reservation has been marked as completed!');
-                        } catch (error) {
-                          console.error('Error marking reservation as completed:', error);
-                          Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.');
-                        }
-                      }}
-                    >
-                      <MaterialIcons name="done-all" size={18} color="#3B82F6" />
-                      <ThemedText style={[
-                        styles.actionText, 
-                        { color: '#3B82F6' }
-                      ]}>
-                        Mark Complete
-                      </ThemedText>
-                    </TouchableOpacity>
-                  )}
+                        }}
+                      >
+                        <MaterialIcons name="done-all" size={18} color="#3B82F6" />
+                        <ThemedText style={[
+                          styles.actionText, 
+                          { color: '#3B82F6' }
+                        ]}>
+                          Mark Complete
+                        </ThemedText>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
             ))
@@ -508,7 +561,6 @@ const styles = StyleSheet.create({
   },
   reservationCard: {
     borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     shadowColor: '#000',
@@ -516,6 +568,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+    overflow: 'hidden',
+  },
+  reservationImage: {
+    width: '100%',
+    height: 160,
+  },
+  reservationContent: {
+    padding: 16,
   },
   reservationHeader: {
     flexDirection: 'row',

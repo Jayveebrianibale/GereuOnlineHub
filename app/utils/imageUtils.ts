@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { ImageSourcePropType } from 'react-native';
 
 // Image mapping utility to convert between string paths and require() statements
@@ -156,8 +156,9 @@ export const getImagePath = (imageSource: ImageSourcePropType): string => {
 // Function to convert problematic local file URIs to base64 data URIs
 const convertLocalFileToBase64 = async (fileUri: string): Promise<string | null> => {
   try {
-    // Check if the file exists and is a regular file (not a directory)
+    // Get file info and ensure it exists
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    
     if (!fileInfo.exists || fileInfo.isDirectory) {
       console.warn('⚠️ File does not exist or is not accessible:', fileUri);
       return null;

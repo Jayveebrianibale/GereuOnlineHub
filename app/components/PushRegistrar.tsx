@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
-import { saveExpoPushToken } from '../services/notificationService';
+import { saveExpoPushToken, saveFcmToken } from '../services/notificationService';
 
 export default function PushRegistrar() {
   const { user } = useAuthContext();
@@ -21,6 +21,15 @@ export default function PushRegistrar() {
         if (!Device.isDevice) return;
 
         const Notifications = await import('expo-notifications');
+
+        // Basic handler: show alerts and play sounds when app is foreground
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          }),
+        });
 
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
@@ -52,7 +61,25 @@ export default function PushRegistrar() {
         const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!isMounted) return;
         if (pushToken?.data) {
+          console.log('Expo push token:', pushToken.data);
           await saveExpoPushToken(user.uid, pushToken.data);
+        }
+
+        // Try to fetch native FCM token on Android (EAS/dev client or standalone builds)
+        if (Platform.OS === 'android' && Notifications.getDevicePushTokenAsync) {
+          try {
+            const deviceToken = await Notifications.getDevicePushTokenAsync({
+              projectId,
+            } as any);
+            const tokenString = (deviceToken as any)?.data || (deviceToken as any)?.token;
+            if (tokenString) {
+              console.log('Android device push token (FCM):', tokenString);
+              await saveFcmToken(user.uid, tokenString);
+            }
+          } catch (err) {
+            // Non-fatal
+            console.warn('FCM token fetch failed:', (err as any)?.message || err);
+          }
         }
       } catch (err) {
         // Silently ignore if expo-notifications is not installed or fails

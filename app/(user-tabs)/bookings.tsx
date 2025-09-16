@@ -6,6 +6,7 @@ import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 
 import { RobustImage } from "../components/RobustImage";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useReservation } from "../contexts/ReservationContext";
+import { notifyAdmins } from "../services/notificationService";
 import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
 
@@ -73,6 +74,13 @@ export default function Bookings() {
     const match = all.find(r => r.serviceType === serviceType && r.serviceId === serviceId && r.userId === user.uid);
     if (match) {
       await updateAdminReservationStatus(match.id, 'cancelled');
+      try {
+        await notifyAdmins(
+          'Reservation Cancelled',
+          `${user.displayName || 'A user'} cancelled a ${serviceType} reservation.`,
+          { serviceType, serviceId, userId: user.uid, action: 'cancelled' }
+        );
+      } catch {}
     }
   };
 

@@ -25,7 +25,11 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.alfredosaysin.gereuonlinehub",
+<<<<<<< HEAD
       "googleServicesFile": "${GOOGLE_SERVICES_JSON}"
+=======
+      "googleServicesFile": "./google-services.json"
+>>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
     },
     "web": {
       "bundler": "metro",
@@ -44,7 +48,17 @@
         }
       ],
       "expo-secure-store",
+<<<<<<< HEAD
       "expo-notifications"
+=======
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#cb044d"
+        }
+      ]
+>>>>>>> 1489bc7c5ef7e59c8d4a18c1a991f816be78ee86
     ],
     "experiments": {
       "typedRoutes": true

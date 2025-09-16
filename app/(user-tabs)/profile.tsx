@@ -40,7 +40,7 @@ const profileMenuItems = [
     title: 'Notifications',
     subtitle: 'Configure notification settings',
     icon: 'notifications',
-    action: 'settings',
+    action: 'notifications',
   },
   {
     id: '4',
@@ -80,11 +80,23 @@ export default function Profile() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     services: false,
     mission: false,
     contact: false,
     appInfo: false,
+  });
+  
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState({
+    pushNotifications: true,
+    reservationUpdates: true,
+    serviceAvailability: true,
+    adminMessages: true,
+    marketingUpdates: false,
+    soundEnabled: true,
+    vibrationEnabled: true,
   });
 
   useEffect(() => {
@@ -219,9 +231,13 @@ export default function Profile() {
         // Handle personal information edit
         Alert.alert('Coming Soon', 'Personal information editing will be available soon!');
         break;
+      case 'notifications':
+        // Handle notification settings
+        setNotificationModalVisible(true);
+        break;
       case 'settings':
-        // Handle settings
-        Alert.alert('Coming Soon', 'Settings will be available soon!');
+        // Handle privacy & security settings
+        Alert.alert('Coming Soon', 'Privacy & Security settings will be available soon!');
         break;
       case 'support':
         // Handle help & support
@@ -229,6 +245,25 @@ export default function Profile() {
         break;
       default:
         break;
+    }
+  };
+
+  const handleNotificationToggle = (setting: string) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [setting]: !prev[setting as keyof typeof prev]
+    }));
+  };
+
+  const saveNotificationSettings = async () => {
+    try {
+      // Here you would save to Firebase or local storage
+      console.log('Saving notification settings:', notificationSettings);
+      Alert.alert('Success', 'Notification settings saved successfully!');
+      setNotificationModalVisible(false);
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+      Alert.alert('Error', 'Failed to save notification settings');
     }
   };
 
@@ -852,6 +887,310 @@ export default function Profile() {
           </View>
         </Modal>
 
+        {/* Notification Settings Modal */}
+        <Modal
+          visible={notificationModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setNotificationModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.aboutModal, { backgroundColor: cardBgColor }]}>
+              {/* Professional Header */}
+              <View style={[styles.professionalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
+                <View style={styles.headerContent}>
+                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="notifications" size={24} color="#fff" />
+                  </View>
+                  
+                  <View style={styles.appInfoContainer}>
+                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
+                      Notification Settings
+                    </ThemedText>
+                    <View style={[styles.versionBadge, { backgroundColor: '#4CAF50' }]}>
+                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
+                        Customize Alerts
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
+                  onPress={() => setNotificationModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.aboutContent} showsVerticalScrollIndicator={false}>
+                {/* Main Notification Toggle */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                      <MaterialIcons name="notifications-active" size={24} color={colorPalette.primary} />
+                    </View>
+                    <View style={styles.notificationToggleContainer}>
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Push Notifications
+                      </ThemedText>
+                      <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                        Enable or disable all push notifications
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.pushNotifications ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('pushNotifications')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.pushNotifications ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Reservation Notifications */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                    Reservation Updates
+                  </ThemedText>
+                  
+                  <View style={styles.notificationItem}>
+                    <View style={styles.notificationItemContent}>
+                      <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                        <MaterialIcons name="apartment" size={20} color={colorPalette.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
+                          Apartment Reservations
+                        </ThemedText>
+                        <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
+                          Get notified when your apartment reservation is confirmed, declined, or ready
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.reservationUpdates ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('reservationUpdates')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.reservationUpdates ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.notificationItem}>
+                    <View style={styles.notificationItemContent}>
+                      <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                        <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
+                          Laundry Services
+                        </ThemedText>
+                        <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
+                          Notifications when your laundry is ready for pickup
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.reservationUpdates ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('reservationUpdates')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.reservationUpdates ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.notificationItem}>
+                    <View style={styles.notificationItemContent}>
+                      <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                        <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
+                          Auto Services
+                        </ThemedText>
+                        <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
+                          Updates on your vehicle maintenance and repair status
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.reservationUpdates ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('reservationUpdates')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.reservationUpdates ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Service Availability */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                      <MaterialIcons name="new-releases" size={24} color={colorPalette.primary} />
+                    </View>
+                    <View style={styles.notificationToggleContainer}>
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Service Availability
+                      </ThemedText>
+                      <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                        Get notified when new apartments or services become available
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.serviceAvailability ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('serviceAvailability')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.serviceAvailability ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Admin Messages */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                      <MaterialIcons name="admin-panel-settings" size={24} color={colorPalette.primary} />
+                    </View>
+                    <View style={styles.notificationToggleContainer}>
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Admin Messages
+                      </ThemedText>
+                      <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                        Receive important messages from building administrators
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.adminMessages ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('adminMessages')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.adminMessages ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Marketing Updates */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                      <MaterialIcons name="campaign" size={24} color={colorPalette.primary} />
+                    </View>
+                    <View style={styles.notificationToggleContainer}>
+                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                        Marketing Updates
+                      </ThemedText>
+                      <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
+                        Promotional offers and special deals
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.marketingUpdates ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('marketingUpdates')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.marketingUpdates ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Notification Preferences */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                    Notification Preferences
+                  </ThemedText>
+                  
+                  <View style={styles.notificationItem}>
+                    <View style={styles.notificationItemContent}>
+                      <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                        <MaterialIcons name="volume-up" size={20} color={colorPalette.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
+                          Sound
+                        </ThemedText>
+                        <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
+                          Play sound when notifications arrive
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.soundEnabled ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('soundEnabled')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.soundEnabled ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.notificationItem}>
+                    <View style={styles.notificationItemContent}>
+                      <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
+                        <MaterialIcons name="vibration" size={20} color={colorPalette.primary} />
+                      </View>
+                      <View style={styles.notificationItemInfo}>
+                        <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
+                          Vibration
+                        </ThemedText>
+                        <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
+                          Vibrate device when notifications arrive
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.vibrationEnabled ? colorPalette.primary : '#ccc' }]}
+                      onPress={() => handleNotificationToggle('vibrationEnabled')}
+                    >
+                      <MaterialIcons 
+                        name={notificationSettings.vibrationEnabled ? 'check' : 'close'} 
+                        size={16} 
+                        color="#fff" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Save Button */}
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={saveNotificationSettings}
+                >
+                  <MaterialIcons name="save" size={20} color="#fff" />
+                  <ThemedText style={[styles.saveButtonText, { color: '#fff' }]}>
+                    Save Settings
+                  </ThemedText>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Profile Menu */}
         <View style={styles.menuSection}>
           <ThemedText type="subtitle" style={[styles.menuTitle, { color: textColor }]}>
@@ -1024,7 +1363,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   photoModal: {
     width: '90%',
@@ -1121,8 +1462,9 @@ const styles = StyleSheet.create({
   // Professional About modal styles
   aboutModal: {
     width: '95%',
+    maxWidth: 500,
     borderRadius: 20,
-    maxHeight: '85%',
+    maxHeight: '90%',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.25,
@@ -1188,10 +1530,11 @@ const styles = StyleSheet.create({
   },
   aboutContent: {
     padding: 20,
+    paddingBottom: 10,
   },
   infoSection: {
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     shadowColor: '#000',
@@ -1430,5 +1773,78 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     opacity: 0.8,
+  },
+  // Notification settings styles
+  notificationToggleContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  notificationIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  toggleSwitch: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  notificationItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 12,
+  },
+  notificationItemInfo: {
+    flex: 1,
+  },
+  notificationItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  notificationItemDescription: {
+    fontSize: 14,
+    opacity: 0.8,
+    lineHeight: 18,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginTop: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

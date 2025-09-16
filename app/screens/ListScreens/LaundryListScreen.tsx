@@ -9,6 +9,7 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { getLaundryServices } from '../../services/laundryService';
+import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
@@ -99,6 +100,18 @@ export default function LaundryListScreen() {
             user.email || 'No email'
           );
           await addAdminReservation(adminReservationData);
+
+          // Notify admins of new laundry reservation
+          await notifyAdmins(
+            'New Laundry Reservation',
+            `${user.displayName || 'A user'} reserved ${service.title || 'a laundry service'}.`,
+            {
+              serviceType: 'laundry',
+              serviceId: service.id,
+              userId: user.uid,
+              action: 'reserved',
+            }
+          );
         }
         
         setDetailModalVisible(false);

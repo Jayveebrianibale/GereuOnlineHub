@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "985715415023",
+    "firebase_url": "https://gereuonlinehub-default-rtdb.firebaseio.com",
+    "project_id": "gereuonlinehub",
+    "storage_bucket": "gereuonlinehub.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:985715415023:android:7826727d9fb46bad81481a",
+        "android_client_info": {
+          "package_name": "com.onlinegereu.hub"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "985715415023-dufujpdebvopkuatnrkbrhb3cdiuti57.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaD98fD30lBNQ37UlbHPcy12sx0IYnOy8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "985715415023-dufujpdebvopkuatnrkbrhb3cdiuti57.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
