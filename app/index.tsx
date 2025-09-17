@@ -1,10 +1,26 @@
-// Entry screen ng app: chine-check muna kung tapos na ang auth
+// Entry screen ng app: splash screen muna, tapos auth check
+import { useEffect, useState } from 'react';
 import { AuthGuard } from './components/AuthGuard';
+import ProfessionalSplashScreen from './components/ProfessionalSplashScreen';
 import { useAuth } from './hooks/useAuth';
 
 export default function Index() {
-  // Kunin kung loading pa ang auth check
   const { isLoading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Hide splash screen after 2.5 seconds
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show splash screen first
+  if (showSplash) {
+    return <ProfessionalSplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   // Kung nagche-check pa ng login, huwag munang mag-render
   if (isLoading) {

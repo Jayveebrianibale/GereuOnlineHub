@@ -1,16 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 const { width, height } = Dimensions.get('window');
@@ -40,15 +40,70 @@ export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const colors = Colors.light;
+  const autoSlideTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-slide functionality
+  useEffect(() => {
+    const startAutoSlide = () => {
+      autoSlideTimer.current = setInterval(() => {
+        setCurrentIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          if (nextIndex >= onboardingData.length) {
+            return 0; // Loop back to first slide
+          }
+          return nextIndex;
+        });
+      }, 3000); // Auto-slide every 3 seconds
+    };
+
+    const stopAutoSlide = () => {
+      if (autoSlideTimer.current) {
+        clearInterval(autoSlideTimer.current);
+        autoSlideTimer.current = null;
+      }
+    };
+
+    startAutoSlide();
+
+    // Cleanup timer on component unmount
+    return () => {
+      stopAutoSlide();
+    };
+  }, []);
+
+  // Update scroll position when currentIndex changes
+  useEffect(() => {
+    scrollViewRef.current?.scrollTo({
+      x: currentIndex * width,
+      animated: true,
+    });
+  }, [currentIndex]);
 
   const handleNext = () => {
     if (currentIndex < onboardingData.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      scrollViewRef.current?.scrollTo({
-        x: nextIndex * width,
-        animated: true,
-      });
+    }
+  };
+
+  const pauseAutoSlide = () => {
+    if (autoSlideTimer.current) {
+      clearInterval(autoSlideTimer.current);
+      autoSlideTimer.current = null;
+    }
+  };
+
+  const resumeAutoSlide = () => {
+    if (!autoSlideTimer.current) {
+      autoSlideTimer.current = setInterval(() => {
+        setCurrentIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          if (nextIndex >= onboardingData.length) {
+            return 0; // Loop back to first slide
+          }
+          return nextIndex;
+        });
+      }, 3000);
     }
   };
 
@@ -117,6 +172,8 @@ export default function OnboardingScreen() {
           const index = Math.round(event.nativeEvent.contentOffset.x / width);
           setCurrentIndex(index);
         }}
+        onTouchStart={pauseAutoSlide}
+        onTouchEnd={resumeAutoSlide}
         style={styles.scrollView}
       >
         {onboardingData.map((item, index) => renderOnboardingItem(item, index))}

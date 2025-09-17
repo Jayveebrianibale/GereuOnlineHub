@@ -96,8 +96,8 @@ export default function UserHome() {
       const storageKey = `user:lastSeenReservations:${user.uid}`;
       await AsyncStorage.setItem(storageKey, String(Date.now()));
       setUnreadCount(0);
-      // Optionally navigate to a notifications/reservations screen
-      router.push('/bookings');
+      // Navigate to notifications screen
+      router.push('/notifications');
     } catch {}
   };
 
