@@ -2,7 +2,7 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
 import { formatLastActive, listenToUsers, updateUserStatus, UserData } from '../../utils/userUtils';

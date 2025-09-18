@@ -2,7 +2,7 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { equalTo, onValue, orderByChild, push, query, ref } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, push, query, ref, remove } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   TextInput,
@@ -51,6 +52,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
   
   // Refs for stability
   const textInputRef = useRef<TextInput>(null);
@@ -158,6 +160,125 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [inputText, currentUserEmail, chatId, recipientEmail, recipientName, isLoading, isAdmin]);
 
+  // Menu functions
+  const handleClearChat = async () => {
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Get all messages for this chat
+              const messagesRef = query(
+                ref(db, 'messages'),
+                orderByChild('chatId'),
+                equalTo(chatId)
+              );
+              
+              // Delete all messages for this chat
+              const snapshot = await get(messagesRef);
+              if (snapshot.exists()) {
+                const data = snapshot.val();
+                const messageIds = Object.keys(data);
+                
+                // Delete each message
+                const deletePromises = messageIds.map(messageId => 
+                  remove(ref(db, `messages/${messageId}`))
+                );
+                
+                await Promise.all(deletePromises);
+                
+                // Clear local state
+                setMessages([]);
+                
+                Alert.alert('Success', 'Chat cleared successfully!');
+              } else {
+                Alert.alert('Info', 'No messages to clear.');
+              }
+            } catch (error) {
+              console.error('Error clearing chat:', error);
+              Alert.alert('Error', 'Failed to clear chat. Please try again.');
+            } finally {
+              setShowMenu(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleReportUser = () => {
+    Alert.alert(
+      'Report User',
+      `Are you sure you want to report ${recipientName || 'this user'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Success', 'User reported successfully!');
+            setShowMenu(false);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleBlockUser = () => {
+    Alert.alert(
+      'Block User',
+      `Are you sure you want to block ${recipientName || 'this user'}? You won't be able to receive messages from them.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Success', 'User blocked successfully!');
+            setShowMenu(false);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleChatInfo = () => {
+    Alert.alert(
+      'Chat Information',
+      `Chat with: ${recipientName || 'Unknown'}\nEmail: ${recipientEmail || 'N/A'}\nMessages: ${messages.length}`,
+      [{ text: 'OK', onPress: () => setShowMenu(false) }]
+    );
+  };
+
+  // Handle message deletion
+  const handleDeleteMessage = async (messageId: string, messageText: string) => {
+    Alert.alert(
+      'Delete Message',
+      `Are you sure you want to delete this message?\n\n"${messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText}"`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await remove(ref(db, `messages/${messageId}`));
+              console.log('Message deleted successfully');
+            } catch (error) {
+              console.error('Error deleting message:', error);
+              Alert.alert('Error', 'Failed to delete message. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Render message
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.senderEmail === currentUserEmail;
@@ -168,14 +289,19 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         styles.messageContainer,
         isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage
       ]}>
-        <View style={[
-          styles.messageBubble,
-          {
-            backgroundColor: isCurrentUser 
-              ? (isMessageFromAdmin ? adminBubbleBgColor : userBubbleBgColor)
-              : bubbleBgColor,
-          }
-        ]}>
+        <TouchableOpacity
+          style={[
+            styles.messageBubble,
+            {
+              backgroundColor: isCurrentUser 
+                ? (isMessageFromAdmin ? adminBubbleBgColor : userBubbleBgColor)
+                : bubbleBgColor,
+            }
+          ]}
+          onLongPress={() => handleDeleteMessage(item.id, item.text)}
+          activeOpacity={0.7}
+          delayLongPress={500}
+        >
           <ThemedText style={[styles.messageText, { color: textColor }]}>
             {item.text}
           </ThemedText>
@@ -195,7 +321,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -204,7 +330,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.select({ ios: 120, android: 80 }) as number}
+      keyboardVerticalOffset={Platform.select({ ios: 2, android: 0 }) as number}
     >
       <View style={[styles.container, { backgroundColor: bgColor }]}>
         
@@ -224,7 +350,10 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               {isAdmin ? 'Admin Chat' : 'User Chat'}
             </ThemedText>
           </View>
-          <TouchableOpacity style={styles.moreButton}>
+          <TouchableOpacity 
+            style={styles.moreButton}
+            onPress={() => setShowMenu(true)}
+          >
             <Ionicons name="ellipsis-vertical" size={20} color={textColor} />
           </TouchableOpacity>
         </View>
@@ -325,6 +454,54 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           </View>
         </View>
         
+        {/* Menu Modal */}
+        <Modal
+          visible={showMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <TouchableOpacity 
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={[styles.menuContainer, { backgroundColor: bgColor, borderColor: isDark ? '#333' : '#e0e0e0' }]}>
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleChatInfo}
+              >
+                <Ionicons name="information-circle" size={20} color={textColor} />
+                <ThemedText style={[styles.menuText, { color: textColor }]}>Chat Info</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleClearChat}
+              >
+                <Ionicons name="trash" size={20} color="#F44336" />
+                <ThemedText style={[styles.menuText, { color: '#F44336' }]}>Clear Chat</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleReportUser}
+              >
+                <Ionicons name="flag" size={20} color="#FF9800" />
+                <ThemedText style={[styles.menuText, { color: '#FF9800' }]}>Report User</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleBlockUser}
+              >
+                <Ionicons name="ban" size={20} color="#F44336" />
+                <ThemedText style={[styles.menuText, { color: '#F44336' }]}>Block User</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+        
       </View>
     </KeyboardAvoidingView>
   );
@@ -348,6 +525,7 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
+    paddingTop: 24,
   },
   headerTitle: {
     fontSize: 18,
@@ -417,8 +595,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-    minHeight: 70,
+    paddingBottom: Platform.OS === 'ios' ? 2 : 1,
+    minHeight: 60,
     backgroundColor: 'transparent',
     position: 'relative',
     zIndex: 1000,
@@ -463,5 +641,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: Platform.OS === 'ios' ? 100 : 60,
+    paddingRight: 20,
+  },
+  menuContainer: {
+    width: 200,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  menuText: {
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

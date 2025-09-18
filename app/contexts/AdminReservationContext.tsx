@@ -1,10 +1,11 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { notifyUser } from '../services/notificationService';
 import {
-  getAdminReservations,
-  listenToAdminReservations,
-  saveAdminReservation,
-  updateAdminReservationStatus
+    getAdminReservations,
+    listenToAdminReservations,
+    removeAdminReservation as removeAdminReservationService,
+    saveAdminReservation,
+    updateAdminReservationStatus
 } from '../services/reservationService';
 
 export type AdminReservation = {
@@ -30,7 +31,7 @@ interface AdminReservationContextType {
   error: string | null;
   addAdminReservation: (reservation: Omit<AdminReservation, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateReservationStatus: (reservationId: string, status: AdminReservation['status']) => Promise<void>;
-  removeAdminReservation: (reservationId: string) => void;
+  removeAdminReservation: (reservationId: string) => Promise<void>;
   getReservationsByStatus: (status: AdminReservation['status']) => AdminReservation[];
 }
 
@@ -113,8 +114,20 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
     }
   };
 
-  const removeAdminReservation = (reservationId: string) => {
-    setAdminReservations(prev => prev.filter(reservation => reservation.id !== reservationId));
+  const removeAdminReservation = async (reservationId: string) => {
+    try {
+      setError(null);
+      // Optimistically update local state so UI reflects the change immediately
+      setAdminReservations(prev => prev.filter(reservation => reservation.id !== reservationId));
+      await removeAdminReservationService(reservationId);
+      // The real-time listener will update the state automatically
+    } catch (err) {
+      console.error('Error removing admin reservation:', err);
+      setError('Failed to remove reservation');
+      // Revert optimistic update by reloading from listener on next tick
+      // No-op here; the live listener will resync the correct state
+      throw err;
+    }
   };
 
   const getReservationsByStatus = (status: AdminReservation['status']) => {

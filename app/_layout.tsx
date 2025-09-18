@@ -32,7 +32,14 @@ function AppContent() {
         <Stack.Screen name="user-dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="(user-tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="chat/[id]" options={{ headerShown: false, title: '' }} />
+        <Stack.Screen name="chat/[id]" options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          title: '',
+          headerBackVisible: false,
+          headerLeft: () => null,
+          gestureEnabled: false
+        }} />
         <Stack.Screen name="apartment-list" options={{ headerShown: false }} />
         <Stack.Screen name="laundry-list" options={{ headerShown: false }} />
         <Stack.Screen name="auto-list" options={{ headerShown: false }} />

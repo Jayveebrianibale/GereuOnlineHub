@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import ChatScreen from '../../components/ChatScreen';
+import ChatScreen from '../components/ChatScreen';
 
 export default function ChatRoute() {
   const params = useLocalSearchParams();
@@ -13,5 +13,3 @@ export default function ChatRoute() {
 
   return <ChatScreen route={{ params: routeParams }} />;
 }
-
-

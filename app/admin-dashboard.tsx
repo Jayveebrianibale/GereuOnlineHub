@@ -382,17 +382,23 @@ export default function AdminDashboard() {
         {/* Stats Overview */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Total Services
-            </ThemedText>
+            <View style={styles.statHeader}>
+              <MaterialIcons name="business" size={20} color={colorPalette.primary} />
+              <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+                Total Services
+              </ThemedText>
+            </View>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
               {totalServices}
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
-              Reservations
-            </ThemedText>
+            <View style={styles.statHeader}>
+              <MaterialIcons name="event-note" size={20} color={colorPalette.primaryDark} />
+              <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+                Reservations
+              </ThemedText>
+            </View>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
               {reservationsCount}
             </ThemedText>
@@ -578,9 +584,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statLabel: {
     fontSize: 14,
-    marginBottom: 8,
+    marginLeft: 8,
   },
   statValue: {
     fontSize: 24,

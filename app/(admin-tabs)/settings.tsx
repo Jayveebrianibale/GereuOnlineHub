@@ -4,12 +4,15 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 // removed email notifications persistence
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 // removed user/db usage for email notifications
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { ref as dbRef, onValue, set } from 'firebase/database';
 import { useAuthContext } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -40,6 +43,29 @@ export default function SettingsScreen() {
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{strength: string, color: string}>({strength: '', color: ''});
+
+  // Load admin profile photo from database
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // Prefer separate table value; fallback to Auth photoURL
+        const imageRef = dbRef(db, `userProfileImages/${user.uid}/url`);
+        const off = onValue(imageRef, (snap) => {
+          const url = snap.val();
+          if (url) {
+            setProfilePhoto(url);
+          } else if (user.photoURL) {
+            setProfilePhoto(user.photoURL);
+          } else {
+            setProfilePhoto(null);
+          }
+        });
+      }
+    });
+
+    return unsubscribe; // cleanup
+  }, []);
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -237,9 +263,8 @@ export default function SettingsScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const processed = await processImage(result.assets[0].uri);
-        setProfilePhoto(processed);
         setPhotoModalVisible(false);
-        Alert.alert('Success', 'Profile photo updated successfully!');
+        await uploadAndSaveProfilePhoto(processed);
       }
     } catch (error) {
       console.error('Error picking image: ', error);
@@ -263,13 +288,55 @@ export default function SettingsScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const processed = await processImage(result.assets[0].uri);
-        setProfilePhoto(processed);
         setPhotoModalVisible(false);
-        Alert.alert('Success', 'Profile photo updated successfully!');
+        await uploadAndSaveProfilePhoto(processed);
       }
     } catch (error) {
       console.error('Error taking photo: ', error);
       Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const uploadAndSaveProfilePhoto = async (localUri: string) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Not signed in', 'Please sign in to update your profile photo.');
+        return;
+      }
+
+      // Generate base64 using ImageManipulator (avoids deprecated FileSystem API)
+      const base64Result = await ImageManipulator.manipulateAsync(
+        localUri,
+        [],
+        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      const base64 = base64Result.base64 || '';
+      if (!base64) {
+        throw new Error('Failed to convert image to base64');
+      }
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+
+      // Optionally update Firebase Auth profile (data URLs may be large; safe to skip)
+      try { await updateProfile(user, { photoURL: dataUrl }); } catch {}
+
+      // Save to Realtime Database (legacy path for compatibility)
+      await set(dbRef(db, `users/${user.uid}/avatar`), dataUrl);
+      await set(dbRef(db, `users/${user.uid}/updatedAt`), new Date().toISOString());
+
+      // Save to separate profile image table
+      await set(dbRef(db, `userProfileImages/${user.uid}`), {
+        url: dataUrl,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local state
+      setProfilePhoto(dataUrl);
+      Alert.alert('Success', 'Profile photo saved.');
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      Alert.alert('Error', 'Could not upload and save profile photo.');
     }
   };
 
@@ -283,9 +350,27 @@ export default function SettingsScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            setProfilePhoto(null);
-            setPhotoModalVisible(false);
-            Alert.alert('Success', 'Profile photo removed successfully!');
+            (async () => {
+              try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+                setProfilePhoto(null);
+                setPhotoModalVisible(false);
+                if (user) {
+                  await updateProfile(user, { photoURL: null as any });
+                  await set(dbRef(db, `users/${user.uid}/avatar`), '');
+                  await set(dbRef(db, `users/${user.uid}/updatedAt`), new Date().toISOString());
+                  await set(dbRef(db, `userProfileImages/${user.uid}`), {
+                    url: '',
+                    updatedAt: new Date().toISOString(),
+                  });
+                }
+                Alert.alert('Success', 'Profile photo removed successfully!');
+              } catch (e) {
+                console.error('Error removing profile photo:', e);
+                Alert.alert('Error', 'Failed to remove photo');
+              }
+            })();
           }
         }
       ]

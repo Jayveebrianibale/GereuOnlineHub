@@ -82,7 +82,6 @@ export default function NotificationsScreen() {
             timestamp: new Date(reservation.updatedAt).getTime(),
             isRead: false, // Will be updated based on last seen
             reservationId: reservation.id,
-            actionUrl: `/reservation-details/${reservation.id}` as any,
           }))
           .filter(notification => !deletedIds.includes(notification.id)) // Filter out deleted notifications
           .sort((a, b) => b.timestamp - a.timestamp);
@@ -150,15 +149,15 @@ export default function NotificationsScreen() {
       await AsyncStorage.setItem(storageKey, String(Date.now()));
 
       // Navigate based on notification type
-      if (notification.actionUrl) {
-        console.log('Navigating to:', notification.actionUrl);
-        router.push(notification.actionUrl as any);
-      } else if (notification.type === 'reservation') {
-        console.log('Navigating to bookings');
+      if (notification.type === 'reservation') {
+        console.log('Navigating to bookings tab');
         router.push('/(user-tabs)/bookings' as any);
       } else if (notification.type === 'message') {
         console.log('Navigating to messages');
         router.push('/(user-tabs)/messages' as any);
+      } else if (notification.actionUrl) {
+        console.log('Navigating to:', notification.actionUrl);
+        router.push(notification.actionUrl as any);
       }
     } catch (error) {
       console.error('Error handling notification press:', error);

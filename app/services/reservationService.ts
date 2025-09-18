@@ -175,3 +175,13 @@ export const removeUserReservation = async (userId: string, reservationId: strin
     throw error;
   }
 };
+
+export const removeAdminReservation = async (reservationId: string): Promise<void> => {
+  try {
+    const reservationRef = ref(db, `adminReservations/${reservationId}`);
+    await remove(reservationRef);
+  } catch (error) {
+    console.error('Error removing admin reservation:', error);
+    throw error;
+  }
+};

@@ -2,11 +2,15 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from "../components/RobustImage";
 import { useAuthContext } from "../contexts/AuthContext";
 import { useReservation } from "../contexts/ReservationContext";
+import { getApartments } from "../services/apartmentService";
+import { getAutoServices } from "../services/autoService";
+import { getLaundryServices } from "../services/laundryService";
 import { notifyAdmins } from "../services/notificationService";
 import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
@@ -27,7 +31,8 @@ const colorPalette = {
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState<'reservations' | 'bills'>('reservations');
   const { colorScheme } = useColorScheme();
-  const { reservedApartments, reservedLaundryServices, reservedAutoServices, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
+  const router = useRouter();
+  const { reservedApartments, reservedLaundryServices, reservedAutoServices, removeReservation, removeLaundryReservation, removeAutoReservation, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
   const { user } = useAuthContext();
 
   const isDark = colorScheme === "dark";
@@ -86,6 +91,80 @@ export default function Bookings() {
     }
   };
 
+  const handleViewDetails = async (item: any, serviceType: 'apartment' | 'laundry' | 'auto') => {
+    try {
+      let completeServiceData = null;
+      
+      if (serviceType === 'apartment') {
+        const apartments = await getApartments();
+        completeServiceData = apartments.find(apt => apt.id === item.serviceId);
+        if (completeServiceData) {
+          router.push({
+            pathname: '/apartment-list',
+            params: { selectedItem: JSON.stringify(completeServiceData) }
+          });
+        }
+      } else if (serviceType === 'laundry') {
+        const laundryServices = await getLaundryServices();
+        completeServiceData = laundryServices.find(service => service.id === item.serviceId);
+        if (completeServiceData) {
+          router.push({
+            pathname: '/laundry-list',
+            params: { selectedItem: JSON.stringify(completeServiceData) }
+          });
+        }
+      } else if (serviceType === 'auto') {
+        const autoServices = await getAutoServices();
+        completeServiceData = autoServices.find(service => service.id === item.serviceId);
+        if (completeServiceData) {
+          router.push({
+            pathname: '/auto-list',
+            params: { selectedItem: JSON.stringify(completeServiceData) }
+          });
+        }
+      }
+      
+      if (!completeServiceData) {
+        Alert.alert('Error', 'Service details not found. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error fetching service details:', error);
+      Alert.alert('Error', 'Failed to load service details. Please try again.');
+    }
+  };
+
+  const handleDeleteReservation = (item: any, serviceType: 'apartment' | 'laundry' | 'auto') => {
+    Alert.alert(
+      'Delete Reservation',
+      `Are you sure you want to delete this ${serviceType} reservation? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (serviceType === 'apartment') {
+                await removeReservation(item.serviceId);
+              } else if (serviceType === 'laundry') {
+                await removeLaundryReservation(item.serviceId);
+              } else if (serviceType === 'auto') {
+                await removeAutoReservation(item.serviceId);
+              }
+              Alert.alert('Success', 'Reservation deleted successfully.');
+            } catch (error) {
+              console.error('Error deleting reservation:', error);
+              Alert.alert('Error', 'Failed to delete reservation. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const confirmCancel = (onConfirm: () => Promise<void>) => {
     if (Platform.OS === 'web') {
       onConfirm()
@@ -116,24 +195,64 @@ export default function Bookings() {
   };
 
   // Sort helpers to show newest first
-  const getTimestamp = (item: any) => {
-    const value = (item as any).reservationDate || (item as any).createdAt || (item as any).updatedAt;
-    const t = value ? new Date(value).getTime() : 0;
-    return Number.isFinite(t) ? t : 0;
-  };
-
   const sortNewestFirst = (arr: any[]) => {
-    if (!Array.isArray(arr)) return [] as any[];
-    const withTime = arr.some(i => getTimestamp(i) !== 0);
-    if (withTime) {
-      return arr.slice().sort((a, b) => getTimestamp(b) - getTimestamp(a));
-    }
-    return arr.slice().reverse();
+    if (!Array.isArray(arr) || arr.length === 0) return [];
+    
+    // Create a copy and sort by timestamp, newest first
+    const sorted = [...arr].sort((a, b) => {
+      // Try multiple timestamp fields
+      const getTimestamp = (item: any) => {
+        // Try different timestamp fields in order of preference
+        const fields = ['createdAt', 'reservationDate', 'updatedAt'];
+        
+        for (const field of fields) {
+          if (item[field]) {
+            const timestamp = new Date(item[field]).getTime();
+            if (!isNaN(timestamp) && timestamp > 0) {
+              return timestamp;
+            }
+          }
+        }
+        
+        // Fallback: Use Firebase ID as timestamp (Firebase push IDs are chronologically ordered)
+        if (item.id) {
+          // Firebase push IDs contain timestamp information
+          // Extract timestamp from Firebase ID (first 8 characters are timestamp)
+          const firebaseTimestamp = parseInt(item.id.substring(0, 8), 16) * 1000;
+          if (!isNaN(firebaseTimestamp) && firebaseTimestamp > 0) {
+            return firebaseTimestamp;
+          }
+        }
+        
+        // Final fallback to 0
+        return 0;
+      };
+      
+      const timestampA = getTimestamp(a);
+      const timestampB = getTimestamp(b);
+      
+      // Sort newest first (higher timestamp first)
+      return timestampB - timestampA;
+    });
+    
+    return sorted;
   };
 
   const apartmentsSorted = sortNewestFirst(reservedApartments as any[]);
   const laundrySorted = sortNewestFirst(reservedLaundryServices as any[]);
   const autoSorted = sortNewestFirst(reservedAutoServices as any[]);
+
+  // Debug: Log the sorting results
+  console.log('Original apartments:', reservedApartments.map(r => ({ 
+    title: r.serviceTitle, 
+    createdAt: r.createdAt,
+    id: r.id 
+  })));
+  console.log('Sorted apartments:', apartmentsSorted.map(r => ({ 
+    title: r.serviceTitle, 
+    createdAt: r.createdAt,
+    id: r.id 
+  })));
 
   // Bills helpers
   const isAccepted = (status: string | undefined) => {
@@ -257,20 +376,39 @@ export default function Bookings() {
 
              {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               {((apt as any).status || 'pending') === 'pending' && (
+               <TouchableOpacity 
+                 style={styles.viewDetailsButton}
+                 onPress={() => handleViewDetails(apt, 'apartment')}
+               >
+                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
+               </TouchableOpacity>
+               <View style={styles.buttonSpacer} />
+               <View style={styles.rightActions}>
+                 {((apt as any).status || 'pending') === 'pending' && (
+                   <TouchableOpacity 
+                     style={styles.cancelButton}
+                     onPress={() => confirmCancel(async () => {
+                       const serviceId = (apt as any).serviceId || (apt as any).id;
+                       await updateApartmentStatus(serviceId, 'cancelled');
+                       await cancelAdminReservation('apartment', serviceId);
+                     })}
+                   >
+                     <MaterialIcons name="cancel" size={16} color="#F44336" />
+                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                       Cancel
+                     </ThemedText>
+                   </TouchableOpacity>
+                 )}
                  <TouchableOpacity 
-                   style={styles.cancelButton}
-                   onPress={() => confirmCancel(async () => {
-                     const serviceId = (apt as any).serviceId || (apt as any).id;
-                     await updateApartmentStatus(serviceId, 'cancelled');
-                     await cancelAdminReservation('apartment', serviceId);
-                   })}
-                 > 
-                   <ThemedText style={styles.cancelButtonText}> 
-                     Cancel
+                   style={styles.deleteButton}
+                   onPress={() => handleDeleteReservation(apt, 'apartment')}
+                 >
+                   <MaterialIcons name="delete" size={16} color="#F44336" />
+                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                     Delete
                    </ThemedText>
                  </TouchableOpacity>
-               )}
+               </View>
              </View>
            </View>
          ))
@@ -335,20 +473,39 @@ export default function Bookings() {
 
              {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               {((svc as any).status || 'pending') === 'pending' && (
+               <TouchableOpacity 
+                 style={styles.viewDetailsButton}
+                 onPress={() => handleViewDetails(svc, 'laundry')}
+               >
+                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
+               </TouchableOpacity>
+               <View style={styles.buttonSpacer} />
+               <View style={styles.rightActions}>
+                 {((svc as any).status || 'pending') === 'pending' && (
+                   <TouchableOpacity 
+                     style={styles.cancelButton}
+                     onPress={() => confirmCancel(async () => {
+                       const serviceId = (svc as any).serviceId || (svc as any).id;
+                       await updateLaundryStatus(serviceId, 'cancelled');
+                       await cancelAdminReservation('laundry', serviceId);
+                     })}
+                   >
+                     <MaterialIcons name="cancel" size={16} color="#F44336" />
+                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                       Cancel
+                     </ThemedText>
+                   </TouchableOpacity>
+                 )}
                  <TouchableOpacity 
-                   style={styles.cancelButton}
-                   onPress={() => confirmCancel(async () => {
-                     const serviceId = (svc as any).serviceId || (svc as any).id;
-                     await updateLaundryStatus(serviceId, 'cancelled');
-                     await cancelAdminReservation('laundry', serviceId);
-                   })}
-                 > 
-                   <ThemedText style={styles.cancelButtonText}> 
-                     Cancel
+                   style={styles.deleteButton}
+                   onPress={() => handleDeleteReservation(svc, 'laundry')}
+                 >
+                   <MaterialIcons name="delete" size={16} color="#F44336" />
+                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                     Delete
                    </ThemedText>
                  </TouchableOpacity>
-               )}
+               </View>
              </View>
            </View>
          ))
@@ -413,20 +570,39 @@ export default function Bookings() {
 
              {/* Booking Actions */}
              <View style={styles.bookingActions}>
-               {((svc as any).status || 'pending') === 'pending' && (
+               <TouchableOpacity 
+                 style={styles.viewDetailsButton}
+                 onPress={() => handleViewDetails(svc, 'auto')}
+               >
+                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
+               </TouchableOpacity>
+               <View style={styles.buttonSpacer} />
+               <View style={styles.rightActions}>
+                 {((svc as any).status || 'pending') === 'pending' && (
+                   <TouchableOpacity 
+                     style={styles.cancelButton}
+                     onPress={() => confirmCancel(async () => {
+                       const serviceId = (svc as any).serviceId || (svc as any).id;
+                       await updateAutoStatus(serviceId, 'cancelled');
+                       await cancelAdminReservation('auto', serviceId);
+                     })}
+                   >
+                     <MaterialIcons name="cancel" size={16} color="#F44336" />
+                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                       Cancel
+                     </ThemedText>
+                   </TouchableOpacity>
+                 )}
                  <TouchableOpacity 
-                   style={styles.cancelButton}
-                   onPress={() => confirmCancel(async () => {
-                     const serviceId = (svc as any).serviceId || (svc as any).id;
-                     await updateAutoStatus(serviceId, 'cancelled');
-                     await cancelAdminReservation('auto', serviceId);
-                   })}
-                 > 
-                   <ThemedText style={styles.cancelButtonText}> 
-                     Cancel
+                   style={styles.deleteButton}
+                   onPress={() => handleDeleteReservation(svc, 'auto')}
+                 >
+                   <MaterialIcons name="delete" size={16} color="#F44336" />
+                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
+                     Delete
                    </ThemedText>
                  </TouchableOpacity>
-               )}
+               </View>
              </View>
            </View>
          ))
@@ -629,9 +805,28 @@ const styles = StyleSheet.create({
   },
   bookingActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  buttonSpacer: {
+    flex: 1,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 67, 54, 0.3)',
   },
   actionButton: {
     flex: 0,
@@ -641,17 +836,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
-  cancelButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F44336',
+  viewDetailsButton: {
+    padding: 8,
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
   },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 67, 54, 0.3)',
   },
   actionButtonText: {
     fontSize: 14,

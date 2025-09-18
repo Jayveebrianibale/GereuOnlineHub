@@ -40,7 +40,7 @@ export default function ReservationsScreen() {
   const { colorScheme } = useColorScheme();
   const { width, height } = useWindowDimensions();
   const isPortrait = height > width;
-  const { adminReservations, updateReservationStatus, loading, error } = useAdminReservation();
+  const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error } = useAdminReservation();
   const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
   const [filterVisible, setFilterVisible] = useState(false);
@@ -167,6 +167,68 @@ export default function ReservationsScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Decline', style: 'destructive', onPress: performUpdate }
+      ]
+    );
+  };
+
+  const handleDeleteReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, serviceTitle: string) => {
+    const performDelete = async () => {
+      try {
+        // Delete admin reservation
+        await removeAdminReservation(reservationId);
+        
+        // Update corresponding user's reservation regardless of current auth context
+        try {
+          const userReservations = await getUserReservations(userId);
+          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+          if (target) {
+            await updateUserReservationStatus(userId, target.id, 'cancelled');
+          }
+        } catch (e) {
+          console.warn('Failed updating user reservation status:', e);
+        }
+        
+        // Update service status to available
+        try {
+          if (serviceType === 'apartment') {
+            await updateApartmentStatus(serviceId, 'available');
+          } else if (serviceType === 'laundry') {
+            await updateLaundryStatus(serviceId, 'available');
+          } else if (serviceType === 'auto') {
+            await updateAutoStatus(serviceId, 'available');
+          }
+        } catch (e) {
+          console.warn('Failed updating service status:', e);
+        }
+        
+        // Notify user
+        try {
+          await notifyUser(
+            userId,
+            'Reservation Deleted',
+            `Your reservation for ${serviceTitle} has been deleted by admin.`,
+            { serviceType, serviceId, action: 'deleted' }
+          );
+        } catch {}
+        
+        Alert.alert('Success', 'Reservation has been deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting reservation:', error);
+        Alert.alert('Error', 'Failed to delete reservation. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      performDelete();
+      return;
+    }
+
+    Alert.alert(
+      'Delete Reservation',
+      `Are you sure you want to delete this reservation for "${serviceTitle}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete }
       ]
     );
   };
@@ -462,6 +524,20 @@ export default function ReservationsScreen() {
                         </ThemedText>
                       </TouchableOpacity>
                     )}
+                    
+                    {/* Delete button - always visible */}
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.deleteButton]}
+                      onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle)}
+                    >
+                      <MaterialIcons name="delete" size={18} color="#DC2626" />
+                      <ThemedText style={[
+                        styles.actionText, 
+                        { color: '#DC2626' }
+                      ]}>
+                        Delete
+                      </ThemedText>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -657,6 +733,14 @@ const styles = StyleSheet.create({
   completeButton: {
     backgroundColor: '#3B82F620',
     borderColor: '#3B82F6',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#DC262620',
+    borderColor: '#DC2626',
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 8,
