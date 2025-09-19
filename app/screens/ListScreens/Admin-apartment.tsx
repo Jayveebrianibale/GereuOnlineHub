@@ -66,8 +66,9 @@ const colorPalette = {
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
     const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
-    const [isProcessingImage, setIsProcessingImage] = useState(false);
-    const [recentImages, setRecentImages] = useState<string[]>([]);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [recentImages, setRecentImages] = useState<string[]>([]);
     const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
         visible: false,
         message: '',
@@ -199,6 +200,8 @@ const colorPalette = {
         }
 
         try {
+            setIsUploadingImage(true);
+            
             // Clean amenities: remove empty/whitespace entries
             const cleanedAmenities = (currentApartment.amenities || [])
                 .map((a: string) => (a || '').trim())
@@ -224,6 +227,8 @@ const colorPalette = {
         } catch (error) {
             console.error('Error saving apartment: ', error);
             Alert.alert('Error', 'Failed to save apartment');
+        } finally {
+            setIsUploadingImage(false);
         }
     };
 
@@ -543,9 +548,10 @@ const colorPalette = {
                     <TouchableOpacity 
                     style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
                     onPress={handleSave}
+                    disabled={isUploadingImage}
                     >
                     <ThemedText style={styles.saveButtonText}>
-                        {isNewApartment ? 'Add Apartment' : 'Save Changes'}
+                        {isUploadingImage ? 'Uploading...' : (isNewApartment ? 'Add Apartment' : 'Save Changes')}
                     </ThemedText>
                     </TouchableOpacity>
                 </View>

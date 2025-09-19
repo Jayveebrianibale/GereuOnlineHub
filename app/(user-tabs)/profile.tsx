@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
 // Storage upload removed; we will store data URL directly in Realtime Database
 import { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 
 const colorPalette = {
@@ -84,6 +84,7 @@ export default function Profile() {
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     services: false,
     mission: false,
@@ -101,6 +102,26 @@ export default function Profile() {
     soundEnabled: true,
     vibrationEnabled: true,
   });
+
+  // Personal information state
+  const [personalInfo, setPersonalInfo] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    occupation: '',
+    company: '',
+    preferences: {
+      preferredLanguage: 'English',
+      timeZone: 'Asia/Manila',
+      currency: 'PHP',
+      notifications: true,
+    }
+  });
+  const [isEditingPersonalInfo, setIsEditingPersonalInfo] = useState(false);
 
   const uploadAndSaveProfilePhoto = async (localUri: string) => {
     try {
@@ -154,6 +175,28 @@ export default function Profile() {
           email: user.email || "No Email",
           avatar: require('@/assets/images/logo.png'),
         });
+        
+        // Load personal information from database
+        const personalInfoRef = dbRef(db, `users/${user.uid}/personalInfo`);
+        const personalInfoUnsubscribe = onValue(personalInfoRef, (snap) => {
+          const data = snap.val();
+          if (data) {
+            setPersonalInfo(prev => ({
+              ...prev,
+              ...data,
+              email: user.email || data.email || '',
+            }));
+          } else {
+            // Initialize with user data if no personal info exists
+            setPersonalInfo(prev => ({
+              ...prev,
+              firstName: user.displayName?.split(' ')[0] || '',
+              lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+              email: user.email || '',
+            }));
+          }
+        });
+        
         // Prefer separate table value; fallback to Auth photoURL
         const imageRef = dbRef(db, `userProfileImages/${user.uid}/url`);
         const off = onValue(imageRef, (snap) => {
@@ -166,6 +209,11 @@ export default function Profile() {
             setAvatarUri(null);
           }
         });
+        
+        return () => {
+          personalInfoUnsubscribe();
+          off();
+        };
       }
     });
 
@@ -293,25 +341,74 @@ export default function Profile() {
     );
   };
 
+  const savePersonalInfo = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Not signed in', 'Please sign in to update your personal information.');
+        return;
+      }
+
+      // Update Firebase Auth profile
+      await updateProfile(user, { 
+        displayName: `${personalInfo.firstName} ${personalInfo.lastName}`.trim() 
+      });
+
+      // Save to Realtime Database
+      await set(dbRef(db, `users/${user.uid}/personalInfo`), {
+        ...personalInfo,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local user data
+      setUserData(prev => ({
+        ...prev,
+        name: `${personalInfo.firstName} ${personalInfo.lastName}`.trim(),
+        email: personalInfo.email,
+      }));
+
+      setIsEditingPersonalInfo(false);
+      Alert.alert('Success', 'Personal information updated successfully!');
+    } catch (error) {
+      console.error('Error saving personal information:', error);
+      Alert.alert('Error', 'Failed to save personal information. Please try again.');
+    }
+  };
+
+  const handlePersonalInfoChange = (field: string, value: string) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setPersonalInfo(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent as keyof typeof prev],
+          [child]: value,
+        }
+      }));
+    } else {
+      setPersonalInfo(prev => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+  };
+
   const handleMenuAction = (action: string) => {
     switch (action) {
       case 'info':
         setAboutModalVisible(true);
         break;
       case 'edit':
-        // Handle personal information edit
-        Alert.alert('Coming Soon', 'Personal information editing will be available soon!');
+        setPersonalInfoModalVisible(true);
         break;
       case 'notifications':
-        // Handle notification settings
         setNotificationModalVisible(true);
         break;
       case 'settings':
-        // Handle privacy & security settings
         Alert.alert('Coming Soon', 'Privacy & Security settings will be available soon!');
         break;
       case 'support':
-        // Handle help & support
         setSupportModalVisible(true);
         break;
       default:
@@ -455,6 +552,107 @@ export default function Profile() {
                   <ThemedText style={[styles.processingText, { color: subtitleColor }]}>Processing image...</ThemedText>
                 </View>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Personal Information Modal */}
+        <Modal
+          visible={personalInfoModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setPersonalInfoModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.aboutModal, { backgroundColor: cardBgColor }]}>
+              {/* Professional Header */}
+              <View style={[styles.professionalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
+                <View style={styles.headerContent}>
+                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="person" size={24} color="#fff" />
+                  </View>
+                  
+                  <View style={styles.appInfoContainer}>
+                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
+                      Personal Information
+                    </ThemedText>
+                    <View style={[styles.versionBadge, { backgroundColor: '#4CAF50' }]}>
+                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
+                        Edit Profile
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
+                  onPress={() => setPersonalInfoModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.aboutContent} showsVerticalScrollIndicator={false}>
+                {/* Basic Information */}
+                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
+                  <View style={styles.infoHeader}>
+                    <MaterialIcons name="account-circle" size={24} color={colorPalette.primary} />
+                    <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
+                      Basic Information
+                    </ThemedText>
+                  </View>
+                  
+                  <View style={styles.formRow}>
+                    <View style={styles.formField}>
+                      <ThemedText style={[styles.fieldLabel, { color: textColor }]}>First Name</ThemedText>
+                      <TextInput
+                        style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
+                        value={personalInfo.firstName}
+                        onChangeText={(value) => handlePersonalInfoChange('firstName', value)}
+                        placeholder="Enter your first name"
+                        placeholderTextColor={subtitleColor}
+                      />
+                    </View>
+                    
+                    <View style={styles.formField}>
+                      <ThemedText style={[styles.fieldLabel, { color: textColor }]}>Last Name</ThemedText>
+                      <TextInput
+                        style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
+                        value={personalInfo.lastName}
+                        onChangeText={(value) => handlePersonalInfoChange('lastName', value)}
+                        placeholder="Enter your last name"
+                        placeholderTextColor={subtitleColor}
+                      />
+                    </View>
+                  </View>
+                  
+                  <View style={styles.formField}>
+                    <ThemedText style={[styles.fieldLabel, { color: textColor }]}>Email Address</ThemedText>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
+                      value={personalInfo.email}
+                      onChangeText={(value) => handlePersonalInfoChange('email', value)}
+                      placeholder="Enter your email"
+                      placeholderTextColor={subtitleColor}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  
+                </View>
+
+
+                {/* Save Button */}
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={savePersonalInfo}
+                >
+                  <MaterialIcons name="save" size={20} color="#fff" />
+                  <ThemedText style={[styles.saveButtonText, { color: '#fff' }]}>
+                    Save Personal Information
+                  </ThemedText>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1925,19 +2123,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
-    paddingVertical: 18,
-    marginTop: 24,
-    marginBottom: 20,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+    letterSpacing: 0.3,
+  },
+  // Personal Information Form Styles
+  formRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  formField: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginBottom: 8,
+    color: '#333',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
 });

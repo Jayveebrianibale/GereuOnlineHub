@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -50,6 +51,14 @@ export default function AutoListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  const handleImagePress = (imageSource: string) => {
+    setSelectedImage(imageSource);
+    setImageViewerVisible(true);
+  };
+
   const handleMessageAdmin = async (service: any) => {
     try {
       if (!user?.email) return;
@@ -417,7 +426,15 @@ export default function AutoListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <RobustImage source={selectedAutoService.image} style={styles.detailImage} resizeMode="cover" />
+                   <TouchableOpacity 
+                    onPress={() => handleImagePress(selectedAutoService.image)}
+                    activeOpacity={0.8}
+                  >
+                    <RobustImage source={selectedAutoService.image} style={styles.detailImage} resizeMode="cover" />
+                    <View style={styles.imageOverlay}>
+                      <MaterialIcons name="zoom-in" size={24} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>
@@ -550,10 +567,18 @@ export default function AutoListScreen() {
              )}
            </View>
          </View>
-       </Modal>
-     </ThemedView>
-  );
-}
+        </Modal>
+        
+        {/* Full Screen Image Viewer */}
+        <FullScreenImageViewer
+          visible={imageViewerVisible}
+          imageSource={selectedImage || ''}
+          onClose={() => setImageViewerVisible(false)}
+          title="Auto Service Image"
+        />
+      </ThemedView>
+    );
+  }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -823,6 +848,17 @@ const styles = StyleSheet.create({
   detailImage: {
     width: '100%',
     height: 250,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0,
   },
   detailContent: {
     padding: 20,

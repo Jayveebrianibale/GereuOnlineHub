@@ -1,6 +1,7 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
 import { getImagePath } from '../utils/imageUtils';
+import { uploadImageToFirebaseWithRetry } from './imageUploadService';
 
 // Define the Apartment type
 export interface Apartment {
@@ -26,11 +27,25 @@ const COLLECTION_NAME = 'apartments';
 // Create a new apartment
 export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
   try {
-    // Convert image source to path for storage
-    const apartmentToSave = {
-      ...apartment,
-      image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
-    };
+    let apartmentToSave = { ...apartment };
+    
+    // Handle image upload to Firebase Storage if it's a local URI
+    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://'))) {
+      try {
+        console.log('Attempting to upload apartment image to Firebase Storage...');
+        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+        apartmentToSave.image = imageResult.url;
+        console.log('Apartment image uploaded successfully:', imageResult.url);
+      } catch (imageError) {
+        console.error('Error uploading apartment image:', imageError);
+        console.log('Falling back to local image path');
+        // Fallback to original image handling
+        apartmentToSave.image = typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image);
+      }
+    } else {
+      // Convert image source to path for storage (existing logic)
+      apartmentToSave.image = typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image);
+    }
     
     const apartmentRef = ref(db, COLLECTION_NAME);
     const newApartmentRef = push(apartmentRef);
@@ -65,9 +80,26 @@ export const getApartments = async () => {
 // Update an apartment
 export const updateApartment = async (id: string, apartment: Partial<Apartment>) => {
   try {
-    // Convert image source to path for storage if image is provided
     let apartmentToUpdate = apartment;
-    if (apartment.image !== undefined) {
+    
+    // Handle image upload to Firebase Storage if it's a local URI
+    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://'))) {
+      try {
+        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+        apartmentToUpdate = {
+          ...apartment,
+          image: imageResult.url
+        };
+      } catch (imageError) {
+        console.error('Error uploading apartment image:', imageError);
+        // Fallback to original image handling
+        apartmentToUpdate = {
+          ...apartment,
+          image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
+        };
+      }
+    } else if (apartment.image !== undefined) {
+      // Convert image source to path for storage if image is provided (existing logic)
       apartmentToUpdate = {
         ...apartment,
         image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)

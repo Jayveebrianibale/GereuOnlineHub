@@ -1,7 +1,6 @@
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 
 const colorPalette = {
   lightest: '#C3F5FF',

@@ -5,7 +5,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { onValue, orderByChild, query, ref } from "firebase/database";
 import { useEffect, useState } from 'react';
-import { Alert, Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
@@ -174,19 +174,6 @@ export default function MessagesScreen() {
               Your recent conversations
             </ThemedText>
           </View>
-          <TouchableOpacity 
-            style={[styles.newMessageButton, { backgroundColor: colorPalette.primary }]}
-            onPress={() => {
-              // For now, show an alert. In a real app, you'd navigate to a user selection screen
-              Alert.alert(
-                'New Chat',
-                'To start a new chat, users need to message you first. You can then reply to them from this list.',
-                [{ text: 'OK' }]
-              );
-            }}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
         {/* Search and Filter */}
@@ -322,14 +309,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     opacity: 0.8,
-  },
-  newMessageButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
   },
   searchContainer: {
     flexDirection: 'row',

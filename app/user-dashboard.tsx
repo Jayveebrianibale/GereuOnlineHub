@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from './components/RobustImage';
 import { getApartments } from './services/apartmentService';
 import { getAutoServices } from './services/autoService';
@@ -45,6 +45,11 @@ export default function UserHome() {
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -101,6 +106,67 @@ export default function UserHome() {
     } catch {}
   };
 
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setIsSearching(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Search through all services
+    const allResults: any[] = [];
+    
+    // Search apartments
+    apartments.forEach(apartment => {
+      if (
+        apartment.title?.toLowerCase().includes(query) ||
+        apartment.location?.toLowerCase().includes(query) ||
+        apartment.amenities?.some((amenity: string) => amenity.toLowerCase().includes(query))
+      ) {
+        allResults.push({ ...apartment, type: 'apartment' });
+      }
+    });
+    
+    // Search laundry services
+    laundryServices.forEach(service => {
+      if (
+        service.title?.toLowerCase().includes(query) ||
+        service.description?.toLowerCase().includes(query) ||
+        service.turnaround?.toLowerCase().includes(query)
+      ) {
+        allResults.push({ ...service, type: 'laundry' });
+      }
+    });
+    
+    // Search auto services
+    autoServices.forEach(service => {
+      if (
+        service.title?.toLowerCase().includes(query) ||
+        service.description?.toLowerCase().includes(query) ||
+        service.duration?.toLowerCase().includes(query)
+      ) {
+        allResults.push({ ...service, type: 'auto' });
+      }
+    });
+    
+    setSearchResults(allResults);
+  };
+
+  const handleSearchPress = () => {
+    handleSearch();
+  };
+
+  const handleSearchTextChange = (text: string) => {
+    setSearchQuery(text);
+    if (text.trim() === '') {
+      setIsSearching(false);
+      setSearchResults([]);
+    }
+  };
+
   useEffect(() => {
     const fetchApartments = async () => {
       try {
@@ -150,6 +216,90 @@ export default function UserHome() {
   const apartmentScrollX = useRef(new Animated.Value(0)).current;
   const laundryScrollX = useRef(new Animated.Value(0)).current;
   const autoScrollX = useRef(new Animated.Value(0)).current;
+
+  // Refs for FlatList components
+  const apartmentFlatListRef = useRef<FlatList>(null);
+  const laundryFlatListRef = useRef<FlatList>(null);
+  const autoFlatListRef = useRef<FlatList>(null);
+
+  // Touch interaction states
+  const [isUserInteracting, setIsUserInteracting] = useState({
+    apartments: false,
+    laundry: false,
+    auto: false,
+  });
+
+  // Auto-slide functionality
+  const slideToNext = (flatListRef: React.RefObject<FlatList>, currentIndex: number, totalItems: number) => {
+    if (totalItems <= 1) return;
+    
+    const nextIndex = (currentIndex + 1) % totalItems;
+    flatListRef.current?.scrollToIndex({
+      index: nextIndex,
+      animated: true,
+    });
+  };
+
+  // Auto-slide intervals with user interaction detection
+  useEffect(() => {
+    if (apartments.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.apartments) {
+        setActiveApartmentIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % apartments.length;
+          apartmentFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [apartments.length, isUserInteracting.apartments]);
+
+  useEffect(() => {
+    if (laundryServices.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.laundry) {
+        setActiveLaundryIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % laundryServices.length;
+          laundryFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [laundryServices.length, isUserInteracting.laundry]);
+
+  useEffect(() => {
+    if (autoServices.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.auto) {
+        setActiveAutoIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % autoServices.length;
+          autoFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [autoServices.length, isUserInteracting.auto]);
 
   const renderApartmentItem = ({ item }: { item: any }) => (
     <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
@@ -278,12 +428,105 @@ export default function UserHome() {
             </View>
 
             {/* Search Bar */}
-            <TouchableOpacity style={[styles.searchBar, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={[styles.searchBar, { backgroundColor: cardBgColor, borderColor }]}>
               <MaterialIcons name="search" size={24} color={subtitleColor} />
-              <ThemedText style={[styles.searchText, { color: subtitleColor }]}> 
-                Search for services...
-              </ThemedText>
-            </TouchableOpacity>
+              <TextInput
+                style={[styles.searchText, { color: textColor }]}
+                placeholder="Search for services..."
+                placeholderTextColor={subtitleColor}
+                value={searchQuery}
+                onChangeText={handleSearchTextChange}
+                onSubmitEditing={handleSearchPress}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => {
+                  setSearchQuery('');
+                  setIsSearching(false);
+                  setSearchResults([]);
+                }}>
+                  <MaterialIcons name="clear" size={24} color={subtitleColor} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Search Results */}
+            {isSearching && (
+              <View style={styles.searchResultsContainer}>
+                <View style={styles.searchResultsHeader}>
+                  <ThemedText type="subtitle" style={[styles.searchResultsTitle, { color: textColor }]}>
+                    Search Results ({searchResults.length})
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => {
+                    setIsSearching(false);
+                    setSearchResults([]);
+                  }}>
+                    <MaterialIcons name="close" size={24} color={subtitleColor} />
+                  </TouchableOpacity>
+                </View>
+                
+                {searchResults.length > 0 ? (
+                  <FlatList
+                    data={searchResults}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[styles.searchResultItem, { backgroundColor: cardBgColor, borderColor }]}
+                        onPress={() => {
+                          if (item.type === 'apartment') {
+                            router.push({
+                              pathname: '/apartment-list',
+                              params: { selectedItem: JSON.stringify(item) }
+                            });
+                          } else if (item.type === 'laundry') {
+                            router.push({
+                              pathname: '/laundry-list',
+                              params: { selectedItem: JSON.stringify(item) }
+                            });
+                          } else if (item.type === 'auto') {
+                            router.push({
+                              pathname: '/auto-list',
+                              params: { selectedItem: JSON.stringify(item) }
+                            });
+                          }
+                        }}
+                      >
+                        <View style={styles.searchResultContent}>
+                          <MaterialIcons 
+                            name={
+                              item.type === 'apartment' ? 'apartment' :
+                              item.type === 'laundry' ? 'local-laundry-service' : 'directions-car'
+                            } 
+                            size={24} 
+                            color={colorPalette.primary} 
+                          />
+                          <View style={styles.searchResultText}>
+                            <ThemedText style={[styles.searchResultTitle, { color: textColor }]}>
+                              {item.title}
+                            </ThemedText>
+                            <ThemedText style={[styles.searchResultSubtitle, { color: subtitleColor }]}>
+                              {item.type === 'apartment' ? item.location :
+                               item.type === 'laundry' ? item.turnaround : item.duration}
+                            </ThemedText>
+                          </View>
+                          <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    keyExtractor={(item, index) => `${item.type}-${item.id}-${index}`}
+                    showsVerticalScrollIndicator={false}
+                    scrollEnabled={false}
+                    nestedScrollEnabled={true}
+                  />
+                ) : (
+                  <View style={styles.noResultsContainer}>
+                    <MaterialIcons name="search-off" size={48} color={subtitleColor} />
+                    <ThemedText style={[styles.noResultsText, { color: subtitleColor }]}>
+                      No results found for "{searchQuery}"
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Apartment Rentals Carousel */}
             <View style={styles.sectionContainer}> 
@@ -307,6 +550,7 @@ export default function UserHome() {
           
               {apartments.length > 0 ? (
                 <FlatList
+                  ref={apartmentFlatListRef}
                   data={apartments}
                   renderItem={renderApartmentItem}
                   horizontal
@@ -319,11 +563,35 @@ export default function UserHome() {
                     [{ nativeEvent: { contentOffset: { x: apartmentScrollX } } }],
                     { useNativeDriver: false }
                   )}
+                  onScrollBeginDrag={() => {
+                    setIsUserInteracting(prev => ({ ...prev, apartments: true }));
+                  }}
+                  onScrollEndDrag={() => {
+                    // Resume auto-sliding after 2 seconds of no interaction
+                    setTimeout(() => {
+                      setIsUserInteracting(prev => ({ ...prev, apartments: false }));
+                    }, 2000);
+                  }}
                   onMomentumScrollEnd={(e) => {
                     const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                     setActiveApartmentIndex(index);
+                    // Resume auto-sliding after scrolling ends
+                    setTimeout(() => {
+                      setIsUserInteracting(prev => ({ ...prev, apartments: false }));
+                    }, 2000);
                   }}
                   keyExtractor={(item) => item.id}
+                  nestedScrollEnabled={true}
+                  onScrollToIndexFailed={(info) => {
+                    // Handle scroll to index failure gracefully
+                    const wait = new Promise(resolve => setTimeout(resolve, 500));
+                    wait.then(() => {
+                      apartmentFlatListRef.current?.scrollToIndex({
+                        index: info.index,
+                        animated: true,
+                      });
+                    });
+                  }}
                 />
               ) : (
                 <View style={{ alignItems: 'center', justifyContent: 'center', height: 200 }}>
@@ -375,6 +643,7 @@ export default function UserHome() {
               {laundryServices.length > 0 ? (
                 <>
                   <FlatList
+                    ref={laundryFlatListRef}
                     data={laundryServices}
                     renderItem={({ item }) => renderServiceItem({ item, serviceType: 'laundry' })}
                     horizontal
@@ -387,11 +656,35 @@ export default function UserHome() {
                       [{ nativeEvent: { contentOffset: { x: laundryScrollX } } }],
                       { useNativeDriver: false }
                     )}
+                    onScrollBeginDrag={() => {
+                      setIsUserInteracting(prev => ({ ...prev, laundry: true }));
+                    }}
+                    onScrollEndDrag={() => {
+                      // Resume auto-sliding after 2 seconds of no interaction
+                      setTimeout(() => {
+                        setIsUserInteracting(prev => ({ ...prev, laundry: false }));
+                      }, 2000);
+                    }}
                     onMomentumScrollEnd={(e) => {
                       const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                       setActiveLaundryIndex(index);
+                      // Resume auto-sliding after scrolling ends
+                      setTimeout(() => {
+                        setIsUserInteracting(prev => ({ ...prev, laundry: false }));
+                      }, 2000);
                     }}
                     keyExtractor={(item) => item.id}
+                    nestedScrollEnabled={true}
+                    onScrollToIndexFailed={(info) => {
+                      // Handle scroll to index failure gracefully
+                      const wait = new Promise(resolve => setTimeout(resolve, 500));
+                      wait.then(() => {
+                        laundryFlatListRef.current?.scrollToIndex({
+                          index: info.index,
+                          animated: true,
+                        });
+                      });
+                    }}
                   />
                   
                   <View style={styles.pagination}>
@@ -442,6 +735,7 @@ export default function UserHome() {
               {autoServices.length > 0 ? (
                 <>
                   <FlatList
+                    ref={autoFlatListRef}
                     data={autoServices}
                     renderItem={({ item }) => renderServiceItem({ item, serviceType: 'auto' })}
                     horizontal
@@ -454,11 +748,35 @@ export default function UserHome() {
                       [{ nativeEvent: { contentOffset: { x: autoScrollX } } }],
                       { useNativeDriver: false }
                     )}
+                    onScrollBeginDrag={() => {
+                      setIsUserInteracting(prev => ({ ...prev, auto: true }));
+                    }}
+                    onScrollEndDrag={() => {
+                      // Resume auto-sliding after 2 seconds of no interaction
+                      setTimeout(() => {
+                        setIsUserInteracting(prev => ({ ...prev, auto: false }));
+                      }, 2000);
+                    }}
                     onMomentumScrollEnd={(e) => {
                       const index = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + itemSpacing));
                       setActiveAutoIndex(index);
+                      // Resume auto-sliding after scrolling ends
+                      setTimeout(() => {
+                        setIsUserInteracting(prev => ({ ...prev, auto: false }));
+                      }, 2000);
                     }}
                     keyExtractor={(item) => item.id}
+                    nestedScrollEnabled={true}
+                    onScrollToIndexFailed={(info) => {
+                      // Handle scroll to index failure gracefully
+                      const wait = new Promise(resolve => setTimeout(resolve, 500));
+                      wait.then(() => {
+                        autoFlatListRef.current?.scrollToIndex({
+                          index: info.index,
+                          animated: true,
+                        });
+                      });
+                    }}
                   />
                   
                   <View style={styles.pagination}>
@@ -549,6 +867,53 @@ const styles = StyleSheet.create({
   searchText: {
     marginLeft: 12,
     fontSize: 16,
+    flex: 1,
+  },
+  searchResultsContainer: {
+    marginBottom: 24,
+    maxHeight: 400,
+  },
+  searchResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchResultsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  searchResultItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    padding: 16,
+  },
+  searchResultContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchResultText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  searchResultTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  searchResultSubtitle: {
+    fontSize: 14,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  noResultsText: {
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
   },
   sectionContainer: {
     marginBottom: isLargeScreen ? 40 : 32,

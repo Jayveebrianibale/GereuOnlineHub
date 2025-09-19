@@ -1,5 +1,6 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
+import { uploadImageToFirebaseWithRetry } from './imageUploadService';
 
 // Define the AutoService type
 export interface AutoService {
@@ -24,10 +25,26 @@ const COLLECTION_NAME = 'autoServices';
 // Create a new auto service
 export const createAutoService = async (service: Omit<AutoService, 'id'>) => {
   try {
+    let serviceToSave = { ...service };
+    
+    // Handle image upload to Firebase Storage if it's a local URI
+    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
+      try {
+        console.log('Attempting to upload auto service image to Firebase Storage...');
+        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+        serviceToSave.image = imageResult.url;
+        console.log('Auto service image uploaded successfully:', imageResult.url);
+      } catch (imageError) {
+        console.error('Error uploading auto service image:', imageError);
+        console.log('Falling back to local image path');
+        // Keep original image if upload fails
+      }
+    }
+    
     const serviceRef = ref(db, COLLECTION_NAME);
     const newServiceRef = push(serviceRef);
-    await set(newServiceRef, service);
-    return { id: newServiceRef.key!, ...service };
+    await set(newServiceRef, serviceToSave);
+    return { id: newServiceRef.key!, ...serviceToSave };
   } catch (error) {
     console.error('Error adding auto service: ', error);
     throw error;
@@ -56,9 +73,25 @@ export const getAutoServices = async () => {
 // Update an auto service
 export const updateAutoService = async (id: string, service: Partial<AutoService>) => {
   try {
+    let serviceToUpdate = service;
+    
+    // Handle image upload to Firebase Storage if it's a local URI
+    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
+      try {
+        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+        serviceToUpdate = {
+          ...service,
+          image: imageResult.url
+        };
+      } catch (imageError) {
+        console.error('Error uploading auto service image:', imageError);
+        // Keep original image if upload fails
+      }
+    }
+    
     const serviceRef = ref(db, `${COLLECTION_NAME}/${id}`);
-    await update(serviceRef, service);
-    return { id, ...service };
+    await update(serviceRef, serviceToUpdate);
+    return { id, ...serviceToUpdate };
   } catch (error) {
     console.error('Error updating auto service: ', error);
     throw error;

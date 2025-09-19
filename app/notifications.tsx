@@ -7,16 +7,15 @@ import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 
 interface Notification {
@@ -450,8 +449,7 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
+    <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
         {/* Header */}
         <View style={[styles.header, { 
           borderBottomColor: borderColor,
@@ -533,7 +531,6 @@ export default function NotificationsScreen() {
           }
         />
       </ThemedView>
-    </GestureHandlerRootView>
   );
 }
 

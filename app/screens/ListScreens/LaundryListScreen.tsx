@@ -15,6 +15,7 @@ import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
 import { push, ref, set } from 'firebase/database';
 import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { db } from '../../firebaseConfig';
 
 const colorPalette = {
@@ -48,7 +49,14 @@ export default function LaundryListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
+  const handleImagePress = (imageSource: string) => {
+    setSelectedImage(imageSource);
+    setImageViewerVisible(true);
+  };
+
   const handleMessageAdmin = async (service: any) => {
     try {
       if (!user?.email) return;
@@ -415,7 +423,15 @@ export default function LaundryListScreen() {
                    showsVerticalScrollIndicator={false}
                    contentContainerStyle={styles.detailScrollContent}
                  >
-                   <RobustImage source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
+                   <TouchableOpacity 
+                    onPress={() => handleImagePress(selectedLaundryService.image)}
+                    activeOpacity={0.8}
+                  >
+                    <RobustImage source={selectedLaundryService.image} style={styles.detailImage} resizeMode="cover" />
+                    <View style={styles.imageOverlay}>
+                      <MaterialIcons name="zoom-in" size={24} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>
@@ -553,10 +569,18 @@ export default function LaundryListScreen() {
              )}
            </View>
          </View>
-       </Modal>
-     </ThemedView>
-   );
- }
+        </Modal>
+        
+        {/* Full Screen Image Viewer */}
+        <FullScreenImageViewer
+          visible={imageViewerVisible}
+          imageSource={selectedImage || ''}
+          onClose={() => setImageViewerVisible(false)}
+          title="Laundry Service Image"
+        />
+      </ThemedView>
+    );
+  }
 
 const styles = StyleSheet.create({
   container: {
@@ -803,6 +827,17 @@ const styles = StyleSheet.create({
   detailImage: {
     width: '100%',
     height: 250,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0,
   },
   detailContent: {
     padding: 20,

@@ -2,6 +2,7 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 // ✅ Import your custom color scheme provider
@@ -49,7 +50,7 @@ function AppContent() {
         <Stack.Screen name="admin-auto" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="light" backgroundColor="#00B2FF" />
     </ThemeProvider>
   );
 }
@@ -64,18 +65,20 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <ReservationProvider>
-        <AdminReservationProvider>
-          <ColorSchemeProvider>
-            <ToastProvider>
-              <AppContent />
-              <PushRegistrar />
-              <FCMRegistrar />
-            </ToastProvider>
-          </ColorSchemeProvider>
-        </AdminReservationProvider>
-      </ReservationProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <ReservationProvider>
+          <AdminReservationProvider>
+            <ColorSchemeProvider>
+              <ToastProvider>
+                <AppContent />
+                <PushRegistrar />
+                <FCMRegistrar />
+              </ToastProvider>
+            </ColorSchemeProvider>
+          </AdminReservationProvider>
+        </ReservationProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
