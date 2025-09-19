@@ -49,6 +49,7 @@ function AppContent() {
         <Stack.Screen name="admin-laundry" options={{ headerShown: false }} />
         <Stack.Screen name="admin-auto" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="light" backgroundColor="#00B2FF" />
     </ThemeProvider>

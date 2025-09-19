@@ -1,6 +1,5 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { getImagePath } from '../utils/imageUtils';
 import { uploadImageToFirebaseWithRetry } from './imageUploadService';
 
 // Define the Apartment type
@@ -29,22 +28,36 @@ export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
   try {
     let apartmentToSave = { ...apartment };
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://'))) {
+    // Handle image upload to Firebase Storage - accept all image formats
+    if (!apartment.image) {
+      throw new Error('Image is required for apartment');
+    }
+    
+    // Check if it's a local URI (file://, content://, or any local path)
+    if (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/')) {
       try {
-        console.log('Attempting to upload apartment image to Firebase Storage...');
+        console.log('Uploading apartment image to Firebase Storage...');
         const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
         apartmentToSave.image = imageResult.url;
         console.log('Apartment image uploaded successfully:', imageResult.url);
       } catch (imageError) {
         console.error('Error uploading apartment image:', imageError);
-        console.log('Falling back to local image path');
-        // Fallback to original image handling
-        apartmentToSave.image = typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image);
+        throw new Error('Failed to upload apartment image to Firebase Storage');
       }
+    } else if (apartment.image.startsWith('http')) {
+      // Image is already a Firebase Storage URL
+      apartmentToSave.image = apartment.image;
     } else {
-      // Convert image source to path for storage (existing logic)
-      apartmentToSave.image = typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image);
+      // Try to upload any other format as well
+      try {
+        console.log('Attempting to upload image with unknown format...');
+        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+        apartmentToSave.image = imageResult.url;
+        console.log('Image uploaded successfully:', imageResult.url);
+      } catch (imageError) {
+        console.error('Error uploading image:', imageError);
+        throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+      }
     }
     
     const apartmentRef = ref(db, COLLECTION_NAME);
@@ -82,28 +95,39 @@ export const updateApartment = async (id: string, apartment: Partial<Apartment>)
   try {
     let apartmentToUpdate = apartment;
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://'))) {
-      try {
-        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+    // Handle image updates - upload to Firebase Storage if needed, accept all formats
+    if (apartment.image !== undefined) {
+      if (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/')) {
+        try {
+          const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+          apartmentToUpdate = {
+            ...apartment,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading apartment image:', imageError);
+          throw new Error('Failed to upload apartment image to Firebase Storage');
+        }
+      } else if (apartment.image.startsWith('http')) {
+        // Image is already a Firebase Storage URL
         apartmentToUpdate = {
           ...apartment,
-          image: imageResult.url
+          image: apartment.image
         };
-      } catch (imageError) {
-        console.error('Error uploading apartment image:', imageError);
-        // Fallback to original image handling
-        apartmentToUpdate = {
-          ...apartment,
-          image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
-        };
+      } else {
+        // Try to upload any other format as well
+        try {
+          console.log('Attempting to upload image with unknown format for update...');
+          const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
+          apartmentToUpdate = {
+            ...apartment,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading image:', imageError);
+          throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+        }
       }
-    } else if (apartment.image !== undefined) {
-      // Convert image source to path for storage if image is provided (existing logic)
-      apartmentToUpdate = {
-        ...apartment,
-        image: typeof apartment.image === 'string' ? apartment.image : getImagePath(apartment.image)
-      };
     }
     
     const apartmentRef = ref(db, `${COLLECTION_NAME}/${id}`);

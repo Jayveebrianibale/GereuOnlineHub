@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 interface ToastProps {
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     top: 50,
     left: 20,
     right: 20,
-    zIndex: 1000,
+    zIndex: 9999,
   },
   toast: {
     flexDirection: 'row',

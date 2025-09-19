@@ -56,6 +56,9 @@ export default function SigninScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const [emailError, setEmailError] = useState(false);
+  const [passwordError, setPasswordError] = useState(false);
+  const [generalError, setGeneralError] = useState(false);
   const router = useRouter();
 
   // Animation values
@@ -100,9 +103,21 @@ export default function SigninScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
+  const clearErrors = () => {
+    setEmailError(false);
+    setPasswordError(false);
+    setGeneralError(false);
+  };
+
   const handleSignIn = async () => {
+    // Clear previous errors
+    clearErrors();
+
     if (!email.trim() || !password.trim()) {
       setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
+      // Highlight empty fields
+      if (!email.trim()) setEmailError(true);
+      if (!password.trim()) setPasswordError(true);
       return;
     }
 
@@ -125,14 +140,22 @@ export default function SigninScreen() {
 
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email.';
+        setEmailError(true);
       } else if (error.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect password.';
+        setPasswordError(true);
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address.';
+        setEmailError(true);
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed attempts. Please try again later.';
+        setGeneralError(true);
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your connection.';
+        setGeneralError(true);
+      } else {
+        // Fallback for any other errors
+        setGeneralError(true);
       }
 
       setToast({ visible: true, message: errorMessage, type: 'error' });
@@ -147,6 +170,16 @@ export default function SigninScreen() {
 
   const handleSignUp = () => {
     router.push('/signup');
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (emailError) setEmailError(false);
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (passwordError) setPasswordError(false);
   };
 
   return (
@@ -248,16 +281,20 @@ export default function SigninScreen() {
             <View style={styles.form}>
               <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                 <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Email Address</Text>
-                <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
-                  <View style={styles.inputIconContainer}>
-                    <Ionicons name="mail" size={20} color="#00B2FF" />
+                <View style={[
+                  styles.inputContainer, 
+                  { height: responsiveValues.inputHeight },
+                  emailError && styles.inputError
+                ]}>
+                  <View style={[styles.inputIconContainer, emailError && styles.inputIconError]}>
+                    <Ionicons name="mail" size={20} color={emailError ? "#EF4444" : "#00B2FF"} />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
                     placeholderTextColor="#9CA3AF"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={handleEmailChange}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -267,16 +304,20 @@ export default function SigninScreen() {
 
               <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                 <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Password</Text>
-                <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
-                  <View style={styles.inputIconContainer}>
-                    <Ionicons name="lock-closed" size={20} color="#00B2FF" />
+                <View style={[
+                  styles.inputContainer, 
+                  { height: responsiveValues.inputHeight },
+                  passwordError && styles.inputError
+                ]}>
+                  <View style={[styles.inputIconContainer, passwordError && styles.inputIconError]}>
+                    <Ionicons name="lock-closed" size={20} color={passwordError ? "#EF4444" : "#00B2FF"} />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your password"
                     placeholderTextColor="#9CA3AF"
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={handlePasswordChange}
                     secureTextEntry={!showPassword}
                     autoComplete="password"
                   />
@@ -624,5 +665,13 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     fontWeight: '700',
     color: '#00B2FF',
+  },
+  inputError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 2,
+  },
+  inputIconError: {
+    backgroundColor: '#FEE2E2',
   },
 });

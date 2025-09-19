@@ -27,18 +27,35 @@ export const createLaundryService = async (service: Omit<LaundryService, 'id'>) 
   try {
     let serviceToSave = { ...service };
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
+    // Handle image upload to Firebase Storage - accept all image formats
+    if (!service.image) {
+      throw new Error('Image is required for laundry service');
+    }
+    
+    // Check if it's a local URI (file://, content://, or any local path)
+    if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
       try {
-        console.log('Attempting to upload laundry service image to Firebase Storage...');
+        console.log('Uploading laundry service image to Firebase Storage...');
         const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
         serviceToSave.image = imageResult.url;
         console.log('Laundry service image uploaded successfully:', imageResult.url);
       } catch (imageError) {
         console.error('Error uploading laundry service image:', imageError);
-        console.log('Falling back to local image path');
-        // Keep original image if upload fails - this ensures the service can still be created
-        // The image will be stored as a local path, which might work for local development
+        throw new Error('Failed to upload laundry service image to Firebase Storage');
+      }
+    } else if (service.image.startsWith('http')) {
+      // Image is already a Firebase Storage URL
+      serviceToSave.image = service.image;
+    } else {
+      // Try to upload any other format as well
+      try {
+        console.log('Attempting to upload image with unknown format...');
+        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
+        serviceToSave.image = imageResult.url;
+        console.log('Image uploaded successfully:', imageResult.url);
+      } catch (imageError) {
+        console.error('Error uploading image:', imageError);
+        throw new Error('Failed to upload image. Please ensure it is a valid image file.');
       }
     }
     
@@ -76,17 +93,38 @@ export const updateLaundryService = async (id: string, service: Partial<LaundryS
   try {
     let serviceToUpdate = service;
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
-      try {
-        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
+    // Handle image updates - upload to Firebase Storage if needed, accept all formats
+    if (service.image !== undefined) {
+      if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
+        try {
+          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
+          serviceToUpdate = {
+            ...service,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading laundry service image:', imageError);
+          throw new Error('Failed to upload laundry service image to Firebase Storage');
+        }
+      } else if (service.image.startsWith('http')) {
+        // Image is already a Firebase Storage URL
         serviceToUpdate = {
           ...service,
-          image: imageResult.url
+          image: service.image
         };
-      } catch (imageError) {
-        console.error('Error uploading laundry service image:', imageError);
-        // Keep original image if upload fails
+      } else {
+        // Try to upload any other format as well
+        try {
+          console.log('Attempting to upload image with unknown format for update...');
+          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
+          serviceToUpdate = {
+            ...service,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading image:', imageError);
+          throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+        }
       }
     }
     

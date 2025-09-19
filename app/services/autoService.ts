@@ -27,17 +27,35 @@ export const createAutoService = async (service: Omit<AutoService, 'id'>) => {
   try {
     let serviceToSave = { ...service };
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
+    // Handle image upload to Firebase Storage - accept all image formats
+    if (!service.image) {
+      throw new Error('Image is required for auto service');
+    }
+    
+    // Check if it's a local URI (file://, content://, or any local path)
+    if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
       try {
-        console.log('Attempting to upload auto service image to Firebase Storage...');
+        console.log('Uploading auto service image to Firebase Storage...');
         const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
         serviceToSave.image = imageResult.url;
         console.log('Auto service image uploaded successfully:', imageResult.url);
       } catch (imageError) {
         console.error('Error uploading auto service image:', imageError);
-        console.log('Falling back to local image path');
-        // Keep original image if upload fails
+        throw new Error('Failed to upload auto service image to Firebase Storage');
+      }
+    } else if (service.image.startsWith('http')) {
+      // Image is already a Firebase Storage URL
+      serviceToSave.image = service.image;
+    } else {
+      // Try to upload any other format as well
+      try {
+        console.log('Attempting to upload image with unknown format...');
+        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+        serviceToSave.image = imageResult.url;
+        console.log('Image uploaded successfully:', imageResult.url);
+      } catch (imageError) {
+        console.error('Error uploading image:', imageError);
+        throw new Error('Failed to upload image. Please ensure it is a valid image file.');
       }
     }
     
@@ -75,17 +93,38 @@ export const updateAutoService = async (id: string, service: Partial<AutoService
   try {
     let serviceToUpdate = service;
     
-    // Handle image upload to Firebase Storage if it's a local URI
-    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://'))) {
-      try {
-        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+    // Handle image updates - upload to Firebase Storage if needed, accept all formats
+    if (service.image !== undefined) {
+      if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
+        try {
+          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+          serviceToUpdate = {
+            ...service,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading auto service image:', imageError);
+          throw new Error('Failed to upload auto service image to Firebase Storage');
+        }
+      } else if (service.image.startsWith('http')) {
+        // Image is already a Firebase Storage URL
         serviceToUpdate = {
           ...service,
-          image: imageResult.url
+          image: service.image
         };
-      } catch (imageError) {
-        console.error('Error uploading auto service image:', imageError);
-        // Keep original image if upload fails
+      } else {
+        // Try to upload any other format as well
+        try {
+          console.log('Attempting to upload image with unknown format for update...');
+          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'auto-services');
+          serviceToUpdate = {
+            ...service,
+            image: imageResult.url
+          };
+        } catch (imageError) {
+          console.error('Error uploading image:', imageError);
+          throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+        }
       }
     }
     
