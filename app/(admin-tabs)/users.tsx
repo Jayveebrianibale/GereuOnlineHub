@@ -2,10 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
-import { formatLastActive, listenToUsers, updateUserStatus, UserData } from '../../utils/userUtils';
+import { autoUpdateUserStatus, deleteUser, formatLastActive, listenToUsers, UserData } from '../../utils/userUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -54,6 +55,13 @@ export default function UsersScreen() {
         
         // Set up real-time listener
         const unsubscribe = listenToUsers((fetchedUsers) => {
+          // Auto-update user statuses based on last active time
+          fetchedUsers.forEach(async (user) => {
+            if (user.status === 'active') {
+              await autoUpdateUserStatus(user.id, user.lastActive);
+            }
+          });
+          
           setUsers(fetchedUsers);
           setLoading(false);
           setError(null);
@@ -80,15 +88,52 @@ export default function UsersScreen() {
     };
   }, []);
 
-  // Handle user status toggle
-  const handleStatusToggle = async (userId: string, currentStatus: 'active' | 'inactive') => {
-    try {
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      await updateUserStatus(userId, newStatus);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update user status. Please try again.');
-      console.error('Error updating user status:', error);
+  // Set up periodic refresh to ensure real-time status updates
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      // Trigger a refresh by updating the users list
+      setUsers(prevUsers => [...prevUsers]);
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Handle user deletion
+  const handleDeleteUser = async (userId: string, userName: string, userRole: string) => {
+    // Provide haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Prevent deletion of admin users
+    if (userRole === 'admin') {
+      Alert.alert('Cannot Delete', 'Admin users cannot be deleted for security reasons.');
+      return;
     }
+
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete "${userName}"?\n\nThis will permanently remove the user from the system. This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUser(userId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Success', 'User deleted successfully');
+            } catch (error) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('Error', 'Failed to delete user. Please try again.');
+              console.error('Error deleting user:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const filteredUsers = users.filter(user => {
@@ -213,6 +258,22 @@ export default function UsersScreen() {
           </View>
         </View>
 
+        {/* Real-time Status Indicator */}
+        <View style={[styles.statusIndicator, { backgroundColor: cardBgColor, borderColor }]}>
+          <View style={styles.statusIndicatorContent}>
+            <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+            <ThemedText style={[styles.statusIndicatorText, { color: subtitleColor }]}>
+              Real-time status updates enabled
+            </ThemedText>
+          </View>
+          <View style={styles.statusIndicatorContent}>
+            <MaterialIcons name="touch-app" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.statusIndicatorText, { color: subtitleColor }]}>
+              Long press to delete
+            </ThemedText>
+          </View>
+        </View>
+
         {/* User List Header */}
         <View style={[styles.listHeader, { borderBottomColor: borderColor }]}>
           {/* User first, Status next */}
@@ -237,7 +298,11 @@ export default function UsersScreen() {
           </View>
         ) : (
           filteredUsers.map((user) => (
-            <View key={user.id} style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}>
+            <Pressable 
+              key={user.id} 
+              style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}
+              onLongPress={() => handleDeleteUser(user.id, user.name || 'Unknown User', user.role)}
+            >
               {/* User first */}
               <View style={[styles.userInfo, { flex: 3 }]}>
                 <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
@@ -259,14 +324,13 @@ export default function UsersScreen() {
               </View>
               {/* Status next */}
               <View style={{ flex: 2, }}>
-                <TouchableOpacity
+                <View
                   style={[
                     styles.statusBadge,
                     {
                       backgroundColor: user.status === 'active' ? '#10B98120' : user.status === 'inactive' ? '#EF444420' : '#9CA3AF20',
                     }
                   ]}
-                  onPress={() => handleStatusToggle(user.id, user.status)}
                 >
                   <View style={[
                     styles.statusDot,
@@ -278,12 +342,20 @@ export default function UsersScreen() {
                   ]}>
                     {(user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : 'Unknown')}
                   </ThemedText>
-                </TouchableOpacity>
+                </View>
                 <ThemedText style={[styles.lastActiveText, { color: subtitleColor }]}>
                   {formatLastActive(user.lastActive)}
                 </ThemedText>
+                {user.status === 'active' && (
+                  <View style={styles.liveIndicator}>
+                    <View style={[styles.liveDot, { backgroundColor: '#10B981' }]} />
+                    <ThemedText style={[styles.liveText, { color: '#10B981' }]}>
+                      Live
+                    </ThemedText>
+                  </View>
+                )}
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -511,5 +583,39 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
     opacity: 0.7,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    alignSelf: 'flex-end',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  liveText: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  statusIndicator: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusIndicatorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIndicatorText: {
+    fontSize: 12,
+    marginLeft: 8,
   },
 });

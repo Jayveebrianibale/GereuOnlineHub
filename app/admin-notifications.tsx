@@ -17,9 +17,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
+import { AdminReservation, useAdminReservation } from './contexts/AdminReservationContext';
 
-interface Notification {
+interface AdminNotification {
   id: string;
   type: 'reservation' | 'message' | 'system';
   title: string;
@@ -32,34 +32,31 @@ interface Notification {
   actionUrl?: string;
 }
 
-
-export default function NotificationsScreen() {
+export default function AdminNotificationsScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { adminReservations } = useAdminReservation();
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const isDark = colorScheme === 'dark';
-  const bgColor = isDark ? '#0F0F0F' : '#FAFBFC';
-  const textColor = isDark ? '#FFFFFF' : '#1A1A1A';
-  const cardBgColor = isDark ? '#1C1C1E' : '#FFFFFF';
-  const borderColor = isDark ? '#2C2C2E' : '#F2F2F7';
-  const subtitleColor = isDark ? '#8E8E93' : '#6D6D70';
+  const bgColor = isDark ? '#0A0A0A' : '#F8FAFC';
+  const textColor = isDark ? '#FFFFFF' : '#1A202C';
+  const cardBgColor = isDark ? '#1A1A1A' : '#FFFFFF';
+  const borderColor = isDark ? '#2D3748' : '#E2E8F0';
+  const subtitleColor = isDark ? '#A0AEC0' : '#718096';
 
-  // Professional color palette
+  // Beautiful color palette
   const colors = {
-    primary: '#007AFF',
-    primaryLight: '#5AC8FA',
-    success: '#34C759',
-    warning: '#FF9500',
-    error: '#FF3B30',
-    info: '#5856D6',
-    accent: '#AF52DE',
-    neutral: isDark ? '#8E8E93' : '#6D6D70',
-    surface: isDark ? '#1C1C1E' : '#FFFFFF',
-    background: isDark ? '#0F0F0F' : '#FAFBFC',
+    primary: '#667EEA',
+    primaryLight: '#764BA2',
+    success: '#48BB78',
+    warning: '#ED8936',
+    error: '#F56565',
+    info: '#4299E1',
+    gradient: isDark ? ['#667EEA', '#764BA2'] : ['#667EEA', '#764BA2'],
   };
 
   // Animation values
@@ -88,106 +85,111 @@ export default function NotificationsScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Check last seen timestamp
-      const storageKey = `user:lastSeenReservations:${user.uid}`;
+      // Check last seen timestamp for admin reservations
+      const storageKey = `admin:lastSeenAdminReservations`;
       const lastSeen = await AsyncStorage.getItem(storageKey);
       const lastSeenTime = lastSeen ? Number(lastSeen) : 0;
 
       // Get deleted notification IDs
-      const deletedKey = `user:deletedNotifications:${user.uid}`;
+      const deletedKey = `admin:deletedNotifications`;
       const deletedNotifications = await AsyncStorage.getItem(deletedKey);
       const deletedIds = deletedNotifications ? JSON.parse(deletedNotifications) : [];
 
-      const unsubscribe = listenToUserReservations(user.uid, (reservations: FirebaseUserReservation[]) => {
-        // Convert reservations to notifications
-        const notificationList: Notification[] = reservations
-          .filter(reservation => 
-            reservation.status === 'pending' || 
-            reservation.status === 'confirmed' || 
-            reservation.status === 'declined' || 
-            reservation.status === 'cancelled'
-          )
-          .map(reservation => ({
-            id: `reservation_${reservation.id}`,
-            type: 'reservation' as const,
-            title: getReservationTitle(reservation.status),
-            message: getReservationMessage(reservation),
-            timestamp: new Date(reservation.updatedAt).getTime(),
-            isRead: false, // Will be updated based on last seen
-            reservationId: reservation.id,
-          }))
-          .filter(notification => !deletedIds.includes(notification.id)) // Filter out deleted notifications
-          .sort((a, b) => b.timestamp - a.timestamp);
+      // Convert admin reservations to notifications
+      const notificationList: AdminNotification[] = adminReservations
+        .filter(reservation => 
+          reservation.status === 'pending' || 
+          reservation.status === 'confirmed' || 
+          reservation.status === 'declined' || 
+          reservation.status === 'cancelled'
+        )
+        .map(reservation => ({
+          id: `reservation_${reservation.id}`,
+          type: 'reservation' as const,
+          title: getReservationTitle(reservation.status),
+          message: getReservationMessage(reservation),
+          timestamp: new Date(reservation.updatedAt).getTime(),
+          isRead: false, // Will be updated based on last seen
+          reservationId: reservation.id,
+        }))
+        .filter(notification => !deletedIds.includes(notification.id)) // Filter out deleted notifications
+        .sort((a, b) => b.timestamp - a.timestamp);
 
-        // Mark notifications as read/unread
-        const updatedNotifications = notificationList.map(notification => ({
-          ...notification,
-          isRead: notification.timestamp <= lastSeenTime,
-        }));
+      // Mark notifications as read/unread
+      const updatedNotifications = notificationList.map(notification => ({
+        ...notification,
+        isRead: notification.timestamp <= lastSeenTime,
+      }));
 
-        setNotifications(updatedNotifications);
-        setUnreadCount(updatedNotifications.filter(n => !n.isRead).length);
-        setIsLoading(false);
-        setIsRefreshing(false);
-      });
-
-      return unsubscribe;
+      setNotifications(updatedNotifications);
+      setUnreadCount(updatedNotifications.filter(n => !n.isRead).length);
+      setIsLoading(false);
+      setIsRefreshing(false);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('Error loading admin notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [adminReservations]);
 
   useEffect(() => {
-    let unsubscribe: any;
-    loadNotifications().then((unsub) => {
-      unsubscribe = unsub;
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    loadNotifications();
   }, [loadNotifications]);
 
   const getReservationTitle = (status: string): string => {
     switch (status) {
-      case 'pending': return 'Reservation Pending';
-      case 'confirmed': return 'Reservation Confirmed';
-      case 'declined': return 'Reservation Declined';
-      case 'cancelled': return 'Reservation Cancelled';
-      default: return 'Reservation Update';
+      case 'pending':
+        return 'New Reservation Request';
+      case 'confirmed':
+        return 'Reservation Confirmed';
+      case 'declined':
+        return 'Reservation Declined';
+      case 'cancelled':
+        return 'Reservation Cancelled';
+      default:
+        return 'Reservation Update';
     }
   };
 
-  const getReservationMessage = (reservation: FirebaseUserReservation): string => {
-    const serviceName = reservation.serviceTitle || 'Service';
+  const getReservationMessage = (reservation: AdminReservation): string => {
+    const userName = reservation.userName || 'Unknown User';
+    const serviceTitle = reservation.serviceTitle || 'Service';
+    
     switch (reservation.status) {
-      case 'pending': return `Your ${serviceName} reservation is pending approval`;
-      case 'confirmed': return `Your ${serviceName} reservation has been confirmed`;
-      case 'declined': return `Your ${serviceName} reservation has been declined`;
-      case 'cancelled': return `Your ${serviceName} reservation has been cancelled`;
-      default: return `Update for your ${serviceName} reservation`;
+      case 'pending':
+        return `${userName} has requested a reservation for ${serviceTitle}`;
+      case 'confirmed':
+        return `Reservation for ${serviceTitle} by ${userName} has been confirmed`;
+      case 'declined':
+        return `Reservation for ${serviceTitle} by ${userName} has been declined`;
+      case 'cancelled':
+        return `Reservation for ${serviceTitle} by ${userName} has been cancelled`;
+      default:
+        return `Reservation for ${serviceTitle} by ${userName} has been updated`;
     }
   };
 
-  const handleNotificationPress = async (notification: Notification) => {
+  const handleNotificationPress = async (notification: AdminNotification) => {
     try {
       // Mark as read
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const updatedNotifications = notifications.map(n => 
+        n.id === notification.id ? { ...n, isRead: true } : n
+      );
+      setNotifications(updatedNotifications);
+      setUnreadCount(updatedNotifications.filter(n => !n.isRead).length);
 
-      const storageKey = `user:lastSeenReservations:${user.uid}`;
-      await AsyncStorage.setItem(storageKey, String(Date.now()));
+      // Update last seen timestamp
+      const storageKey = `admin:lastSeenAdminReservations`;
+      await AsyncStorage.setItem(storageKey, String(notification.timestamp));
 
       // Navigate based on notification type
       if (notification.type === 'reservation') {
-        console.log('Navigating to bookings tab');
-        router.push('/(user-tabs)/bookings' as any);
+        console.log('Navigating to admin reservations tab');
+        router.push('/(admin-tabs)/reservations' as any);
       } else if (notification.type === 'message') {
-        console.log('Navigating to messages');
-        router.push('/(user-tabs)/messages' as any);
+        console.log('Navigating to admin messages');
+        router.push('/(admin-tabs)/messages' as any);
       } else if (notification.actionUrl) {
         console.log('Navigating to:', notification.actionUrl);
         router.push(notification.actionUrl as any);
@@ -204,66 +206,14 @@ export default function NotificationsScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      const storageKey = `user:lastSeenReservations:${user.uid}`;
+      const storageKey = `admin:lastSeenAdminReservations`;
       await AsyncStorage.setItem(storageKey, String(Date.now()));
 
-      // Update local state
       const updatedNotifications = notifications.map(n => ({ ...n, isRead: true }));
       setNotifications(updatedNotifications);
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all as read:', error);
-    }
-  };
-
-  const handleDeleteNotification = async (notificationId: string) => {
-    try {
-      Alert.alert(
-        'Delete Notification',
-        'Are you sure you want to delete this notification?',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const auth = getAuth();
-                const user = auth.currentUser;
-                if (!user) return;
-
-                // Save deleted notification ID to AsyncStorage
-                const deletedKey = `user:deletedNotifications:${user.uid}`;
-                const deletedNotifications = await AsyncStorage.getItem(deletedKey);
-                const deletedIds = deletedNotifications ? JSON.parse(deletedNotifications) : [];
-                
-                if (!deletedIds.includes(notificationId)) {
-                  deletedIds.push(notificationId);
-                  await AsyncStorage.setItem(deletedKey, JSON.stringify(deletedIds));
-                }
-
-                // Update notifications list to hide deleted ones
-                setNotifications(prev => prev.filter(n => n.id !== notificationId));
-                
-                // Update unread count
-                setUnreadCount(prev => {
-                  const deletedNotification = notifications.find(n => n.id === notificationId);
-                  return deletedNotification && !deletedNotification.isRead ? prev - 1 : prev;
-                });
-              } catch (error) {
-                console.error('Error saving deleted notification:', error);
-                Alert.alert('Error', 'Failed to delete notification');
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      Alert.alert('Error', 'Failed to delete notification');
     }
   };
 
@@ -286,21 +236,14 @@ export default function NotificationsScreen() {
                 const user = auth.currentUser;
                 if (!user) return;
 
-                // Save all current notification IDs as deleted
-                const deletedKey = `user:deletedNotifications:${user.uid}`;
-                const deletedNotifications = await AsyncStorage.getItem(deletedKey);
-                const deletedIds = deletedNotifications ? JSON.parse(deletedNotifications) : [];
-                
-                // Add all current notification IDs to deleted list
-                const currentIds = notifications.map(n => n.id);
-                const newDeletedIds = [...new Set([...deletedIds, ...currentIds])];
-                await AsyncStorage.setItem(deletedKey, JSON.stringify(newDeletedIds));
+                const deletedKey = `admin:deletedNotifications`;
+                const deletedIds = notifications.map(n => n.id);
+                await AsyncStorage.setItem(deletedKey, JSON.stringify(deletedIds));
 
-                // Clear notifications list
                 setNotifications([]);
                 setUnreadCount(0);
               } catch (error) {
-                console.error('Error saving deleted notifications:', error);
+                console.error('Error clearing notifications:', error);
                 Alert.alert('Error', 'Failed to clear notifications');
               }
             },
@@ -308,8 +251,7 @@ export default function NotificationsScreen() {
         ]
       );
     } catch (error) {
-      console.error('Error clearing all notifications:', error);
-      Alert.alert('Error', 'Failed to clear notifications');
+      console.error('Error showing clear confirmation:', error);
     }
   };
 
@@ -318,30 +260,9 @@ export default function NotificationsScreen() {
     loadNotifications();
   };
 
-  const handleNotificationLongPress = (notification: Notification) => {
-    // Delete immediately without confirmation
-    handleDeleteNotification(notification.id);
-  };
-
-  const getTimeAgo = (timestamp: number): string => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    
-    return new Date(timestamp).toLocaleDateString();
-  };
-
-  const renderNotification = ({ item, index }: { item: Notification; index: number }) => {
+  const renderNotification = ({ item, index }: { item: AdminNotification; index: number }) => {
     const isUnread = !item.isRead;
-    const statusColor = getStatusColor(item.title);
+    const statusColor = getStatusColor(item.type, item.title);
     
     return (
       <Animated.View
@@ -365,7 +286,7 @@ export default function NotificationsScreen() {
             {/* Status Indicator */}
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
               <MaterialIcons 
-                name={getStatusIcon(item.title)} 
+                name={getStatusIcon(item.type, item.title)} 
                 size={16} 
                 color="#FFFFFF" 
               />
@@ -417,7 +338,7 @@ export default function NotificationsScreen() {
     );
   };
 
-  const getStatusColor = (title: string): string => {
+  const getStatusColor = (type: string, title: string): string => {
     if (title.includes('pending') || title.includes('New')) return colors.warning;
     if (title.includes('confirmed')) return colors.success;
     if (title.includes('declined')) return colors.error;
@@ -425,7 +346,7 @@ export default function NotificationsScreen() {
     return colors.primary;
   };
 
-  const getStatusIcon = (title: string): string => {
+  const getStatusIcon = (type: string, title: string): string => {
     if (title.includes('pending') || title.includes('New')) return 'schedule';
     if (title.includes('confirmed')) return 'check-circle';
     if (title.includes('declined')) return 'cancel';
@@ -476,24 +397,6 @@ export default function NotificationsScreen() {
     });
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'reservation': return 'event';
-      case 'message': return 'message';
-      case 'system': return 'info';
-      default: return 'notifications';
-    }
-  };
-
-  const getNotificationIconColor = (type: string) => {
-    switch (type) {
-      case 'reservation': return '#4CAF50';
-      case 'message': return '#2196F3';
-      case 'system': return '#FF9800';
-      default: return '#9E9E9E';
-    }
-  };
-
   if (isLoading) {
     return (
       <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -511,12 +414,12 @@ export default function NotificationsScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Professional Header */}
+      {/* Beautiful Header with Gradient */}
       <Animated.View 
         style={[
           styles.header, 
           { 
-            backgroundColor: colors.surface,
+            backgroundColor: cardBgColor,
             borderBottomColor: borderColor,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
@@ -525,7 +428,7 @@ export default function NotificationsScreen() {
       >
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity
+            <TouchableOpacity 
               style={styles.backButton}
               onPress={() => router.back()}
             >
@@ -562,57 +465,57 @@ export default function NotificationsScreen() {
         </View>
       </Animated.View>
 
-        {/* Notifications List */}
-        <FlatList
-          data={notifications}
-          renderItem={renderNotification}
-          keyExtractor={item => item.id}
-          style={styles.notificationsList}
-          contentContainerStyle={styles.notificationsContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-              progressBackgroundColor={cardBgColor}
-            />
-          }
-          ListEmptyComponent={
-            <Animated.View 
-              style={[
-                styles.emptyContainer,
-                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-              ]}
-            >
-              <View style={styles.emptyIconContainer}>
-                <MaterialIcons 
-                  name="notifications-none" 
-                  size={80} 
-                  color={colors.primary} 
-                  style={{ opacity: 0.6 }} 
-                />
-              </View>
-              <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
-                No Notifications Yet
-              </ThemedText>
-              <ThemedText style={[styles.emptyMessage, { color: subtitleColor }]}>
-                You'll see reservation updates and important alerts here when they arrive
-              </ThemedText>
-              <View style={styles.emptyActionContainer}>
-                <TouchableOpacity 
-                  style={[styles.emptyActionButton, { backgroundColor: colors.primary }]}
-                  onPress={handleRefresh}
-                >
-                  <MaterialIcons name="refresh" size={20} color="#fff" />
-                  <ThemedText style={styles.emptyActionText}>Refresh</ThemedText>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          }
-        />
-      </ThemedView>
+      {/* Notifications List */}
+      <FlatList
+        data={notifications}
+        renderItem={renderNotification}
+        keyExtractor={item => item.id}
+        style={styles.notificationsList}
+        contentContainerStyle={styles.notificationsContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            progressBackgroundColor={cardBgColor}
+          />
+        }
+        ListEmptyComponent={
+          <Animated.View 
+            style={[
+              styles.emptyContainer,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+            ]}
+          >
+            <View style={styles.emptyIconContainer}>
+              <MaterialIcons 
+                name="notifications-none" 
+                size={80} 
+                color={colors.primary} 
+                style={{ opacity: 0.6 }} 
+              />
+            </View>
+            <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
+              No Notifications Yet
+            </ThemedText>
+            <ThemedText style={[styles.emptyMessage, { color: subtitleColor }]}>
+              You'll see reservation updates and important alerts here when they arrive
+            </ThemedText>
+            <View style={styles.emptyActionContainer}>
+              <TouchableOpacity 
+                style={[styles.emptyActionButton, { backgroundColor: colors.primary }]}
+                onPress={handleRefresh}
+              >
+                <MaterialIcons name="refresh" size={20} color="#fff" />
+                <ThemedText style={styles.emptyActionText}>Refresh</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        }
+      />
+    </ThemedView>
   );
 }
 
@@ -713,7 +616,7 @@ const styles = StyleSheet.create({
   },
   unreadNotification: {
     borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: '#667EEA',
     shadowOpacity: 0.15,
     elevation: 6,
   },
@@ -814,7 +717,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -841,7 +744,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     gap: 8,
-    shadowColor: '#007AFF',
+    shadowColor: '#667EEA',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

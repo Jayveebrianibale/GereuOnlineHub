@@ -40,13 +40,93 @@ export const storeUserData = async (user: User, fullName: string): Promise<void>
   }
 };
 
-// Update user's last active time
-export const updateUserLastActive = async (userId: string): Promise<void> => {
+// Update user's last active time and set status to active
+export const updateUserLastActive = async (userId: string, email?: string, displayName?: string): Promise<void> => {
   try {
-    const userRef = ref(db, `users/${userId}/lastActive`);
-    await set(userRef, new Date().toISOString());
+    const userRef = ref(db, `users/${userId}`);
+    
+    // Check if user exists first
+    const snapshot = await get(userRef);
+    if (snapshot.exists()) {
+      // User exists, only update specific fields to preserve existing data
+      const updates = {
+        lastActive: new Date().toISOString(),
+        status: 'active',
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update only the specific fields, not the entire document
+      await Promise.all([
+        set(ref(db, `users/${userId}/lastActive`), updates.lastActive),
+        set(ref(db, `users/${userId}/status`), updates.status),
+        set(ref(db, `users/${userId}/updatedAt`), updates.updatedAt)
+      ]);
+    } else {
+      // User doesn't exist in database, create entry with existing data
+      if (email) {
+        await ensureUserExists(userId, email, displayName);
+      } else {
+        console.warn(`User ${userId} not found in database and no email provided.`);
+      }
+    }
   } catch (error) {
     console.error('Error updating user last active:', error);
+  }
+};
+
+// Set user status to inactive (for logout)
+export const setUserInactive = async (userId: string): Promise<void> => {
+  try {
+    const userRef = ref(db, `users/${userId}`);
+    
+    // Check if user exists first
+    const snapshot = await get(userRef);
+    if (snapshot.exists()) {
+      // User exists, only update specific fields to preserve existing data
+      const updates = {
+        status: 'inactive',
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update only the specific fields, not the entire document
+      await Promise.all([
+        set(ref(db, `users/${userId}/status`), updates.status),
+        set(ref(db, `users/${userId}/updatedAt`), updates.updatedAt)
+      ]);
+    } else {
+      console.warn(`User ${userId} not found in database during logout.`);
+    }
+  } catch (error) {
+    console.error('Error setting user inactive:', error);
+  }
+};
+
+// Handle existing users who might not have database entries yet
+export const ensureUserExists = async (userId: string, email: string, displayName?: string): Promise<void> => {
+  try {
+    const userRef = ref(db, `users/${userId}`);
+    const snapshot = await get(userRef);
+    
+    if (!snapshot.exists()) {
+      // User doesn't exist in database, create entry with existing data
+      console.log(`Creating database entry for existing user: ${email}`);
+      
+      const userData: UserData = {
+        id: userId,
+        name: displayName || email.split('@')[0] || 'Unknown User',
+        email: email,
+        role: isAdminEmail(email) ? 'admin' : 'user',
+        status: 'active',
+        lastActive: new Date().toISOString(),
+        avatar: getInitials(displayName || email.split('@')[0] || 'Unknown User'),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      await set(userRef, userData);
+    }
+  } catch (error) {
+    console.error('Error ensuring user exists:', error);
   }
 };
 
@@ -110,17 +190,14 @@ export const listenToUsers = (callback: (users: UserData[]) => void): (() => voi
   return unsubscribe;
 };
 
-// Update user status (active/inactive)
-export const updateUserStatus = async (userId: string, status: 'active' | 'inactive'): Promise<void> => {
+// Delete user from database
+export const deleteUser = async (userId: string): Promise<void> => {
   try {
-    const userRef = ref(db, `users/${userId}/status`);
-    await set(userRef, status);
-    
-    // Also update the updatedAt timestamp
-    const updatedAtRef = ref(db, `users/${userId}/updatedAt`);
-    await set(updatedAtRef, new Date().toISOString());
+    const userRef = ref(db, `users/${userId}`);
+    await set(userRef, null); // Set to null to delete the user
+    console.log(`User ${userId} deleted successfully`);
   } catch (error) {
-    console.error('Error updating user status:', error);
+    console.error('Error deleting user:', error);
     throw error;
   }
 };
@@ -150,5 +227,30 @@ export const formatLastActive = (lastActive: string): string => {
   } else {
     const days = Math.floor(diffInMinutes / 1440);
     return `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+};
+
+// Check if user should be considered inactive based on last active time
+export const shouldUserBeInactive = (lastActive: string): boolean => {
+  const now = new Date();
+  const lastActiveDate = new Date(lastActive);
+  const diffInMinutes = Math.floor((now.getTime() - lastActiveDate.getTime()) / (1000 * 60));
+  
+  // Consider user inactive if they haven't been active for more than 2 minutes
+  return diffInMinutes > 2;
+};
+
+// Auto-update user status based on last active time
+export const autoUpdateUserStatus = async (userId: string, lastActive: string): Promise<void> => {
+  try {
+    if (shouldUserBeInactive(lastActive)) {
+      // Only update status and updatedAt, preserve other user data
+      await Promise.all([
+        set(ref(db, `users/${userId}/status`), 'inactive'),
+        set(ref(db, `users/${userId}/updatedAt`), new Date().toISOString())
+      ]);
+    }
+  } catch (error) {
+    console.error('Error auto-updating user status:', error);
   }
 };

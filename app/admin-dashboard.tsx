@@ -252,7 +252,7 @@ export default function AdminDashboard() {
       const storageKey = `admin:lastSeenAdminReservations`;
       await AsyncStorage.setItem(storageKey, String(Date.now()));
       setUnreadCount(0);
-      router.push('/notifications');
+      router.push('/admin-notifications');
     } catch {}
   };
   // Update modules and calculate totals whenever any service data changes

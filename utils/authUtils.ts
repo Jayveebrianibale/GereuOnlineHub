@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { isAdminEmail } from '../app/config/adminConfig';
 import { auth } from '../app/firebaseConfig';
-import { storeUserData, updateUserLastActive } from './userUtils';
+import { setUserInactive, storeUserData, updateUserLastActive } from './userUtils';
 
 export interface AuthError {
   code: string;
@@ -62,7 +62,7 @@ export const signIn = async (data: SignInData): Promise<User> => {
     );
     
     // Update user's last active time
-    await updateUserLastActive(userCredential.user.uid);
+    await updateUserLastActive(userCredential.user.uid, userCredential.user.email || '', userCredential.user.displayName || undefined);
     
     return userCredential.user;
   } catch (error: any) {
@@ -76,6 +76,11 @@ export const signIn = async (data: SignInData): Promise<User> => {
 // Sign out function
 export const signOutUser = async (): Promise<void> => {
   try {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      // Set user status to inactive before signing out
+      await setUserInactive(currentUser.uid);
+    }
     await signOut(auth);
   } catch (error: any) {
     throw {

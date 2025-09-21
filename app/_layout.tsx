@@ -14,9 +14,13 @@ import { AdminReservationProvider } from './contexts/AdminReservationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
 import { ReservationProvider } from './contexts/ReservationContext';
+import { useUserHeartbeat } from './hooks/useUserHeartbeat';
 
 function AppContent() {
   const { colorScheme } = useColorScheme();
+  
+  // Initialize user heartbeat for real-time status tracking
+  useUserHeartbeat();
   
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -34,6 +38,7 @@ function AppContent() {
         <Stack.Screen name="user-dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="(user-tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="admin-notifications" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[id]" options={{ 
           headerShown: false, 
           presentation: 'modal',
