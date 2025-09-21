@@ -1,6 +1,6 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { uploadImageToFirebaseWithRetry } from './imageUploadService';
+import { convertImageToBase64, isBase64DataUrl, isFirebaseStorageUrl } from '../utils/imageToBase64';
 
 // Define the LaundryService type
 export interface LaundryService {
@@ -25,44 +25,51 @@ const COLLECTION_NAME = 'laundryServices';
 // Create a new laundry service
 export const createLaundryService = async (service: Omit<LaundryService, 'id'>) => {
   try {
+    console.log('Creating new laundry service:', service);
+    
     let serviceToSave = { ...service };
     
-    // Handle image upload to Firebase Storage - accept all image formats
-    if (!service.image) {
-      throw new Error('Image is required for laundry service');
-    }
-    
-    // Check if it's a local URI (file://, content://, or any local path)
-    if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
+    // Handle image conversion to base64 if it's a local URI
+    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/'))) {
       try {
-        console.log('Uploading laundry service image to Firebase Storage...');
-        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
-        serviceToSave.image = imageResult.url;
-        console.log('Laundry service image uploaded successfully:', imageResult.url);
+        console.log('Converting laundry service image to base64...');
+        const base64Image = await convertImageToBase64(service.image);
+        serviceToSave.image = base64Image;
+        console.log('Laundry service image converted to base64 successfully');
       } catch (imageError) {
-        console.error('Error uploading laundry service image:', imageError);
-        throw new Error('Failed to upload laundry service image to Firebase Storage');
+        console.error('Error converting laundry service image to base64:', imageError);
+        throw new Error('Failed to convert laundry service image to base64');
       }
-    } else if (service.image.startsWith('http')) {
-      // Image is already a Firebase Storage URL
+    } else if (service.image && (isBase64DataUrl(service.image) || isFirebaseStorageUrl(service.image))) {
+      // Image is already base64 or Firebase Storage URL
+      console.log('Using existing image format:', service.image.substring(0, 50) + '...');
       serviceToSave.image = service.image;
-    } else {
-      // Try to upload any other format as well
+    } else if (service.image) {
+      // Try to convert any other format as well
       try {
-        console.log('Attempting to upload image with unknown format...');
-        const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
-        serviceToSave.image = imageResult.url;
-        console.log('Image uploaded successfully:', imageResult.url);
+        console.log('Attempting to convert image with unknown format to base64...');
+        const base64Image = await convertImageToBase64(service.image);
+        serviceToSave.image = base64Image;
+        console.log('Image converted to base64 successfully');
       } catch (imageError) {
-        console.error('Error uploading image:', imageError);
-        throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+        console.error('Error converting image to base64:', imageError);
+        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
       }
     }
     
     const serviceRef = ref(db, COLLECTION_NAME);
     const newServiceRef = push(serviceRef);
+    const newId = newServiceRef.key;
+    
+    if (!newId) {
+      throw new Error('Failed to generate laundry service ID');
+    }
+    
+    const serviceWithId = { ...serviceToSave, id: newId };
     await set(newServiceRef, serviceToSave);
-    return { id: newServiceRef.key!, ...serviceToSave };
+    console.log('Laundry service created successfully in Realtime Database with ID:', newId);
+    
+    return serviceWithId;
   } catch (error) {
     console.error('Error adding laundry service: ', error);
     throw error;
@@ -91,48 +98,63 @@ export const getLaundryServices = async () => {
 // Update a laundry service
 export const updateLaundryService = async (id: string, service: Partial<LaundryService>) => {
   try {
+    console.log('Starting laundry service update for ID:', id);
+    console.log('Update data:', service);
+    
     let serviceToUpdate = service;
     
-    // Handle image updates - upload to Firebase Storage if needed, accept all formats
-    if (service.image !== undefined) {
-      if (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/')) {
-        try {
-          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
-          serviceToUpdate = {
-            ...service,
-            image: imageResult.url
-          };
-        } catch (imageError) {
-          console.error('Error uploading laundry service image:', imageError);
-          throw new Error('Failed to upload laundry service image to Firebase Storage');
-        }
-      } else if (service.image.startsWith('http')) {
-        // Image is already a Firebase Storage URL
+    // Handle image conversion to base64 if it's a local URI
+    if (service.image && (service.image.startsWith('file://') || service.image.startsWith('content://') || service.image.startsWith('/'))) {
+      try {
+        console.log('Converting laundry service image to base64 for update...');
+        const base64Image = await convertImageToBase64(service.image);
         serviceToUpdate = {
           ...service,
-          image: service.image
+          image: base64Image
         };
-      } else {
-        // Try to upload any other format as well
-        try {
-          console.log('Attempting to upload image with unknown format for update...');
-          const imageResult = await uploadImageToFirebaseWithRetry(service.image, 'laundry-services');
-          serviceToUpdate = {
-            ...service,
-            image: imageResult.url
-          };
-        } catch (imageError) {
-          console.error('Error uploading image:', imageError);
-          throw new Error('Failed to upload image. Please ensure it is a valid image file.');
-        }
+        console.log('Laundry service image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting laundry service image to base64:', imageError);
+        throw new Error('Failed to convert laundry service image to base64');
+      }
+    } else if (service.image && (isBase64DataUrl(service.image) || isFirebaseStorageUrl(service.image))) {
+      // Image is already base64 or Firebase Storage URL
+      console.log('Using existing image format for update:', service.image.substring(0, 50) + '...');
+      serviceToUpdate = {
+        ...service,
+        image: service.image
+      };
+    } else if (service.image) {
+      // Try to convert any other format as well
+      try {
+        console.log('Attempting to convert image with unknown format to base64 for update...');
+        const base64Image = await convertImageToBase64(service.image);
+        serviceToUpdate = {
+          ...service,
+          image: base64Image
+        };
+        console.log('Image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting image to base64:', imageError);
+        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
       }
     }
     
+    console.log('Final data to update:', serviceToUpdate);
     const serviceRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    console.log('Database reference path:', `${COLLECTION_NAME}/${id}`);
+    
     await update(serviceRef, serviceToUpdate);
+    console.log('Laundry service updated successfully in database');
+    
     return { id, ...serviceToUpdate };
   } catch (error) {
     console.error('Error updating laundry service: ', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };

@@ -100,7 +100,8 @@ export default function AdminLaundryManagement() {
   }, [imageSelectionVisible]);
 
   const selectAndClose = async (pathOrUri: string) => {
-    // Store the local URI in form state (don't upload yet)
+    // Simply store the local URI in form state - will be saved to Realtime DB on save
+    console.log('Storing local image URI for Realtime DB:', pathOrUri);
     setCurrentService({ ...currentService, image: pathOrUri });
     await addRecentImage(pathOrUri);
     setImageSelectionVisible(false);
@@ -862,7 +863,9 @@ export default function AdminLaundryManagement() {
               {isProcessingImage && (
                 <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
                   <MaterialIcons name="hourglass-top" size={36} color={textColor} />
-                  <ThemedText style={{ marginTop: 8, color: textColor }}>Processing image...</ThemedText>
+                  <ThemedText style={{ marginTop: 8, color: textColor }}>
+                    Processing image...
+                  </ThemedText>
                 </View>
               )}
             </View>

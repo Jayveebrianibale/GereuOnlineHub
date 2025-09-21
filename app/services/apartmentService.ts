@@ -1,6 +1,6 @@
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { uploadImageToFirebaseWithRetry } from './imageUploadService';
+import { convertImageToBase64, isBase64DataUrl, isFirebaseStorageUrl } from '../utils/imageToBase64';
 
 // Define the Apartment type
 export interface Apartment {
@@ -26,44 +26,51 @@ const COLLECTION_NAME = 'apartments';
 // Create a new apartment
 export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
   try {
+    console.log('Creating new apartment:', apartment);
+    
     let apartmentToSave = { ...apartment };
     
-    // Handle image upload to Firebase Storage - accept all image formats
-    if (!apartment.image) {
-      throw new Error('Image is required for apartment');
-    }
-    
-    // Check if it's a local URI (file://, content://, or any local path)
-    if (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/')) {
+    // Handle image conversion to base64 if it's a local URI
+    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/'))) {
       try {
-        console.log('Uploading apartment image to Firebase Storage...');
-        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
-        apartmentToSave.image = imageResult.url;
-        console.log('Apartment image uploaded successfully:', imageResult.url);
+        console.log('Converting apartment image to base64...');
+        const base64Image = await convertImageToBase64(apartment.image);
+        apartmentToSave.image = base64Image;
+        console.log('Apartment image converted to base64 successfully');
       } catch (imageError) {
-        console.error('Error uploading apartment image:', imageError);
-        throw new Error('Failed to upload apartment image to Firebase Storage');
+        console.error('Error converting apartment image to base64:', imageError);
+        throw new Error('Failed to convert apartment image to base64');
       }
-    } else if (apartment.image.startsWith('http')) {
-      // Image is already a Firebase Storage URL
+    } else if (apartment.image && (isBase64DataUrl(apartment.image) || isFirebaseStorageUrl(apartment.image))) {
+      // Image is already base64 or Firebase Storage URL
+      console.log('Using existing image format:', apartment.image.substring(0, 50) + '...');
       apartmentToSave.image = apartment.image;
-    } else {
-      // Try to upload any other format as well
+    } else if (apartment.image) {
+      // Try to convert any other format as well
       try {
-        console.log('Attempting to upload image with unknown format...');
-        const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
-        apartmentToSave.image = imageResult.url;
-        console.log('Image uploaded successfully:', imageResult.url);
+        console.log('Attempting to convert image with unknown format to base64...');
+        const base64Image = await convertImageToBase64(apartment.image);
+        apartmentToSave.image = base64Image;
+        console.log('Image converted to base64 successfully');
       } catch (imageError) {
-        console.error('Error uploading image:', imageError);
-        throw new Error('Failed to upload image. Please ensure it is a valid image file.');
+        console.error('Error converting image to base64:', imageError);
+        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
       }
     }
     
     const apartmentRef = ref(db, COLLECTION_NAME);
     const newApartmentRef = push(apartmentRef);
+    const newId = newApartmentRef.key;
+    
+    if (!newId) {
+      throw new Error('Failed to generate apartment ID');
+    }
+    
+    const apartmentWithId = { ...apartmentToSave, id: newId };
     await set(newApartmentRef, apartmentToSave);
-    return { id: newApartmentRef.key!, ...apartmentToSave };
+    console.log('Apartment created successfully in Realtime Database with ID:', newId);
+    
+    return apartmentWithId;
   } catch (error) {
     console.error('Error adding apartment: ', error);
     throw error;
@@ -93,48 +100,63 @@ export const getApartments = async () => {
 // Update an apartment
 export const updateApartment = async (id: string, apartment: Partial<Apartment>) => {
   try {
+    console.log('Starting apartment update for ID:', id);
+    console.log('Update data:', apartment);
+    
     let apartmentToUpdate = apartment;
     
-    // Handle image updates - upload to Firebase Storage if needed, accept all formats
-    if (apartment.image !== undefined) {
-      if (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/')) {
-        try {
-          const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
-          apartmentToUpdate = {
-            ...apartment,
-            image: imageResult.url
-          };
-        } catch (imageError) {
-          console.error('Error uploading apartment image:', imageError);
-          throw new Error('Failed to upload apartment image to Firebase Storage');
-        }
-      } else if (apartment.image.startsWith('http')) {
-        // Image is already a Firebase Storage URL
+    // Handle image conversion to base64 if it's a local URI
+    if (apartment.image && (apartment.image.startsWith('file://') || apartment.image.startsWith('content://') || apartment.image.startsWith('/'))) {
+      try {
+        console.log('Converting apartment image to base64 for update...');
+        const base64Image = await convertImageToBase64(apartment.image);
         apartmentToUpdate = {
           ...apartment,
-          image: apartment.image
+          image: base64Image
         };
-      } else {
-        // Try to upload any other format as well
-        try {
-          console.log('Attempting to upload image with unknown format for update...');
-          const imageResult = await uploadImageToFirebaseWithRetry(apartment.image, 'apartments');
-          apartmentToUpdate = {
-            ...apartment,
-            image: imageResult.url
-          };
-        } catch (imageError) {
-          console.error('Error uploading image:', imageError);
-          throw new Error('Failed to upload image. Please ensure it is a valid image file.');
-        }
+        console.log('Apartment image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting apartment image to base64:', imageError);
+        throw new Error('Failed to convert apartment image to base64');
+      }
+    } else if (apartment.image && (isBase64DataUrl(apartment.image) || isFirebaseStorageUrl(apartment.image))) {
+      // Image is already base64 or Firebase Storage URL
+      console.log('Using existing image format for update:', apartment.image.substring(0, 50) + '...');
+      apartmentToUpdate = {
+        ...apartment,
+        image: apartment.image
+      };
+    } else if (apartment.image) {
+      // Try to convert any other format as well
+      try {
+        console.log('Attempting to convert image with unknown format to base64 for update...');
+        const base64Image = await convertImageToBase64(apartment.image);
+        apartmentToUpdate = {
+          ...apartment,
+          image: base64Image
+        };
+        console.log('Image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting image to base64:', imageError);
+        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
       }
     }
     
+    console.log('Final data to update:', apartmentToUpdate);
     const apartmentRef = ref(db, `${COLLECTION_NAME}/${id}`);
+    console.log('Database reference path:', `${COLLECTION_NAME}/${id}`);
+    
     await update(apartmentRef, apartmentToUpdate);
+    console.log('Apartment updated successfully in database');
+    
     return { id, ...apartmentToUpdate };
   } catch (error) {
     console.error('Error updating apartment: ', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };

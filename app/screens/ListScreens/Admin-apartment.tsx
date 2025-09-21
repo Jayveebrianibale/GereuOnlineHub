@@ -100,20 +100,21 @@ const colorPalette = {
         }
     }, [imageSelectionVisible]);
 
-    const selectAndClose = async (pathOrUri: string) => {
-        // Store the local URI in form state (don't upload yet)
-        setCurrentApartment({ ...currentApartment, image: pathOrUri });
+  const selectAndClose = async (pathOrUri: string) => {
+    // Simply store the local URI in form state - will be saved to Realtime DB on save
+    console.log('Storing local image URI for Realtime DB:', pathOrUri);
+    setCurrentApartment({ ...currentApartment, image: pathOrUri });
 
-        // Optimistically update the list so the image appears immediately
-        if (!isNewApartment && currentApartment?.id) {
-            setApartments(prev => prev.map(apt =>
-                apt.id === currentApartment.id ? { ...apt, image: pathOrUri } : apt
-            ));
-        }
+    // Optimistically update the list so the image appears immediately
+    if (!isNewApartment && currentApartment?.id) {
+      setApartments(prev => prev.map(apt =>
+        apt.id === currentApartment.id ? { ...apt, image: pathOrUri } : apt
+      ));
+    }
 
-        await addRecentImage(pathOrUri);
-        setImageSelectionVisible(false);
-    };
+    await addRecentImage(pathOrUri);
+    setImageSelectionVisible(false);
+  };
 
     const processImage = async (uri: string) => {
         // Crop to 4:3, resize to max width 1280, compress to ~0.7
@@ -937,7 +938,9 @@ const colorPalette = {
                     {isProcessingImage && (
                         <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
                             <MaterialIcons name="hourglass-top" size={36} color={textColor} />
-                            <ThemedText style={{ marginTop: 8, color: textColor }}>Processing image...</ThemedText>
+                            <ThemedText style={{ marginTop: 8, color: textColor }}>
+                                Processing image...
+                            </ThemedText>
                         </View>
                     )}
                 </View>
