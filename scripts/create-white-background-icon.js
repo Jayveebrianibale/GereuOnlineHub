@@ -1,0 +1,31 @@
+const fs = require('fs');
+const path = require('path');
+
+// This script helps you understand how to create an app icon with white background
+console.log('To create an app icon with white background, you have several options:');
+console.log('');
+console.log('1. For Android (already configured):');
+console.log('   - Your app.json already has backgroundColor: "#FFFFFF"');
+console.log('   - This creates a white background behind your logo.png');
+console.log('');
+console.log('2. For iOS:');
+console.log('   - iOS doesn\'t support background colors for app icons');
+console.log('   - You need to create a new icon file with white background');
+console.log('');
+console.log('3. To create a new icon with white background:');
+console.log('   - Use an image editor (Photoshop, GIMP, Canva, etc.)');
+console.log('   - Create a 1024x1024px square image');
+console.log('   - Add white background');
+console.log('   - Place your logo in the center');
+console.log('   - Save as PNG');
+console.log('   - Replace the current logo.png file');
+console.log('');
+console.log('4. Alternative: Use online tools like:');
+console.log('   - https://appicon.co/');
+console.log('   - https://icon.kitchen/');
+console.log('   - https://makeappicon.com/');
+console.log('');
+console.log('Your current configuration:');
+console.log('- Main icon: ./assets/images/logo.png');
+console.log('- Android background: White (#FFFFFF)');
+console.log('- Splash screen background: White (#FFFFFF)');

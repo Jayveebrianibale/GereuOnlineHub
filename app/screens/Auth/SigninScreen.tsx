@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -55,6 +56,7 @@ export default function SigninScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
@@ -68,6 +70,9 @@ export default function SigninScreen() {
   const logoRotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Load saved credentials if they exist
+    loadSavedCredentials();
+    
     // Start entrance animations
     const animationSequence = Animated.sequence([
       Animated.parallel([
@@ -98,6 +103,42 @@ export default function SigninScreen() {
     animationSequence.start();
   }, []);
 
+  const loadSavedCredentials = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem('remembered_email');
+      const savedPassword = await AsyncStorage.getItem('remembered_password');
+      const rememberMeStatus = await AsyncStorage.getItem('remember_me');
+      
+      if (savedEmail && savedPassword && rememberMeStatus === 'true') {
+        setEmail(savedEmail);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.log('Error loading saved credentials:', error);
+    }
+  };
+
+  const saveCredentials = async (email: string, password: string) => {
+    try {
+      await AsyncStorage.setItem('remembered_email', email);
+      await AsyncStorage.setItem('remembered_password', password);
+      await AsyncStorage.setItem('remember_me', 'true');
+    } catch (error) {
+      console.log('Error saving credentials:', error);
+    }
+  };
+
+  const clearSavedCredentials = async () => {
+    try {
+      await AsyncStorage.removeItem('remembered_email');
+      await AsyncStorage.removeItem('remembered_password');
+      await AsyncStorage.removeItem('remember_me');
+    } catch (error) {
+      console.log('Error clearing saved credentials:', error);
+    }
+  };
+
   const logoRotation = logoRotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -126,10 +167,17 @@ export default function SigninScreen() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // Handle remember me functionality
+      if (rememberMe) {
+        await saveCredentials(email, password);
+      } else {
+        await clearSavedCredentials();
+      }
+
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
       setTimeout(() => {
-        if (user.email && (user.email.toLowerCase() === 'pedro1@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com')) {
+        if (user.email && (user.email.toLowerCase() === 'alfredosayson@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com')) {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
@@ -332,6 +380,25 @@ export default function SigninScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              {/* Remember Me Checkbox */}
+              <View style={styles.rememberMeContainer}>
+                <TouchableOpacity 
+                  style={styles.checkboxContainer}
+                  onPress={() => setRememberMe(!rememberMe)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    rememberMe && styles.checkboxChecked
+                  ]}>
+                    {rememberMe && (
+                      <Ionicons name="checkmark" size={16} color="white" />
+                    )}
+                  </View>
+                  <Text style={styles.rememberMeText}>Remember Me</Text>
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
@@ -673,5 +740,32 @@ const styles = StyleSheet.create({
   },
   inputIconError: {
     backgroundColor: '#FEE2E2',
+  },
+  rememberMeContainer: {
+    marginBottom: 20,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: '#00B2FF',
+    borderColor: '#00B2FF',
+  },
+  rememberMeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
   },
 });

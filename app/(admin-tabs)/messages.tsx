@@ -80,6 +80,10 @@ export default function MessagesScreen() {
             const isAdminRecipient = msg.recipientEmail === user.email;
             const isAdminSender = msg.senderEmail === user.email;
             
+            // Check if this message has been deleted for the admin
+            const deletedFor = msg.deletedFor || [];
+            const isDeletedForAdmin = deletedFor.includes(user.email);
+            
             console.log('Admin message filter:', {
               messageId: msg.id,
               recipientEmail: msg.recipientEmail,
@@ -87,11 +91,14 @@ export default function MessagesScreen() {
               adminEmail: user.email,
               isAdminRecipient,
               isAdminSender,
-              included: isAdminRecipient || isAdminSender,
+              isDeletedForAdmin,
+              deletedFor,
+              included: (isAdminRecipient || isAdminSender) && !isDeletedForAdmin,
               text: msg.text
             });
             
-            return isAdminRecipient || isAdminSender;
+            // Only include messages that are for the admin AND haven't been deleted for the admin
+            return (isAdminRecipient || isAdminSender) && !isDeletedForAdmin;
           })
           // Group by chatId and get the latest message from each chat
           .reduce((acc: any[], msg: any) => {

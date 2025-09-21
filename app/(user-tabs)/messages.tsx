@@ -38,7 +38,7 @@ interface Message {
 // Admin data - you might want to fetch this from Firebase or another source
 const ADMIN_USERS = [
   { id: '1', name: 'Jayvee Briani', email: 'jayveebriani@gmail.com', avatar: 'JB' },
-  { id: '2', name: 'Pedro Admin', email: 'pedro1@gmail.com', avatar: 'PA' },
+  { id: '2', name: 'Alfredo', email: 'alfredosayson@gmail.com', avatar: 'AS' },
 ];
 
 export default function MessagesScreen() {
@@ -88,6 +88,10 @@ export default function MessagesScreen() {
             const isUserRecipient = msg.recipientEmail === currentUserEmail;
             const isUserSender = msg.senderEmail === currentUserEmail;
             
+            // Check if this message has been deleted for the user
+            const deletedFor = msg.deletedFor || [];
+            const isDeletedForUser = deletedFor.includes(currentUserEmail);
+            
             console.log('User message filter:', {
               messageId: msg.id,
               recipientEmail: msg.recipientEmail,
@@ -95,11 +99,14 @@ export default function MessagesScreen() {
               userEmail: currentUserEmail,
               isUserRecipient,
               isUserSender,
-              included: isUserRecipient || isUserSender,
+              isDeletedForUser,
+              deletedFor,
+              included: (isUserRecipient || isUserSender) && !isDeletedForUser,
               text: msg.text
             });
             
-            return isUserRecipient || isUserSender;
+            // Only include messages that are for the user AND haven't been deleted for the user
+            return (isUserRecipient || isUserSender) && !isDeletedForUser;
           })
           // Group by chatId and get the latest message from each chat
           .reduce((acc: any[], msg: any) => {

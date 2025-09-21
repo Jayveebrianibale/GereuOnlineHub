@@ -4,9 +4,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { off, onValue, ref } from 'firebase/database';
-import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, FlatList, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
+import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 
 const colorPalette = {
@@ -72,6 +73,28 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Image sliding state
+  const [activeApartmentIndex, setActiveApartmentIndex] = useState(0);
+  const [activeLaundryIndex, setActiveLaundryIndex] = useState(0);
+  const [activeAutoIndex, setActiveAutoIndex] = useState(0);
+
+  // Refs for FlatList components
+  const apartmentFlatListRef = useRef<FlatList>(null);
+  const laundryFlatListRef = useRef<FlatList>(null);
+  const autoFlatListRef = useRef<FlatList>(null);
+
+  // Touch interaction states
+  const [isUserInteracting, setIsUserInteracting] = useState({
+    apartments: false,
+    laundry: false,
+    auto: false,
+  });
+
+  // Screen dimensions for carousel
+  const { width: screenWidth } = Dimensions.get('window');
+  const cardWidth = screenWidth - 40; // Account for padding
+  const itemWidth = cardWidth - 32; // Account for card padding
 
   // Real-time listeners for all services
   useEffect(() => {
@@ -160,6 +183,69 @@ export default function AdminDashboard() {
     });
     return () => { isActive = false; unsubscribe(); };
   }, []);
+
+  // Auto-slide functionality for apartments
+  useEffect(() => {
+    if (apartments.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.apartments) {
+        setActiveApartmentIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % apartments.length;
+          apartmentFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [apartments.length, isUserInteracting.apartments]);
+
+  // Auto-slide functionality for laundry services
+  useEffect(() => {
+    if (laundryServices.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.laundry) {
+        setActiveLaundryIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % laundryServices.length;
+          laundryFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [laundryServices.length, isUserInteracting.laundry]);
+
+  // Auto-slide functionality for auto services
+  useEffect(() => {
+    if (autoServices.length <= 1) return;
+
+    const interval = setInterval(() => {
+      // Only auto-slide if user is not interacting
+      if (!isUserInteracting.auto) {
+        setActiveAutoIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % autoServices.length;
+          autoFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          return nextIndex;
+        });
+      }
+    }, 4000); // Slide every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [autoServices.length, isUserInteracting.auto]);
 
   const handleAdminNotificationsPress = async () => {
     try {
@@ -328,6 +414,37 @@ export default function AdminDashboard() {
     }
   };
 
+  // Render functions for carousel items
+  const renderApartmentImage = ({ item }: { item: any }) => (
+    <View style={[styles.carouselImageContainer, { width: itemWidth }]}>
+      <RobustImage 
+        source={item.image} 
+        style={styles.carouselImage} 
+        resizeMode="cover"
+      />
+    </View>
+  );
+
+  const renderLaundryImage = ({ item }: { item: any }) => (
+    <View style={[styles.carouselImageContainer, { width: itemWidth }]}>
+      <RobustImage 
+        source={item.image} 
+        style={styles.carouselImage} 
+        resizeMode="cover"
+      />
+    </View>
+  );
+
+  const renderAutoImage = ({ item }: { item: any }) => (
+    <View style={[styles.carouselImageContainer, { width: itemWidth }]}>
+      <RobustImage 
+        source={item.image} 
+        style={styles.carouselImage} 
+        resizeMode="cover"
+      />
+    </View>
+  );
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: pageBackground }]}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -487,7 +604,171 @@ export default function AdminDashboard() {
                       {mod.title}
                     </ThemedText>
                   </View>
-                  <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
+                  
+                  {/* Dynamic Image Carousel */}
+                  {mod.key === 'apartment' && apartments.length > 0 ? (
+                    <>
+                      <FlatList
+                        ref={apartmentFlatListRef}
+                        data={apartments}
+                        renderItem={renderApartmentImage}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScrollBeginDrag={() => {
+                          setIsUserInteracting(prev => ({ ...prev, apartments: true }));
+                        }}
+                        onScrollEndDrag={() => {
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, apartments: false }));
+                          }, 2000);
+                        }}
+                        onMomentumScrollEnd={(e) => {
+                          const index = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
+                          setActiveApartmentIndex(index);
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, apartments: false }));
+                          }, 2000);
+                        }}
+                        keyExtractor={(item) => item.id}
+                        onScrollToIndexFailed={(info) => {
+                          const wait = new Promise(resolve => setTimeout(resolve, 500));
+                          wait.then(() => {
+                            apartmentFlatListRef.current?.scrollToIndex({
+                              index: info.index,
+                              animated: true,
+                            });
+                          });
+                        }}
+                        style={styles.carouselContainer}
+                      />
+                      {apartments.length > 1 && (
+                        <View style={styles.pagination}>
+                          {apartments.map((_, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.paginationDot,
+                                {
+                                  backgroundColor: index === activeApartmentIndex ? mod.color : subtitleColor,
+                                  opacity: index === activeApartmentIndex ? 1 : 0.4,
+                                }
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  ) : mod.key === 'laundry' && laundryServices.length > 0 ? (
+                    <>
+                      <FlatList
+                        ref={laundryFlatListRef}
+                        data={laundryServices}
+                        renderItem={renderLaundryImage}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScrollBeginDrag={() => {
+                          setIsUserInteracting(prev => ({ ...prev, laundry: true }));
+                        }}
+                        onScrollEndDrag={() => {
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, laundry: false }));
+                          }, 2000);
+                        }}
+                        onMomentumScrollEnd={(e) => {
+                          const index = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
+                          setActiveLaundryIndex(index);
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, laundry: false }));
+                          }, 2000);
+                        }}
+                        keyExtractor={(item) => item.id}
+                        onScrollToIndexFailed={(info) => {
+                          const wait = new Promise(resolve => setTimeout(resolve, 500));
+                          wait.then(() => {
+                            laundryFlatListRef.current?.scrollToIndex({
+                              index: info.index,
+                              animated: true,
+                            });
+                          });
+                        }}
+                        style={styles.carouselContainer}
+                      />
+                      {laundryServices.length > 1 && (
+                        <View style={styles.pagination}>
+                          {laundryServices.map((_, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.paginationDot,
+                                {
+                                  backgroundColor: index === activeLaundryIndex ? mod.color : subtitleColor,
+                                  opacity: index === activeLaundryIndex ? 1 : 0.4,
+                                }
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  ) : mod.key === 'car' && autoServices.length > 0 ? (
+                    <>
+                      <FlatList
+                        ref={autoFlatListRef}
+                        data={autoServices}
+                        renderItem={renderAutoImage}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScrollBeginDrag={() => {
+                          setIsUserInteracting(prev => ({ ...prev, auto: true }));
+                        }}
+                        onScrollEndDrag={() => {
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, auto: false }));
+                          }, 2000);
+                        }}
+                        onMomentumScrollEnd={(e) => {
+                          const index = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
+                          setActiveAutoIndex(index);
+                          setTimeout(() => {
+                            setIsUserInteracting(prev => ({ ...prev, auto: false }));
+                          }, 2000);
+                        }}
+                        keyExtractor={(item) => item.id}
+                        onScrollToIndexFailed={(info) => {
+                          const wait = new Promise(resolve => setTimeout(resolve, 500));
+                          wait.then(() => {
+                            autoFlatListRef.current?.scrollToIndex({
+                              index: info.index,
+                              animated: true,
+                            });
+                          });
+                        }}
+                        style={styles.carouselContainer}
+                      />
+                      {autoServices.length > 1 && (
+                        <View style={styles.pagination}>
+                          {autoServices.map((_, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.paginationDot,
+                                {
+                                  backgroundColor: index === activeAutoIndex ? mod.color : subtitleColor,
+                                  opacity: index === activeAutoIndex ? 1 : 0.4,
+                                }
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
+                  )}
+                  
                   <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
                     {mod.description}
                   </ThemedText>
@@ -752,5 +1033,31 @@ const styles = StyleSheet.create({
   noResultsSubtext: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  // Carousel styles
+  carouselContainer: {
+    height: 120,
+    marginBottom: 12,
+  },
+  carouselImageContainer: {
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

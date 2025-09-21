@@ -8,6 +8,7 @@ export interface ImageUploadResult {
 
 /**
  * Upload an image to Firebase Storage and return the download URL
+ * This function ensures images are accessible to both admins and customers
  * @param imageUri - Local URI of the image to upload
  * @param folder - Folder name in storage (e.g., 'apartments', 'auto-services', 'laundry-services')
  * @param fileName - Optional custom filename, will generate UUID if not provided
@@ -19,7 +20,7 @@ export const uploadImageToFirebase = async (
   fileName?: string
 ): Promise<ImageUploadResult> => {
   try {
-    console.log('🔥 Attempting Firebase Storage upload...');
+    console.log('🔥 Uploading image to Firebase Storage...');
     
     // Check if user is authenticated
     const currentUser = auth.currentUser;
@@ -37,8 +38,9 @@ export const uploadImageToFirebase = async (
     // Generate filename if not provided
     const finalFileName = fileName || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
     
-    // Create storage reference with user-specific path
-    const storagePath = `${folder}/${currentUser.uid}/${finalFileName}`;
+    // Create storage reference with PUBLIC path for customer access
+    // This ensures customers can view images without authentication
+    const storagePath = `${folder}/${finalFileName}`;
     const imageRef = storageRef(storage, storagePath);
     
     console.log('📂 Storage path:', storagePath);
@@ -240,8 +242,8 @@ export const uploadImageToFirebaseReactNative = async (
     // Generate filename if not provided
     const finalFileName = fileName || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
     
-    // Create storage reference with proper path structure
-    const imageRef = storageRef(storage, `${folder}/${currentUser.uid}/${finalFileName}`);
+    // Create storage reference with PUBLIC path for customer access
+    const imageRef = storageRef(storage, `${folder}/${finalFileName}`);
     console.log('Storage reference created:', imageRef.fullPath);
     
     // For React Native, we'll use a simpler approach
@@ -431,4 +433,52 @@ export const uploadMultipleImagesToFirebase = async (
     console.error('Error uploading multiple images:', error);
     throw new Error('Failed to upload images to Firebase Storage');
   }
+};
+
+/**
+ * Smart upload function that automatically chooses the best upload method
+ * Tries multiple strategies in order of reliability
+ */
+export const uploadImageToFirebaseSmart = async (
+  imageUri: string,
+  folder: string,
+  fileName?: string
+): Promise<ImageUploadResult> => {
+  console.log('🧠 Smart upload starting...', { imageUri, folder, fileName });
+  
+  // Strategy 1: Try the main upload function first
+  try {
+    console.log('📋 Strategy 1: Using main upload function');
+    return await uploadImageToFirebase(imageUri, folder, fileName);
+  } catch (error) {
+    console.log('❌ Strategy 1 failed:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Strategy 2: Try the alternative upload function
+  try {
+    console.log('📋 Strategy 2: Using alternative upload function');
+    return await uploadImageToFirebaseAlternative(imageUri, folder, fileName);
+  } catch (error) {
+    console.log('❌ Strategy 2 failed:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Strategy 3: Try the React Native specific function
+  try {
+    console.log('📋 Strategy 3: Using React Native specific function');
+    return await uploadImageToFirebaseReactNative(imageUri, folder, fileName);
+  } catch (error) {
+    console.log('❌ Strategy 3 failed:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // Strategy 4: Try the bypass function as last resort
+  try {
+    console.log('📋 Strategy 4: Using bypass function');
+    return await uploadImageToFirebaseBypass(imageUri, folder, fileName);
+  } catch (error) {
+    console.log('❌ Strategy 4 failed:', error instanceof Error ? error.message : 'Unknown error');
+  }
+  
+  // If all strategies fail, throw an error
+  console.log('💥 All upload strategies failed');
+  throw new Error('All upload strategies failed. Please check your image and network connection.');
 };

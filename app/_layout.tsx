@@ -12,6 +12,7 @@ import PushRegistrar from './components/PushRegistrar';
 import { ToastProvider } from './components/Toast';
 import { AdminReservationProvider } from './contexts/AdminReservationContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { MessageProvider } from './contexts/MessageContext';
 import { ReservationProvider } from './contexts/ReservationContext';
 
 function AppContent() {
@@ -68,17 +69,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <ReservationProvider>
-          <AdminReservationProvider>
-            <ColorSchemeProvider>
-              <ToastProvider>
-                <AppContent />
-                <PushRegistrar />
-                <FCMRegistrar />
-              </ToastProvider>
-            </ColorSchemeProvider>
-          </AdminReservationProvider>
-        </ReservationProvider>
+        <MessageProvider>
+          <ReservationProvider>
+            <AdminReservationProvider>
+              <ColorSchemeProvider>
+                <ToastProvider>
+                  <AppContent />
+                  <PushRegistrar />
+                  <FCMRegistrar />
+                </ToastProvider>
+              </ColorSchemeProvider>
+            </AdminReservationProvider>
+          </ReservationProvider>
+        </MessageProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

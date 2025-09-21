@@ -1,6 +1,8 @@
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+import { useMessageContext } from '../contexts/MessageContext';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -15,6 +17,7 @@ const colorPalette = {
 
 export default function UserTabLayout() {
   const { colorScheme } = useColorScheme();
+  const { unreadCount } = useMessageContext();
   const isDark = colorScheme === 'dark';
 
   return (
@@ -55,7 +58,18 @@ export default function UserTabLayout() {
           options={{  
               headerShown: false,
               title: 'Messages',
-              tabBarIcon: ({ color, size }) => <MaterialIcons name="message" size={size} color={color} />,
+              tabBarIcon: ({ color, size }) => (
+                <View style={styles.iconContainer}>
+                  <MaterialIcons name="message" size={size} color={color} />
+                  {unreadCount > 0 && (
+                    <View style={[styles.badge, { backgroundColor: '#FF4444' }]}>
+                      <Text style={styles.badgeText}>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ),
             }}
             />
       <Tabs.Screen
@@ -67,4 +81,26 @@ export default function UserTabLayout() {
       />
     </Tabs>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+}); 
