@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { notifyUser } from '../services/notificationService';
 import {
     getAdminReservations,
@@ -49,35 +50,48 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
   const [adminReservations, setAdminReservations] = useState<AdminReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Load reservations from Firebase on mount
   useEffect(() => {
-    const loadReservations = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const reservations = await getAdminReservations();
-        setAdminReservations(reservations);
-      } catch (err) {
-        console.error('Error loading admin reservations:', err);
-        setError('Failed to load reservations');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadReservations();
-
-    // Set up real-time listener
-    const unsubscribe = listenToAdminReservations((reservations) => {
-      setAdminReservations(reservations);
+    // Only load reservations if user is authenticated
+    if (!authLoading && !isAuthenticated) {
+      console.log('⚠️ User not authenticated, skipping admin reservations load');
       setLoading(false);
-    });
+      setError('User not authenticated');
+      return;
+    }
 
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+    if (!authLoading && isAuthenticated && user) {
+      console.log('✅ User authenticated, loading admin reservations...');
+      
+      const loadReservations = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const reservations = await getAdminReservations();
+          setAdminReservations(reservations);
+        } catch (err) {
+          console.error('Error loading admin reservations:', err);
+          setError('Failed to load reservations');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadReservations();
+
+      // Set up real-time listener
+      const unsubscribe = listenToAdminReservations((reservations) => {
+        setAdminReservations(reservations);
+        setLoading(false);
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [user, isAuthenticated, authLoading]);
 
   const addAdminReservation = async (reservationData: Omit<AdminReservation, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {

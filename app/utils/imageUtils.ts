@@ -33,11 +33,17 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
     
     // For local file URIs (like from ImageManipulator), we need to handle them specially
     if (lower.startsWith('file://')) {
+      // Check if it's a recently processed image (ImageManipulator cache)
+      if (imagePath.includes('/cache/ImageManipulator/') && imagePath.includes('ImageManipulator/')) {
+        console.log('📸 Loading recently processed image:', imagePath);
+        return { uri: imagePath } as ImageSourcePropType;
+      }
+      
       // Check if it's a problematic local cache file
       if (imagePath.includes('/cache/ImageManipulator/') || imagePath.includes('/data/user/0/host.exp.exponent/cache/')) {
-        console.warn('⚠️ Local cache file detected, this should not happen with immediate upload:', imagePath);
-        // Don't use fallback, just return the URI and let it fail naturally
-        return { uri: imagePath } as ImageSourcePropType;
+        console.warn('⚠️ Local cache file detected, using default image instead:', imagePath);
+        // Return default apartment image instead of trying to load the problematic file
+        return require('@/assets/images/apartment1.webp');
       }
       console.log('🖼️ Using local file URI:', imagePath);
       return { uri: imagePath } as ImageSourcePropType;
@@ -86,17 +92,17 @@ export const getImageSourceAsync = async (imagePath: string | ImageSourcePropTyp
     
     // For local file URIs (like from ImageManipulator), try to convert to base64
     if (lower.startsWith('file://')) {
+      // Check if it's a recently processed image (ImageManipulator cache)
+      if (imagePath.includes('/cache/ImageManipulator/') && imagePath.includes('ImageManipulator/')) {
+        console.log('📸 Loading recently processed image in async function:', imagePath);
+        return { uri: imagePath } as ImageSourcePropType;
+      }
+      
       // Check if it's a problematic local cache file
       if (imagePath.includes('/cache/ImageManipulator/') || imagePath.includes('/data/user/0/host.exp.exponent/cache/')) {
-        console.log('🔄 Attempting to convert problematic local file to base64:', imagePath);
-        const base64Uri = await convertLocalFileToBase64(imagePath);
-        if (base64Uri) {
-          console.log('✅ Successfully converted to base64');
-          return { uri: base64Uri } as ImageSourcePropType;
-        } else {
-          console.warn('⚠️ Failed to convert to base64, using original URI');
-          return { uri: imagePath } as ImageSourcePropType;
-        }
+        console.warn('⚠️ Problematic cache file detected in async function, using default image:', imagePath);
+        // Return default apartment image instead of trying to convert
+        return require('@/assets/images/apartment1.webp');
       }
       console.log('🖼️ Using local file URI:', imagePath);
       return { uri: imagePath } as ImageSourcePropType;

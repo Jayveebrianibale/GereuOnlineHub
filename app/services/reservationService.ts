@@ -69,31 +69,61 @@ export const updateAdminReservationStatus = async (reservationId: string, status
 
 export const getAdminReservations = async (): Promise<FirebaseAdminReservation[]> => {
   try {
+    console.log('🔍 Fetching admin reservations...');
     const reservationRef = ref(db, 'adminReservations');
     const snapshot = await get(reservationRef);
     
     if (snapshot.exists()) {
       const data = snapshot.val();
-      return Object.values(data) as FirebaseAdminReservation[];
+      const reservations = Object.values(data) as FirebaseAdminReservation[];
+      console.log('✅ Successfully fetched admin reservations:', reservations.length);
+      return reservations;
     }
+    console.log('ℹ️ No admin reservations found');
     return [];
   } catch (error) {
-    console.error('Error fetching admin reservations:', error);
+    console.error('❌ Error fetching admin reservations:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('Permission denied')) {
+        console.error('🔒 Permission denied - check Firebase Realtime Database rules');
+        throw new Error('Permission denied. Please check Firebase Database rules.');
+      } else if (error.message.includes('network')) {
+        console.error('🌐 Network error - check internet connection');
+        throw new Error('Network error. Please check your internet connection.');
+      } else if (error.message.includes('unauthorized')) {
+        console.error('🔐 Unauthorized - user not authenticated');
+        throw new Error('Unauthorized. Please sign in again.');
+      }
+    }
+    
     throw error;
   }
 };
 
 export const listenToAdminReservations = (callback: (reservations: FirebaseAdminReservation[]) => void) => {
+  console.log('👂 Setting up admin reservations listener...');
   const reservationRef = ref(db, 'adminReservations');
   
   const unsubscribe = onValue(reservationRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      const reservations = Object.values(data) as FirebaseAdminReservation[];
-      callback(reservations);
-    } else {
+    try {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const reservations = Object.values(data) as FirebaseAdminReservation[];
+        console.log('📡 Real-time update: received', reservations.length, 'admin reservations');
+        callback(reservations);
+      } else {
+        console.log('📡 Real-time update: no admin reservations found');
+        callback([]);
+      }
+    } catch (error) {
+      console.error('❌ Error in admin reservations listener:', error);
       callback([]);
     }
+  }, (error) => {
+    console.error('❌ Admin reservations listener error:', error);
+    callback([]);
   });
   
   return unsubscribe;

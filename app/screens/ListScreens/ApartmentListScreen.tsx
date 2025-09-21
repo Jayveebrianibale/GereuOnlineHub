@@ -13,6 +13,10 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
+import {
+    cacheApartments,
+    getCachedApartments
+} from '../../services/dataCache';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
@@ -34,6 +38,7 @@ const colorPalette = {
 export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isDark = colorScheme === 'dark';
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -54,12 +59,44 @@ export default function ApartmentListScreen() {
   const { addAdminReservation } = useAdminReservation();
   const { user } = useAuthContext();
 
-  // Fetch apartments from Firebase
+  // Fetch apartments from Firebase or cache
   useEffect(() => {
     const fetchApartments = async () => {
       try {
+        // Check cache first
+        const cachedApartments = getCachedApartments();
+        if (cachedApartments) {
+          console.log('🚀 Using cached apartments data in apartment list');
+          setApartments(cachedApartments);
+          
+          // Check if we need to show a specific apartment
+          const selectedApartmentId = params.selectedApartmentId as string;
+          if (selectedApartmentId) {
+            const selectedApartment = cachedApartments.find(apt => apt.id === selectedApartmentId);
+            if (selectedApartment) {
+              setSelectedApartment(selectedApartment);
+              setDetailModalVisible(true);
+            }
+          }
+          return;
+        }
+
+        console.log('📡 Fetching apartments from Firebase in apartment list...');
         const apartmentsData = await getApartments();
         setApartments(apartmentsData);
+        
+        // Cache the data for future use
+        cacheApartments(apartmentsData);
+        
+        // Check if we need to show a specific apartment
+        const selectedApartmentId = params.selectedApartmentId as string;
+        if (selectedApartmentId) {
+          const selectedApartment = apartmentsData.find(apt => apt.id === selectedApartmentId);
+          if (selectedApartment) {
+            setSelectedApartment(selectedApartment);
+            setDetailModalVisible(true);
+          }
+        }
       } catch (error) {
         console.error('Error fetching apartments:', error);
       }
@@ -178,19 +215,7 @@ export default function ApartmentListScreen() {
     }
   };
 
-  // Handle navigation parameters
-  const params = useLocalSearchParams();
-  useEffect(() => {
-    if (params.selectedItem) {
-      try {
-        const selectedItem = JSON.parse(params.selectedItem as string);
-        setSelectedApartment(selectedItem);
-        setDetailModalVisible(true);
-      } catch (error) {
-        console.error('Error parsing selected item:', error);
-      }
-    }
-  }, [params.selectedItem]);
+  // Handle navigation parameters - removed duplicate params declaration
 
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity

@@ -16,6 +16,10 @@ import {
     AutoService,
     getAutoServices,
 } from '../../services/autoService';
+import {
+    cacheAutoServices,
+    getCachedAutoServices
+} from '../../services/dataCache';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -34,6 +38,7 @@ const colorPalette = {
 export default function AutoListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isDark = colorScheme === 'dark';
   const { reservedAutoServices, reserveAutoService, removeAutoReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
@@ -166,25 +171,60 @@ export default function AutoListScreen() {
   // Removed unused loading state
 
   // Handle navigation parameters
-  const params = useLocalSearchParams();
-  
   useEffect(() => {
-    if (params.selectedItem) {
-      try {
-        const selectedItem = JSON.parse(params.selectedItem as string);
-        setSelectedAutoService(selectedItem);
-        setDetailModalVisible(true);
-      } catch (error) {
-        console.error('Error parsing selected item:', error);
+    const selectedServiceId = params.selectedServiceId as string;
+    const serviceType = params.serviceType as string;
+    
+    if (selectedServiceId && serviceType === 'auto') {
+      // Check cache first
+      const cachedServices = getCachedAutoServices();
+      if (cachedServices) {
+        const selectedService = cachedServices.find(service => service.id === selectedServiceId);
+        if (selectedService) {
+          setSelectedAutoService(selectedService);
+          setDetailModalVisible(true);
+        }
+        return;
       }
+      
+      // If not in cache, wait for data to load
+      const checkForService = () => {
+        const service = autoServices.find(s => s.id === selectedServiceId);
+        if (service) {
+          setSelectedAutoService(service);
+          setDetailModalVisible(true);
+        }
+      };
+      
+      // Check immediately and also after a short delay
+      checkForService();
+      setTimeout(checkForService, 1000);
     }
-  }, [params.selectedItem]);
+  }, [params.selectedServiceId, params.serviceType, autoServices]);
 
-  // Fetch auto services from Firebase
+  // Fetch auto services from Firebase or cache
   useEffect(() => {
-    getAutoServices()
-      .then(setAutoServices)
-      .catch(console.error);
+    const fetchAutoServices = async () => {
+      try {
+        // Check cache first
+        const cachedServices = getCachedAutoServices();
+        if (cachedServices) {
+          console.log('🚀 Using cached auto services data in auto list');
+          setAutoServices(cachedServices);
+          return;
+        }
+
+        console.log('📡 Fetching auto services from Firebase in auto list...');
+        const autoServicesData = await getAutoServices();
+        setAutoServices(autoServicesData);
+        
+        // Cache the data for future use
+        cacheAutoServices(autoServicesData);
+      } catch (error) {
+        console.error('Error fetching auto services:', error);
+      }
+    };
+    fetchAutoServices();
   }, []);
 
 

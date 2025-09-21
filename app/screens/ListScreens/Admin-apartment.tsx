@@ -102,7 +102,10 @@ const colorPalette = {
 
   const selectAndClose = async (pathOrUri: string) => {
     // Simply store the local URI in form state - will be saved to Realtime DB on save
-    console.log('Storing local image URI for Realtime DB:', pathOrUri);
+    console.log('📸 Selecting image:', pathOrUri);
+    console.log('📸 Image type:', typeof pathOrUri);
+    console.log('📸 Is ImageManipulator cache:', pathOrUri.includes('/cache/ImageManipulator/'));
+    
     setCurrentApartment({ ...currentApartment, image: pathOrUri });
 
     // Optimistically update the list so the image appears immediately
@@ -114,6 +117,8 @@ const colorPalette = {
 
     await addRecentImage(pathOrUri);
     setImageSelectionVisible(false);
+    
+    console.log('📸 Updated currentApartment.image to:', currentApartment.image);
   };
 
     const processImage = async (uri: string) => {

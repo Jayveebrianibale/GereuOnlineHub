@@ -8,6 +8,10 @@ import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
+import {
+    cacheLaundryServices,
+    getCachedLaundryServices
+} from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -32,6 +36,7 @@ const colorPalette = {
 export default function LaundryListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isDark = colorScheme === 'dark';
   const { reservedLaundryServices, reserveLaundryService, removeLaundryReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
@@ -164,26 +169,55 @@ export default function LaundryListScreen() {
   };
 
   // Handle navigation parameters
-  const params = useLocalSearchParams();
-  
   useEffect(() => {
-    if (params.selectedItem) {
-      try {
-        const selectedItem = JSON.parse(params.selectedItem as string);
-        setSelectedLaundryService(selectedItem);
-        setDetailModalVisible(true);
-      } catch (error) {
-        console.error('Error parsing selected item:', error);
+    const selectedServiceId = params.selectedServiceId as string;
+    const serviceType = params.serviceType as string;
+    
+    if (selectedServiceId && serviceType === 'laundry') {
+      // Check cache first
+      const cachedServices = getCachedLaundryServices();
+      if (cachedServices) {
+        const selectedService = cachedServices.find(service => service.id === selectedServiceId);
+        if (selectedService) {
+          setSelectedLaundryService(selectedService);
+          setDetailModalVisible(true);
+        }
+        return;
       }
+      
+      // If not in cache, wait for data to load
+      const checkForService = () => {
+        const service = laundryServices.find(s => s.id === selectedServiceId);
+        if (service) {
+          setSelectedLaundryService(service);
+          setDetailModalVisible(true);
+        }
+      };
+      
+      // Check immediately and also after a short delay
+      checkForService();
+      setTimeout(checkForService, 1000);
     }
-  }, [params.selectedItem]);
+  }, [params.selectedServiceId, params.serviceType, laundryServices]);
 
-  // Fetch laundry services from Firebase
+  // Fetch laundry services from Firebase or cache
   useEffect(() => {
     const fetchLaundryServices = async () => {
       try {
+        // Check cache first
+        const cachedServices = getCachedLaundryServices();
+        if (cachedServices) {
+          console.log('🚀 Using cached laundry services data in laundry list');
+          setLaundryServices(cachedServices);
+          return;
+        }
+
+        console.log('📡 Fetching laundry services from Firebase in laundry list...');
         const laundryServicesData = await getLaundryServices();
         setLaundryServices(laundryServicesData);
+        
+        // Cache the data for future use
+        cacheLaundryServices(laundryServicesData);
       } catch (error) {
         console.error('Error fetching laundry services:', error);
       }

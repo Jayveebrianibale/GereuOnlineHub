@@ -10,6 +10,14 @@ import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, Touc
 import { RobustImage } from './components/RobustImage';
 import { getApartments } from './services/apartmentService';
 import { getAutoServices } from './services/autoService';
+import {
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices,
+    getCachedApartments,
+    getCachedAutoServices,
+    getCachedLaundryServices
+} from './services/dataCache';
 import { getLaundryServices } from './services/laundryService';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -170,8 +178,20 @@ export default function UserHome() {
   useEffect(() => {
     const fetchApartments = async () => {
       try {
+        // Check cache first
+        const cachedApartments = getCachedApartments();
+        if (cachedApartments) {
+          console.log('🚀 Using cached apartments data');
+          setApartments(cachedApartments);
+          return;
+        }
+
+        console.log('📡 Fetching apartments from Firebase...');
         const apartmentsData = await getApartments();
         setApartments(apartmentsData);
+        
+        // Cache the data
+        cacheApartments(apartmentsData);
       } catch (error) {
         console.error('Error fetching apartments:', error);
       }
@@ -182,8 +202,20 @@ export default function UserHome() {
   useEffect(() => {
     const fetchAutoServices = async () => {
       try {
+        // Check cache first
+        const cachedAutoServices = getCachedAutoServices();
+        if (cachedAutoServices) {
+          console.log('🚀 Using cached auto services data');
+          setAutoServices(cachedAutoServices);
+          return;
+        }
+
+        console.log('📡 Fetching auto services from Firebase...');
         const autoServicesData = await getAutoServices();
         setAutoServices(autoServicesData);
+        
+        // Cache the data
+        cacheAutoServices(autoServicesData);
       } catch (error) {
         console.error('Error fetching auto services:', error);
       }
@@ -194,8 +226,20 @@ export default function UserHome() {
   useEffect(() => {
     const fetchLaundryServices = async () => {
       try {
+        // Check cache first
+        const cachedLaundryServices = getCachedLaundryServices();
+        if (cachedLaundryServices) {
+          console.log('🚀 Using cached laundry services data');
+          setLaundryServices(cachedLaundryServices);
+          return;
+        }
+
+        console.log('📡 Fetching laundry services from Firebase...');
         const laundryServicesData = await getLaundryServices();
         setLaundryServices(laundryServicesData);
+        
+        // Cache the data
+        cacheLaundryServices(laundryServicesData);
       } catch (error) {
         console.error('Error fetching laundry services:', error);
       }
@@ -338,7 +382,7 @@ export default function UserHome() {
           style={[styles.bookButton, { backgroundColor: colorPalette.primary }]} 
           onPress={() => router.push({
             pathname: '/apartment-list',
-            params: { selectedItem: JSON.stringify(item) }
+            params: { selectedApartmentId: item.id }
           })}
         >
           <ThemedText style={styles.bookButtonText}>View Details</ThemedText>
@@ -382,12 +426,12 @@ export default function UserHome() {
             if (serviceType === 'laundry') {
               router.push({
                 pathname: '/laundry-list',
-                params: { selectedItem: JSON.stringify(item) }
+                params: { selectedServiceId: item.id, serviceType: 'laundry' }
               });
             } else {
               router.push({
                 pathname: '/auto-list',
-                params: { selectedItem: JSON.stringify(item) }
+                params: { selectedServiceId: item.id, serviceType: 'auto' }
               });
             }
           }}
@@ -475,17 +519,17 @@ export default function UserHome() {
                           if (item.type === 'apartment') {
                             router.push({
                               pathname: '/apartment-list',
-                              params: { selectedItem: JSON.stringify(item) }
+                              params: { selectedApartmentId: item.id }
                             });
                           } else if (item.type === 'laundry') {
                             router.push({
                               pathname: '/laundry-list',
-                              params: { selectedItem: JSON.stringify(item) }
+                              params: { selectedServiceId: item.id, serviceType: 'laundry' }
                             });
                           } else if (item.type === 'auto') {
                             router.push({
                               pathname: '/auto-list',
-                              params: { selectedItem: JSON.stringify(item) }
+                              params: { selectedServiceId: item.id, serviceType: 'auto' }
                             });
                           }
                         }}
