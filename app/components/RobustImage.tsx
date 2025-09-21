@@ -9,7 +9,7 @@ interface RobustImageProps extends Omit<ImageProps, 'source'> {
 
 export const RobustImage: React.FC<RobustImageProps> = ({ 
   source, 
-  fallbackSource = require('@/assets/images/apartment1.webp'),
+  fallbackSource,
   onError,
   ...props 
 }) => {
@@ -19,7 +19,8 @@ export const RobustImage: React.FC<RobustImageProps> = ({
       return getImageSource(source);
     } catch (error) {
       console.error('❌ Error getting image source:', error);
-      return fallbackSource;
+      // Only use fallback if provided, otherwise use the original source
+      return fallbackSource || (typeof source === 'string' ? { uri: source } : source);
     }
   });
 
@@ -27,8 +28,8 @@ export const RobustImage: React.FC<RobustImageProps> = ({
     console.error('❌ Image load error:', error.nativeEvent.error);
     setHasError(true);
     
-    // If the current source is a URI and it failed, try the fallback
-    if (!hasError && typeof source === 'string' && source.startsWith('file:')) {
+    // Only use fallback if provided
+    if (fallbackSource && !hasError) {
       console.log('🔄 Switching to fallback image due to URI error');
       setCurrentSource(fallbackSource);
     }
@@ -57,7 +58,8 @@ export const RobustImage: React.FC<RobustImageProps> = ({
         setHasError(false);
       } catch (error) {
         console.error('❌ Error updating image source:', error);
-        setCurrentSource(fallbackSource);
+        // Only use fallback if provided, otherwise use the original source
+        setCurrentSource(fallbackSource || (typeof source === 'string' ? { uri: source } : source));
       }
     };
     

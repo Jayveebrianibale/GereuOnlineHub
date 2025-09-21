@@ -5,7 +5,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
@@ -125,15 +125,41 @@ export default function AutoListScreen() {
         
         setDetailModalVisible(false);
         setSelectedAutoService(null);
-        router.push('/(user-tabs)/bookings');
+        
+        // Show success message and redirect to bookings
+        Alert.alert(
+          'Reservation Successful!',
+          `You have successfully reserved ${service.title}. You can view your reservations in the Bookings tab.`,
+          [
+            {
+              text: 'View Bookings',
+              onPress: () => router.push('/(user-tabs)/bookings')
+            }
+          ]
+        );
       } catch (error) {
         console.error('Error reserving auto service:', error);
+        Alert.alert(
+          'Reservation Failed',
+          'Sorry, we couldn\'t process your reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     } else {
       try {
         await removeAutoReservation(service.id);
+        Alert.alert(
+          'Reservation Cancelled',
+          'Your reservation has been cancelled.',
+          [{ text: 'OK' }]
+        );
       } catch (error) {
         console.error('Error removing auto reservation:', error);
+        Alert.alert(
+          'Error',
+          'Failed to cancel reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     }
   };

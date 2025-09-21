@@ -35,8 +35,9 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
     if (lower.startsWith('file://')) {
       // Check if it's a problematic local cache file
       if (imagePath.includes('/cache/ImageManipulator/') || imagePath.includes('/data/user/0/host.exp.exponent/cache/')) {
-        console.warn('⚠️ Local cache file detected, using fallback image:', imagePath);
-        return require('@/assets/images/apartment1.webp');
+        console.warn('⚠️ Local cache file detected, this should not happen with immediate upload:', imagePath);
+        // Don't use fallback, just return the URI and let it fail naturally
+        return { uri: imagePath } as ImageSourcePropType;
       }
       console.log('🖼️ Using local file URI:', imagePath);
       return { uri: imagePath } as ImageSourcePropType;
@@ -64,11 +65,11 @@ export const getImageSource = (imagePath: string | ImageSourcePropType): ImageSo
     
     // If not found (like "26"), log warning and return default
     console.warn(`⚠️ Invalid image reference: "${fileName}". Using default image.`);
-    return require('@/assets/images/apartment1.webp');
+    return { uri: imagePath } as ImageSourcePropType;
     
   } catch (error) {
     console.error('❌ Error loading image:', error);
-    return require('@/assets/images/apartment1.webp');
+    return { uri: imagePath } as ImageSourcePropType;
   }
 };
 
@@ -93,8 +94,8 @@ export const getImageSourceAsync = async (imagePath: string | ImageSourcePropTyp
           console.log('✅ Successfully converted to base64');
           return { uri: base64Uri } as ImageSourcePropType;
         } else {
-          console.warn('⚠️ Failed to convert to base64, using fallback image');
-          return require('@/assets/images/apartment1.webp');
+          console.warn('⚠️ Failed to convert to base64, using original URI');
+          return { uri: imagePath } as ImageSourcePropType;
         }
       }
       console.log('🖼️ Using local file URI:', imagePath);
@@ -123,11 +124,11 @@ export const getImageSourceAsync = async (imagePath: string | ImageSourcePropTyp
     
     // If not found (like "26"), log warning and return default
     console.warn(`⚠️ Invalid image reference: "${fileName}". Using default image.`);
-    return require('@/assets/images/apartment1.webp');
+    return { uri: imagePath } as ImageSourcePropType;
     
   } catch (error) {
     console.error('❌ Error loading image:', error);
-    return require('@/assets/images/apartment1.webp');
+    return { uri: imagePath } as ImageSourcePropType;
   }
 };
 
