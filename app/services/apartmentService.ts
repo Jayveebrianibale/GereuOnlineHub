@@ -39,7 +39,9 @@ export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
         console.log('Apartment image converted to base64 successfully');
       } catch (imageError) {
         console.error('Error converting apartment image to base64:', imageError);
-        throw new Error('Failed to convert apartment image to base64');
+        // Use a default image instead of throwing an error
+        apartmentToSave.image = 'https://via.placeholder.com/400x300?text=Image+Error';
+        console.log('Using placeholder image due to conversion error');
       }
     } else if (apartment.image && (isBase64DataUrl(apartment.image) || isFirebaseStorageUrl(apartment.image))) {
       // Image is already base64 or Firebase Storage URL
@@ -54,7 +56,9 @@ export const createApartment = async (apartment: Omit<Apartment, 'id'>) => {
         console.log('Image converted to base64 successfully');
       } catch (imageError) {
         console.error('Error converting image to base64:', imageError);
-        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
+        // Use a default image instead of throwing an error
+        apartmentToSave.image = 'https://via.placeholder.com/400x300?text=Image+Error';
+        console.log('Using placeholder image due to conversion error');
       }
     }
     
@@ -117,7 +121,12 @@ export const updateApartment = async (id: string, apartment: Partial<Apartment>)
         console.log('Apartment image converted to base64 successfully');
       } catch (imageError) {
         console.error('Error converting apartment image to base64:', imageError);
-        throw new Error('Failed to convert apartment image to base64');
+        // Use a default image instead of throwing an error
+        apartmentToUpdate = {
+          ...apartment,
+          image: 'https://via.placeholder.com/400x300?text=Image+Error'
+        };
+        console.log('Using placeholder image due to conversion error');
       }
     } else if (apartment.image && (isBase64DataUrl(apartment.image) || isFirebaseStorageUrl(apartment.image))) {
       // Image is already base64 or Firebase Storage URL
@@ -138,7 +147,12 @@ export const updateApartment = async (id: string, apartment: Partial<Apartment>)
         console.log('Image converted to base64 successfully');
       } catch (imageError) {
         console.error('Error converting image to base64:', imageError);
-        throw new Error('Failed to convert image to base64. Please ensure it is a valid image file.');
+        // Use a default image instead of throwing an error
+        apartmentToUpdate = {
+          ...apartment,
+          image: 'https://via.placeholder.com/400x300?text=Image+Error'
+        };
+        console.log('Using placeholder image due to conversion error');
       }
     }
     

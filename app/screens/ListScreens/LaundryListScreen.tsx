@@ -14,7 +14,7 @@ import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
 
 import { push, ref, set } from 'firebase/database';
-import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { db } from '../../firebaseConfig';
 
@@ -124,15 +124,41 @@ export default function LaundryListScreen() {
         
         setDetailModalVisible(false);
         setSelectedLaundryService(null);
-        router.push('/(user-tabs)/bookings');
+        
+        // Show success message and redirect to bookings
+        Alert.alert(
+          'Reservation Successful!',
+          `You have successfully reserved ${service.title}. You can view your reservations in the Bookings tab.`,
+          [
+            {
+              text: 'View Bookings',
+              onPress: () => router.push('/(user-tabs)/bookings')
+            }
+          ]
+        );
       } catch (error) {
         console.error('Error reserving laundry service:', error);
+        Alert.alert(
+          'Reservation Failed',
+          'Sorry, we couldn\'t process your reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     } else {
       try {
         await removeLaundryReservation(service.id);
+        Alert.alert(
+          'Reservation Cancelled',
+          'Your reservation has been cancelled.',
+          [{ text: 'OK' }]
+        );
       } catch (error) {
         console.error('Error removing laundry reservation:', error);
+        Alert.alert(
+          'Error',
+          'Failed to cancel reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     }
   };

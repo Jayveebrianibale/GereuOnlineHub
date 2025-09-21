@@ -463,26 +463,14 @@ export default function ReservationsScreen() {
                           style={[styles.actionButton, styles.acceptButton]}
                           onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
-                          <MaterialIcons name="check" size={18} color="#10B981" />
-                          <ThemedText style={[
-                            styles.actionText, 
-                            { color: '#10B981' }
-                          ]}>
-                            Accept
-                          </ThemedText>
+                          <MaterialIcons name="check" size={20} color="#10B981" />
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
                           style={[styles.actionButton, styles.declineButton]}
                           onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
-                          <MaterialIcons name="close" size={18} color="#EF4444" />
-                          <ThemedText style={[
-                            styles.actionText, 
-                            { color: '#EF4444' }
-                          ]}>
-                            Decline
-                          </ThemedText>
+                          <MaterialIcons name="close" size={20} color="#EF4444" />
                         </TouchableOpacity>
                       </>
                     )}
@@ -515,13 +503,7 @@ export default function ReservationsScreen() {
                           }
                         }}
                       >
-                        <MaterialIcons name="done-all" size={18} color="#3B82F6" />
-                        <ThemedText style={[
-                          styles.actionText, 
-                          { color: '#3B82F6' }
-                        ]}>
-                          Mark Complete
-                        </ThemedText>
+                        <MaterialIcons name="done-all" size={20} color="#3B82F6" />
                       </TouchableOpacity>
                     )}
                     
@@ -530,13 +512,7 @@ export default function ReservationsScreen() {
                       style={[styles.actionButton, styles.deleteButton]}
                       onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle)}
                     >
-                      <MaterialIcons name="delete" size={18} color="#DC2626" />
-                      <ThemedText style={[
-                        styles.actionText, 
-                        { color: '#DC2626' }
-                      ]}>
-                        Delete
-                      </ThemedText>
+                      <MaterialIcons name="delete" size={20} color="#DC2626" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -668,16 +644,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     paddingTop: 12,
+    gap: 8,
   },
   actionButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 16,
-  },
-  actionText: {
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '500',
+    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   emptyState: {
     alignItems: 'center',
@@ -718,32 +692,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B98120',
     borderColor: '#10B981',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
   declineButton: {
     backgroundColor: '#EF444420',
     borderColor: '#EF4444',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
   completeButton: {
     backgroundColor: '#3B82F620',
     borderColor: '#3B82F6',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
   deleteButton: {
     backgroundColor: '#DC262620',
     borderColor: '#DC2626',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
 });
