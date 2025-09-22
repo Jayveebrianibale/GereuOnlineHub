@@ -108,15 +108,24 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
   const updateReservationStatus = async (reservationId: string, status: AdminReservation['status']) => {
     try {
       setError(null);
+      // Get the reservation before updating state
+      const reservation = (adminReservations || []).find(r => r.id === reservationId);
+      
       // Optimistically update local state so UI reflects the change immediately
       setAdminReservations(prev => prev.map(r => r.id === reservationId ? { ...r, status, updatedAt: new Date().toISOString() } : r));
       await updateAdminReservationStatus(reservationId, status);
+      
       // Notify the user about status change
-      const reservation = (adminReservations || []).find(r => r.id === reservationId);
       if (reservation) {
-        const title = status === 'confirmed' ? 'Reservation accepted' : status === 'declined' ? 'Reservation declined' : 'Reservation update';
-        const body = `${reservation.serviceTitle}: ${status}`;
-        await notifyUser(reservation.userId, title, body, { reservationId, status, serviceId: reservation.serviceId, serviceType: reservation.serviceType });
+        const title = status === 'confirmed' ? 'Reservation Accepted' : status === 'declined' ? 'Reservation Declined' : 'Reservation Update';
+        const body = `Your ${reservation.serviceTitle} reservation has been ${status}.`;
+        console.log('Sending user notification:', { userId: reservation.userId, title, body, status });
+        await notifyUser(reservation.userId, title, body, { 
+          reservationId, 
+          status, 
+          serviceId: reservation.serviceId, 
+          serviceType: reservation.serviceType 
+        });
       }
       // The real-time listener will update the state automatically
     } catch (err) {
