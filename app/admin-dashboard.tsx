@@ -459,6 +459,9 @@ export default function AdminDashboard() {
             </ThemedText>
           </View>
           <View style={styles.headerButtons}>
+            {/* <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/push-debugger')}>
+                <MaterialIcons name="bug-report" size={24} color={iconColor} />
+              </TouchableOpacity> */}
             <TouchableOpacity style={styles.iconButton} onPress={toggleColorScheme}>
               {/* <MaterialIcons 
                 name={colorScheme === 'dark' ? 'light-mode' : 'dark-mode'} 

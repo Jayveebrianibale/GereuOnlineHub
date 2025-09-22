@@ -17,7 +17,7 @@ import {
     cacheApartments,
     getCachedApartments
 } from '../../services/dataCache';
-import { notifyAdmins } from '../../services/notificationService';
+import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -125,6 +125,7 @@ export default function ApartmentListScreen() {
         chatId,
         text: messageText,
         image: apartment?.image || null,
+        imageUrl: apartment?.image || null, // Add imageUrl for consistency
         category: 'apartment',
         serviceId: apartment?.id || null,
         senderEmail: user.email,
@@ -133,7 +134,34 @@ export default function ApartmentListScreen() {
         recipientName: ADMIN_NAME,
         timestamp: Date.now(),
         time: Date.now(),
+        messageType: 'apartment_inquiry', // Add message type
+        apartmentTitle: apartment?.title || 'Apartment',
+        apartmentPrice: apartment?.price || 0,
+        apartmentLocation: apartment?.location || 'N/A',
       });
+
+      // Send push notification to admin
+      try {
+        await notifyAdminByEmail(
+          ADMIN_EMAIL,
+          'New apartment inquiry',
+          `User interested in: ${apartment?.title || 'Apartment'}`,
+          {
+            type: 'apartment_inquiry',
+            chatId: chatId,
+            senderEmail: user.email,
+            senderName: user.displayName || 'User',
+            serviceId: apartment?.id || null,
+            apartmentTitle: apartment?.title || 'Apartment',
+            apartmentImage: apartment?.image || null,
+            apartmentPrice: apartment?.price || 0,
+            apartmentLocation: apartment?.location || 'N/A'
+          }
+        );
+      } catch (notificationError) {
+        console.warn('Failed to send push notification for apartment inquiry:', notificationError);
+        // Don't fail the message send if notification fails
+      }
 
       setDetailModalVisible(false);
       router.push(`/chat/${encodeURIComponent(chatId)}?recipientName=${encodeURIComponent(ADMIN_NAME)}&recipientEmail=${encodeURIComponent(ADMIN_EMAIL)}&currentUserEmail=${encodeURIComponent(user.email)}`);

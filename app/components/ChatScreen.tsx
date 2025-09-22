@@ -1,28 +1,41 @@
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { uploadImageToFirebaseWithRetry } from '../services/imageUploadService';
+import { notifyAdminByEmail, notifyUserByEmail } from '../services/notificationService';
+import { formatPHP } from '../utils/currency';
+
+const colorPalette = {
+  lightest: '#C3F5FF',
+  light: '#7FE6FF',
+  primaryLight: '#4AD0FF',
+  primary: '#00B2FF',
+  primaryDark: '#007BE5',
+  dark: '#0051C1',
+  darker: '#002F87',
+  darkest: '#001A5C',
+};
 
 interface Message {
   id: string;
@@ -35,9 +48,16 @@ interface Message {
   recipientName?: string;
   senderName?: string;
   imageUrl?: string;
-  messageType?: 'text' | 'image';
+  image?: string; // For apartment inquiry images
+  messageType?: 'text' | 'image' | 'apartment_inquiry';
   deletedFor?: string[]; // Array of user emails who have deleted this message
   readBy?: string[]; // Array of user emails who have read this message
+  // Apartment inquiry fields
+  apartmentTitle?: string;
+  apartmentPrice?: number;
+  apartmentLocation?: string;
+  category?: string;
+  serviceId?: string;
 }
 
 interface ChatScreenProps {
@@ -75,6 +95,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   // Colors
   const bgColor = isDark ? '#121212' : '#fff';
   const textColor = isDark ? '#fff' : '#000';
+  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
   const bubbleBgColor = isDark ? '#2A2A2A' : '#e6e6e6';
   const adminBubbleBgColor = isDark ? '#004d40' : '#b2dfdb';
@@ -192,6 +213,49 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
       await push(ref(db, 'messages'), messageData);
       
+      // Send push notification to recipient
+      if (recipientEmail) {
+        try {
+          const notificationTitle = isAdmin ? 'New message from Admin' : 'New message from User';
+          const notificationBody = messageText.length > 50 
+            ? `${messageText.substring(0, 50)}...` 
+            : messageText;
+          
+          const notificationData = {
+            type: 'message',
+            chatId: chatId,
+            senderEmail: currentUserEmail,
+            senderName: isAdmin ? 'Admin' : currentUserEmail.split('@')[0],
+            messageId: messageData.id || 'unknown'
+          };
+
+          console.log('📱 Sending text message notification:', {
+            recipientEmail,
+            notificationTitle,
+            notificationBody,
+            isAdmin,
+            messageText: messageText.substring(0, 20) + '...'
+          });
+
+          if (isAdmin) {
+            // Admin sending to user
+            console.log('📤 Admin sending notification to user:', recipientEmail);
+            await notifyUserByEmail(recipientEmail, notificationTitle, notificationBody, notificationData);
+          } else {
+            // User sending to admin
+            console.log('📤 User sending notification to admin:', recipientEmail);
+            await notifyAdminByEmail(recipientEmail, notificationTitle, notificationBody, notificationData);
+          }
+          
+          console.log('✅ Text message notification sent successfully');
+        } catch (notificationError) {
+          console.error('❌ Failed to send push notification for text message:', notificationError);
+          // Don't fail the message send if notification fails
+        }
+      } else {
+        console.warn('⚠️ No recipient email provided, skipping text message notification');
+      }
+      
       // Clear input and refocus
       setInputText('');
       setTimeout(() => {
@@ -231,6 +295,49 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       };
 
       await push(ref(db, 'messages'), messageData);
+      
+      // Send push notification to recipient
+      if (recipientEmail) {
+        try {
+          const senderName = isAdmin ? 'Admin' : currentUserEmail.split('@')[0];
+          const notificationTitle = isAdmin ? 'New image from Admin' : 'New image from User';
+          const notificationBody = `📷 ${senderName} sent an image`;
+          
+          const notificationData = {
+            type: 'message',
+            chatId: chatId,
+            senderEmail: currentUserEmail,
+            senderName: senderName,
+            messageId: messageData.id || 'unknown',
+            messageType: 'image'
+          };
+
+          console.log('📱 Sending image message notification:', {
+            recipientEmail,
+            notificationTitle,
+            notificationBody,
+            isAdmin,
+            senderName
+          });
+
+          if (isAdmin) {
+            // Admin sending to user
+            console.log('📤 Admin sending image notification to user:', recipientEmail);
+            await notifyUserByEmail(recipientEmail, notificationTitle, notificationBody, notificationData);
+          } else {
+            // User sending to admin
+            console.log('📤 User sending image notification to admin:', recipientEmail);
+            await notifyAdminByEmail(recipientEmail, notificationTitle, notificationBody, notificationData);
+          }
+          
+          console.log('✅ Image message notification sent successfully');
+        } catch (notificationError) {
+          console.error('❌ Failed to send push notification for image:', notificationError);
+          // Don't fail the image send if notification fails
+        }
+      } else {
+        console.warn('⚠️ No recipient email provided, skipping image message notification');
+      }
       
     } catch (error) {
       console.error('Error sending image:', error);
@@ -535,6 +642,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const isCurrentUser = item.senderEmail === currentUserEmail;
     const isMessageFromAdmin = item.isAdmin;
     const isImageMessage = item.messageType === 'image' && item.imageUrl;
+    const isApartmentInquiry = item.messageType === 'apartment_inquiry' && (item.image || item.imageUrl);
     
     return (
       <View style={[
@@ -545,6 +653,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           style={[
             styles.messageBubble,
             isImageMessage ? styles.imageMessageBubble : {},
+            isApartmentInquiry ? styles.apartmentInquiryBubble : {},
             {
               backgroundColor: isCurrentUser 
                 ? (isMessageFromAdmin ? adminBubbleBgColor : userBubbleBgColor)
@@ -568,6 +677,53 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 />
               </TouchableOpacity>
               <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8 }]}>
+                {item.text}
+              </ThemedText>
+            </View>
+          ) : isApartmentInquiry ? (
+            <View style={styles.apartmentInquiryContainer}>
+              <View style={styles.apartmentInquiryHeader}>
+                <ThemedText style={[styles.apartmentInquiryTitle, { color: textColor }]}>
+                  🏠 Apartment Inquiry
+                </ThemedText>
+              </View>
+              
+              {(item.image || item.imageUrl) && (
+                <TouchableOpacity
+                  onPress={() => handleImagePress(item.image || item.imageUrl!)}
+                  activeOpacity={0.8}
+                  style={styles.apartmentImageContainer}
+                >
+                  <Image
+                    source={{ uri: item.image || item.imageUrl }}
+                    style={styles.apartmentInquiryImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.apartmentInquiryDetails}>
+                <ThemedText style={[styles.apartmentInquiryName, { color: textColor }]}>
+                  {item.apartmentTitle || 'Apartment'}
+                </ThemedText>
+                
+                {item.apartmentPrice && (
+                  <ThemedText style={[styles.apartmentInquiryPrice, { color: colorPalette.primary }]}>
+                    {formatPHP(item.apartmentPrice)}
+                  </ThemedText>
+                )}
+                
+                {item.apartmentLocation && (
+                  <View style={styles.apartmentLocationRow}>
+                    <MaterialIcons name="location-on" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
+                    <ThemedText style={[styles.apartmentLocationText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
+                      {item.apartmentLocation}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8, fontStyle: 'italic' }]}>
                 {item.text}
               </ThemedText>
             </View>
@@ -1183,5 +1339,59 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Apartment inquiry message styles
+  apartmentInquiryBubble: {
+    maxWidth: '85%',
+    padding: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  apartmentInquiryContainer: {
+    padding: 12,
+  },
+  apartmentInquiryHeader: {
+    marginBottom: 8,
+  },
+  apartmentInquiryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B2FF',
+  },
+  apartmentImageContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  apartmentInquiryImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  apartmentInquiryDetails: {
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  apartmentInquiryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  apartmentInquiryPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  apartmentLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  apartmentLocationText: {
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });

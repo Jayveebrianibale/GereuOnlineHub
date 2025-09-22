@@ -54,6 +54,7 @@ function AppContent() {
         <Stack.Screen name="admin-apartment" options={{ headerShown: false }} />
         <Stack.Screen name="admin-laundry" options={{ headerShown: false }} />
         <Stack.Screen name="admin-auto" options={{ headerShown: false }} />
+        <Stack.Screen name="push-debugger" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       </Stack>

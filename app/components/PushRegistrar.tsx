@@ -61,8 +61,12 @@ export default function PushRegistrar() {
         const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!isMounted) return;
         if (pushToken?.data) {
-          console.log('Expo push token:', pushToken.data);
+          console.log('Expo push token generated:', pushToken.data);
+          console.log('Saving token for user:', user.uid);
           await saveExpoPushToken(user.uid, pushToken.data);
+          console.log('Expo push token saved successfully');
+        } else {
+          console.warn('No push token data received from Expo');
         }
 
         // Try to fetch native FCM token on Android (EAS/dev client or standalone builds)

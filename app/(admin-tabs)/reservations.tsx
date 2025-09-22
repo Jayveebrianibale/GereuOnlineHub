@@ -97,14 +97,7 @@ export default function ReservationsScreen() {
           // Non-fatal: log and continue
           console.warn('Failed updating user reservation status:', e);
         }
-        try {
-          await notifyUser(
-            userId,
-            'Reservation Accepted',
-            `Your ${getServiceTypeDisplayName(serviceType)} has been accepted.`,
-            { serviceType, serviceId, action: 'accepted' }
-          );
-        } catch {}
+        // Notification is handled by AdminReservationContext.updateReservationStatus
         Alert.alert('Success', 'Reservation has been accepted successfully!');
       } catch (error) {
         console.error('Error accepting reservation:', error);
@@ -141,14 +134,7 @@ export default function ReservationsScreen() {
         } catch (e) {
           console.warn('Failed updating user reservation status:', e);
         }
-        try {
-          await notifyUser(
-            userId,
-            'Reservation Declined',
-            `Your ${getServiceTypeDisplayName(serviceType)} has been declined.`,
-            { serviceType, serviceId, action: 'declined' }
-          );
-        } catch {}
+        // Notification is handled by AdminReservationContext.updateReservationStatus
         Alert.alert('Success', 'Reservation has been declined successfully!');
       } catch (error) {
         console.error('Error declining reservation:', error);

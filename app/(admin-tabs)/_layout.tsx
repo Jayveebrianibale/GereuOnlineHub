@@ -23,6 +23,7 @@ export default function AdminTabLayout() {
   const { user } = useAuthContext();
   const isDark = colorScheme === 'dark';
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingReservationCount, setPendingReservationCount] = useState(0);
 
   // Listen for unread messages
   useEffect(() => {
@@ -79,6 +80,36 @@ export default function AdminTabLayout() {
     return () => unsubscribe();
   }, [user?.email]);
 
+  // Listen for pending reservations
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const reservationsRef = query(ref(db, "adminReservations"), orderByChild("status"));
+    
+    const unsubscribe = onValue(reservationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        
+        // Count pending reservations
+        const pendingReservations = Object.keys(data)
+          .map((key) => ({
+            id: key,
+            ...data[key],
+          }))
+          .filter((reservation: any) => {
+            return reservation.status === 'pending';
+          });
+
+        console.log('Badge Debug - Total pending reservations:', pendingReservations.length);
+        setPendingReservationCount(pendingReservations.length);
+      } else {
+        setPendingReservationCount(0);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.email]);
+
   // Custom icon component with badge
   const MessagesIcon = ({ color, size }: { color: string; size: number }) => (
     <View style={styles.iconContainer}>
@@ -87,6 +118,20 @@ export default function AdminTabLayout() {
         <View style={[styles.badge, { backgroundColor: '#FF4444' }]}>
           <Text style={styles.badgeText}>
             {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  // Custom reservations icon component with badge
+  const ReservationsIcon = ({ color, size }: { color: string; size: number }) => (
+    <View style={styles.iconContainer}>
+      <MaterialIcons name="receipt" size={size} color={color} />
+      {pendingReservationCount > 0 && (
+        <View style={[styles.badge, { backgroundColor: '#F59E0B' }]}>
+          <Text style={styles.badgeText}>
+            {pendingReservationCount > 99 ? '99+' : pendingReservationCount}
           </Text>
         </View>
       )}
@@ -123,7 +168,7 @@ export default function AdminTabLayout() {
         name="reservations"
         options={{
           title: 'Reservations',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ReservationsIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
