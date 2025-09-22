@@ -188,14 +188,14 @@ export default function ReservationsScreen() {
           console.warn('Failed updating user reservation status:', e);
         }
         
-        // Update service status to available
+        // Update service status to pending (available for new reservations)
         try {
           if (serviceType === 'apartment') {
-            await updateApartmentStatus(serviceId, 'available');
+            await updateApartmentStatus(serviceId, 'pending');
           } else if (serviceType === 'laundry') {
-            await updateLaundryStatus(serviceId, 'available');
+            await updateLaundryStatus(serviceId, 'pending');
           } else if (serviceType === 'auto') {
-            await updateAutoStatus(serviceId, 'available');
+            await updateAutoStatus(serviceId, 'pending');
           }
         } catch (e) {
           console.warn('Failed updating service status:', e);
