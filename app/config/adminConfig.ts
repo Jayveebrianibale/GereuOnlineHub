@@ -4,6 +4,7 @@
 export const ADMIN_EMAILS: string[] = [
   'jayveebriani@gmail.com',
   'alfredosayson@gmail.com',
+  'sayson5@gmail.com',
   // Add more admin emails here as needed
   // 'admin2@example.com',
   // 'admin3@example.com',

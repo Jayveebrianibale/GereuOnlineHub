@@ -137,7 +137,7 @@ export default function SignupScreen() {
       
       // Manual navigation based on user role
       setTimeout(() => {
-        if (email.toLowerCase() === 'alfredosayson@gmail.com' || email.toLowerCase() === 'jayveebriani@gmail.com') {
+        if (email.toLowerCase() === 'alfredosayson@gmail.com' || email.toLowerCase() === 'jayveebriani@gmail.com' || email.toLowerCase() === 'sayson5@gmail.com') {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');

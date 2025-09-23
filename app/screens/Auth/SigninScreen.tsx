@@ -177,7 +177,7 @@ export default function SigninScreen() {
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
       setTimeout(() => {
-        if (user.email && (user.email.toLowerCase() === 'alfredosayson@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com')) {
+        if (user.email && (user.email.toLowerCase() === 'alfredosayson@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com' || user.email.toLowerCase() === 'sayson5@gmail.com')) {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
