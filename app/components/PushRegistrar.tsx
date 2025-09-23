@@ -25,7 +25,11 @@ export default function PushRegistrar() {
         // Enhanced handler: show alerts and play sounds when app is foreground
         Notifications.setNotificationHandler({
           handleNotification: async (notification) => {
-            console.log('Notification received in foreground:', notification);
+            console.log('📱 Notification received in foreground:', notification);
+            console.log('📱 Notification data:', notification.request.content.data);
+            console.log('📱 Notification title:', notification.request.content.title);
+            console.log('📱 Notification body:', notification.request.content.body);
+            
             return {
               shouldShowAlert: true,
               shouldPlaySound: true,
@@ -42,20 +46,47 @@ export default function PushRegistrar() {
           const { status } = await Notifications.requestPermissionsAsync();
           finalStatus = status;
         }
-        if (finalStatus !== 'granted') return;
+        if (finalStatus !== 'granted') {
+          console.warn('❌ Notification permissions not granted:', finalStatus);
+          return;
+        }
+        console.log('✅ Notification permissions granted:', finalStatus);
 
         if (Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'Default Notifications',
-            description: 'Default notification channel for app notifications',
-            importance: Notifications.AndroidImportance.HIGH,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-            sound: 'default',
-            enableVibrate: true,
-            enableLights: true,
-            showBadge: true,
-          });
+          try {
+            await Notifications.setNotificationChannelAsync('default', {
+              name: 'Default Notifications',
+              description: 'Default notification channel for app notifications',
+              importance: Notifications.AndroidImportance.HIGH,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: '#FF231F7C',
+              sound: 'default',
+              enableVibrate: true,
+              enableLights: true,
+              showBadge: true,
+              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+              bypassDnd: true,
+            });
+            console.log('✅ Default notification channel created');
+            
+            // Create a high priority channel for messages
+            await Notifications.setNotificationChannelAsync('messages', {
+              name: 'Messages',
+              description: 'Chat message notifications',
+              importance: Notifications.AndroidImportance.HIGH,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: '#FF231F7C',
+              sound: 'default',
+              enableVibrate: true,
+              enableLights: true,
+              showBadge: true,
+              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+              bypassDnd: true,
+            });
+            console.log('✅ Messages notification channel created');
+          } catch (channelError) {
+            console.error('❌ Failed to create notification channels:', channelError);
+          }
         }
 
         // In development builds, `projectId` may be required explicitly
@@ -64,19 +95,24 @@ export default function PushRegistrar() {
         const projectId = expoConfig?.extra?.eas?.projectId ?? easConfig?.projectId;
 
         if (!projectId) {
-          console.warn('No EAS projectId found. Skipping remote push registration.');
+          console.warn('❌ No EAS projectId found. Skipping remote push registration.');
           return;
         }
+        console.log('✅ EAS projectId found:', projectId);
 
-        const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
-        if (!isMounted) return;
-        if (pushToken?.data) {
-          console.log('Expo push token generated:', pushToken.data);
-          console.log('Saving token for user:', user.uid);
-          await saveExpoPushToken(user.uid, pushToken.data);
-          console.log('Expo push token saved successfully');
-        } else {
-          console.warn('No push token data received from Expo');
+        try {
+          const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
+          if (!isMounted) return;
+          if (pushToken?.data) {
+            console.log('✅ Expo push token generated:', pushToken.data);
+            console.log('💾 Saving token for user:', user.uid);
+            await saveExpoPushToken(user.uid, pushToken.data);
+            console.log('✅ Expo push token saved successfully');
+          } else {
+            console.warn('❌ No push token data received from Expo');
+          }
+        } catch (tokenError) {
+          console.error('❌ Failed to get Expo push token:', tokenError);
         }
 
         // Try to fetch native FCM token on Android (EAS/dev client or standalone builds)
@@ -96,11 +132,22 @@ export default function PushRegistrar() {
 
         // Add notification received listener for background notifications
         const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-          console.log('Background notification received:', notification);
+          console.log('📱 Background notification received:', notification);
+          console.log('📱 Background notification data:', notification.request.content.data);
+          console.log('📱 Background notification title:', notification.request.content.title);
+          console.log('📱 Background notification body:', notification.request.content.body);
         });
 
         const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-          console.log('Notification response received:', response);
+          console.log('📱 Notification response received:', response);
+          console.log('📱 Notification response data:', response.notification.request.content.data);
+          
+          // Handle notification tap - navigate to chat if it's a message notification
+          const data = response.notification.request.content.data;
+          if (data?.type === 'message' && data?.chatId) {
+            console.log('📱 Navigating to chat:', data.chatId);
+            // You can add navigation logic here if needed
+          }
         });
 
         // Store listeners for cleanup

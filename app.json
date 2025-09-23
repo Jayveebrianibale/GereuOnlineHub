@@ -12,10 +12,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.onlinegereu.hub",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPushNotificationUsageDescription": "This app needs to send you notifications for new messages and updates."
       },
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "production"
       }
     },
     "android": {
@@ -30,7 +31,10 @@
         "android.permission.WAKE_LOCK",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "com.google.android.c2dm.permission.RECEIVE"
       ],
       "notification": {
         "icon": "./assets/images/icon.png",

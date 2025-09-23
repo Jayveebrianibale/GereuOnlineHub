@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
-import { sendExpoPushAsync } from '../services/notificationService';
+import { notifyUser } from '../services/notificationService';
 
 export default function NotificationTester() {
   const { user } = useAuthContext();
+  const [isLoading, setIsLoading] = useState(false);
 
   const testNotification = async () => {
     if (!user) {
@@ -11,49 +13,45 @@ export default function NotificationTester() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      await sendExpoPushAsync({
-        to: user.uid, // This should be the push token, not user ID
-        title: 'Test Notification',
-        body: 'This is a test notification from the app',
-        sound: 'default',
-        priority: 'high',
-        data: { test: true }
-      });
+      await notifyUser(
+        user.uid,
+        'Test Notification',
+        'This is a test notification to verify push notifications are working!',
+        { type: 'test', timestamp: Date.now() }
+      );
       Alert.alert('Success', 'Test notification sent!');
     } catch (error) {
-      console.error('Test notification error:', error);
+      console.error('Test notification failed:', error);
       Alert.alert('Error', 'Failed to send test notification');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const testLocalNotification = async () => {
-    try {
-      const Notifications = await import('expo-notifications');
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Local Test Notification',
-          body: 'This is a local test notification',
-          sound: 'default',
-        },
-        trigger: { seconds: 1 },
-      });
-      Alert.alert('Success', 'Local test notification scheduled!');
-    } catch (error) {
-      console.error('Local notification error:', error);
-      Alert.alert('Error', 'Failed to schedule local notification');
-    }
-  };
+  if (!user) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Notification Tester</Text>
-      <TouchableOpacity style={styles.button} onPress={testLocalNotification}>
-        <Text style={styles.buttonText}>Test Local Notification</Text>
+      <Text style={styles.title}>Push Notification Tester</Text>
+      <Text style={styles.subtitle}>Test if push notifications are working</Text>
+      
+      <TouchableOpacity
+        style={[styles.button, isLoading && styles.buttonDisabled]}
+        onPress={testNotification}
+        disabled={isLoading}
+      >
+        <Text style={styles.buttonText}>
+          {isLoading ? 'Sending...' : 'Send Test Notification'}
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={testNotification}>
-        <Text style={styles.buttonText}>Test Push Notification</Text>
-      </TouchableOpacity>
+      
+      <Text style={styles.info}>
+        Make sure to check your device's notification settings and allow notifications for this app.
+      </Text>
     </View>
   );
 }
@@ -68,18 +66,33 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
     textAlign: 'center',
   },
   button: {
     backgroundColor: '#007AFF',
     padding: 15,
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 15,
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
   },
   buttonText: {
     color: 'white',
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  info: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

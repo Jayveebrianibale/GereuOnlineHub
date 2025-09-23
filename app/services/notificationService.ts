@@ -14,9 +14,11 @@ const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 
 export async function saveExpoPushToken(userId: string, token: string): Promise<void> {
   try {
+    console.log('💾 Saving Expo push token to Firebase:', { userId, token: token.substring(0, 30) + '...' });
     await set(ref(db, `users/${userId}/expoPushToken`), token);
+    console.log('✅ Expo push token saved to Firebase successfully');
   } catch (error) {
-    console.error('Failed to save Expo push token:', error);
+    console.error('❌ Failed to save Expo push token:', error);
   }
 }
 
@@ -33,11 +35,17 @@ export const addFcmToken = saveFcmToken;
 
 export async function getUserPushToken(userId: string): Promise<string | null> {
   try {
+    console.log('🔍 Getting user push token for:', userId);
     const snap = await get(ref(db, `users/${userId}/expoPushToken`));
-    if (snap.exists()) return snap.val();
+    if (snap.exists()) {
+      const token = snap.val();
+      console.log('✅ User push token found:', token?.substring(0, 30) + '...');
+      return token;
+    }
+    console.warn('❌ No push token found for user:', userId);
     return null;
   } catch (error) {
-    console.error('Failed to get user push token:', error);
+    console.error('❌ Failed to get user push token:', error);
     return null;
   }
 }
@@ -100,8 +108,15 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
             }
             return isValid;
           })
-          .map((token) => ({ ...message, to: token }))
-      : [message];
+          .map((token) => ({ 
+            ...message, 
+            to: token,
+            channelId: message.data?.type === 'message' ? 'messages' : 'default'
+          }))
+      : [{ 
+          ...message, 
+          channelId: message.data?.type === 'message' ? 'messages' : 'default'
+        }];
 
     if (messages.length === 0) {
       console.warn('No valid messages after filtering tokens');
@@ -165,13 +180,22 @@ export async function notifyUser(userId: string, title: string, body: string, da
 // Get user ID by email
 export async function getUserIdByEmail(email: string): Promise<string | null> {
   try {
+    console.log('🔍 Looking up user ID by email:', email);
     const snap = await get(ref(db, 'users'));
-    if (!snap.exists()) return null;
+    if (!snap.exists()) {
+      console.warn('❌ No users found in database');
+      return null;
+    }
     const users = snap.val() || {};
     const user = Object.values(users).find((u: any) => u.email === email);
-    return user ? (user as any).id : null;
+    if (user) {
+      console.log('✅ User found:', { email, uid: (user as any).uid });
+      return (user as any).uid;
+    }
+    console.warn('❌ User not found with email:', email);
+    return null;
   } catch (error) {
-    console.error('Failed to get user ID by email:', error);
+    console.error('❌ Failed to get user ID by email:', error);
     return null;
   }
 }
