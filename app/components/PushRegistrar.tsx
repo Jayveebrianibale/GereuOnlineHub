@@ -22,13 +22,18 @@ export default function PushRegistrar() {
 
         const Notifications = await import('expo-notifications');
 
-        // Basic handler: show alerts and play sounds when app is foreground
+        // Enhanced handler: show alerts and play sounds when app is foreground
         Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: false,
-          }),
+          handleNotification: async (notification) => {
+            console.log('Notification received in foreground:', notification);
+            return {
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+              shouldShowBanner: true,
+              shouldShowList: true,
+            };
+          },
         });
 
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -41,10 +46,15 @@ export default function PushRegistrar() {
 
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
+            name: 'Default Notifications',
+            description: 'Default notification channel for app notifications',
+            importance: Notifications.AndroidImportance.HIGH,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            showBadge: true,
           });
         }
 
@@ -72,9 +82,7 @@ export default function PushRegistrar() {
         // Try to fetch native FCM token on Android (EAS/dev client or standalone builds)
         if (Platform.OS === 'android' && Notifications.getDevicePushTokenAsync) {
           try {
-            const deviceToken = await Notifications.getDevicePushTokenAsync({
-              projectId,
-            } as any);
+            const deviceToken = await Notifications.getDevicePushTokenAsync();
             const tokenString = (deviceToken as any)?.data || (deviceToken as any)?.token;
             if (tokenString) {
               console.log('Android device push token (FCM):', tokenString);
@@ -85,6 +93,24 @@ export default function PushRegistrar() {
             console.warn('FCM token fetch failed:', (err as any)?.message || err);
           }
         }
+
+        // Add notification received listener for background notifications
+        const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+          console.log('Background notification received:', notification);
+        });
+
+        const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+          console.log('Notification response received:', response);
+        });
+
+        // Store listeners for cleanup
+        if (isMounted) {
+          // Store listeners in a way that can be cleaned up
+          (window as any).__notificationListeners = {
+            notification: notificationListener,
+            response: responseListener
+          };
+        }
       } catch (err) {
         // Silently ignore if expo-notifications is not installed or fails
         console.warn('Push registration skipped:', (err as any)?.message || err);
@@ -94,6 +120,12 @@ export default function PushRegistrar() {
     register();
     return () => {
       isMounted = false;
+      // Cleanup listeners if they exist
+      if ((window as any).__notificationListeners) {
+        (window as any).__notificationListeners.notification?.remove();
+        (window as any).__notificationListeners.response?.remove();
+        delete (window as any).__notificationListeners;
+      }
     };
   }, [user]);
 

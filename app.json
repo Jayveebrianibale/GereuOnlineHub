@@ -25,7 +25,17 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.onlinegereu.hub",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
+      ],
+      "notification": {
+        "icon": "./assets/images/icon.png",
+        "color": "#cb044d"
+      }
     },
     "web": {
       "bundler": "metro",
