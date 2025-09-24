@@ -462,7 +462,7 @@ export default function AdminDashboard() {
             {/* <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/push-debugger')}>
                 <MaterialIcons name="bug-report" size={24} color={iconColor} />
               </TouchableOpacity> */}
-            <TouchableOpacity style={styles.iconButton} onPress={toggleColorScheme}>
+            <TouchableOpacity style={styles.iconButton} onPress={toggleColorScheme}>  
               {/* <MaterialIcons 
                 name={colorScheme === 'dark' ? 'light-mode' : 'dark-mode'} 
                 size={24} 
