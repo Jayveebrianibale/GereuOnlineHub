@@ -1,337 +1,358 @@
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import {
-    getAdminPushTokens,
+    getUserFcmToken,
     getUserPushToken,
     notifyAdmins,
-    notifyUser
+    notifyUser,
+    sendExpoPushAsync
 } from '../services/notificationService';
 
 export default function PushNotificationDebugger() {
   const { user } = useAuthContext();
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  const checkUserToken = async () => {
-    if (!user) {
-      Alert.alert('Error', 'No user logged in');
-      return;
-    }
-    
-    setLoading(true);
+  useEffect(() => {
+    loadDebugInfo();
+  }, [user]);
+
+  const loadDebugInfo = async () => {
+    if (!user) return;
+
     try {
-      const token = await getUserPushToken(user.uid);
-      setDebugInfo(prev => ({
-        ...prev,
-        userToken: token,
-        userTokenStatus: token ? 'Found' : 'Not Found'
-      }));
+      const expoToken = await getUserPushToken(user.uid);
+      const fcmToken = await getUserFcmToken(user.uid);
+      
+      // Check FCM server key configuration
+      let fcmServerKeyConfigured = false;
+      try {
+        const Constants = await import('expo-constants');
+        fcmServerKeyConfigured = !!Constants.default?.expoConfig?.extra?.fcmServerKey;
+      } catch (error) {
+        console.warn('Could not check FCM server key configuration:', error);
+      }
+      
+      setDebugInfo({
+        userId: user.uid,
+        userEmail: user.email,
+        expoToken: expoToken ? `${expoToken.substring(0, 30)}...` : 'Not found',
+        fcmToken: fcmToken ? `${fcmToken.substring(0, 30)}...` : 'Not found',
+        hasExpoToken: !!expoToken,
+        hasFcmToken: !!fcmToken,
+        fcmServerKeyConfigured,
+      });
     } catch (error) {
-      console.error('Error checking user token:', error);
-      Alert.alert('Error', 'Failed to check user token');
-    } finally {
-      setLoading(false);
+      console.error('Error loading debug info:', error);
     }
   };
 
-  const checkAdminTokens = async () => {
-    setLoading(true);
+  const testLocalNotification = async () => {
+    setIsLoading(true);
     try {
-      const tokens = await getAdminPushTokens();
-      setDebugInfo(prev => ({
-        ...prev,
-        adminTokens: tokens,
-        adminTokenCount: tokens.length
-      }));
+      const Notifications = await import('expo-notifications');
+      
+      // Check permissions first
+      const { status } = await Notifications.getPermissionsAsync();
+      console.log('Current notification permission status:', status);
+      
+      if (status !== 'granted') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        console.log('New notification permission status:', newStatus);
+        if (newStatus !== 'granted') {
+          Alert.alert('Permission Denied', 'Notification permission is required');
+          return;
+        }
+      }
+
+      // Schedule local notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Local Test Notification',
+          body: 'This is a local test notification - should appear in notification bar',
+          sound: 'default',
+          data: { test: true },
+        },
+        trigger: { seconds: 2 },
+      });
+      
+      Alert.alert('Success', 'Local notification scheduled! Check notification bar in 2 seconds.');
     } catch (error) {
-      console.error('Error checking admin tokens:', error);
-      Alert.alert('Error', 'Failed to check admin tokens');
+      console.error('Local notification error:', error);
+      Alert.alert('Error', `Failed to schedule local notification: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const testUserNotification = async () => {
+  const testExpoPushNotification = async () => {
     if (!user) {
-      Alert.alert('Error', 'No user logged in');
+      Alert.alert('Error', 'User not logged in');
       return;
     }
-    
-    setLoading(true);
+
+    setIsLoading(true);
+    try {
+      const expoToken = await getUserPushToken(user.uid);
+      if (!expoToken) {
+        Alert.alert('Error', 'No Expo push token found for this user');
+        return;
+      }
+
+      console.log('Sending test push notification to token:', expoToken);
+      
+      await sendExpoPushAsync({
+        to: expoToken,
+        title: 'Test Push Notification',
+        body: 'This is a test push notification - should appear in notification bar',
+        sound: 'default',
+        priority: 'high',
+        data: { test: true, timestamp: Date.now() }
+      });
+      
+      Alert.alert('Success', 'Push notification sent! Check notification bar.');
+    } catch (error) {
+      console.error('Push notification error:', error);
+      Alert.alert('Error', `Failed to send push notification: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testNotifyUser = async () => {
+    if (!user) {
+      Alert.alert('Error', 'User not logged in');
+      return;
+    }
+
+    setIsLoading(true);
     try {
       await notifyUser(
         user.uid,
-        'Test Notification',
-        'This is a test notification from the debugger',
+        'Test User Notification',
+        'This is a test user notification via notifyUser function',
         { test: true, timestamp: Date.now() }
       );
-      Alert.alert('Success', 'Test notification sent to user');
+      
+      Alert.alert('Success', 'User notification sent! Check notification bar.');
     } catch (error) {
-      console.error('Error sending user notification:', error);
-      Alert.alert('Error', 'Failed to send user notification');
+      console.error('User notification error:', error);
+      Alert.alert('Error', `Failed to send user notification: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const testAdminNotification = async () => {
-    setLoading(true);
+  const testNotifyAdmins = async () => {
+    setIsLoading(true);
     try {
       await notifyAdmins(
         'Test Admin Notification',
-        'This is a test notification for admins',
+        'This is a test admin notification via notifyAdmins function',
         { test: true, timestamp: Date.now() }
       );
-      Alert.alert('Success', 'Test notification sent to admins');
+      
+      Alert.alert('Success', 'Admin notification sent! Check notification bar.');
     } catch (error) {
-      console.error('Error sending admin notification:', error);
-      Alert.alert('Error', 'Failed to send admin notification');
+      console.error('Admin notification error:', error);
+      Alert.alert('Error', `Failed to send admin notification: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const runFullDiagnostic = async () => {
-    setLoading(true);
+
+  const checkNotificationSettings = async () => {
     try {
-      // Check user token
-      const userToken = user ? await getUserPushToken(user.uid) : null;
+      const Notifications = await import('expo-notifications');
+      const { status } = await Notifications.getPermissionsAsync();
       
-      // Check admin tokens
-      const adminTokens = await getAdminPushTokens();
-      
-      setDebugInfo({
-        userToken,
-        userTokenStatus: userToken ? 'Found' : 'Not Found',
-        adminTokens,
-        adminTokenCount: adminTokens.length,
-        userRole: user?.role || 'Not logged in',
-        userId: user?.uid || 'Not logged in',
-        timestamp: new Date().toISOString()
-      });
+      Alert.alert(
+        'Notification Settings',
+        `Permission Status: ${status}\n\n` +
+        `If status is not 'granted', notifications won't work.\n\n` +
+        `Please check:\n` +
+        `1. App notification settings in Android\n` +
+        `2. Do Not Disturb mode\n` +
+        `3. Battery optimization settings\n` +
+        `4. App-specific notification permissions`
+      );
     } catch (error) {
-      console.error('Error running diagnostic:', error);
-      Alert.alert('Error', 'Failed to run diagnostic');
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', `Failed to check settings: ${error.message}`);
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <ThemedText type="title" style={styles.title}>
-          Push Notification Debugger
-        </ThemedText>
-        
-        <ThemedText style={styles.subtitle}>
-          Use this tool to debug push notification issues
-        </ThemedText>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Push Notification Debugger</Text>
+      
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Debug Information</Text>
+        <Text style={styles.debugText}>User ID: {debugInfo.userId || 'Not available'}</Text>
+        <Text style={styles.debugText}>Email: {debugInfo.userEmail || 'Not available'}</Text>
+        <Text style={styles.debugText}>Expo Token: {debugInfo.expoToken || 'Not found'}</Text>
+        <Text style={styles.debugText}>FCM Token: {debugInfo.fcmToken || 'Not found'}</Text>
+        <Text style={[styles.debugText, { color: debugInfo.hasExpoToken ? 'green' : 'red' }]}>
+          Has Expo Token: {debugInfo.hasExpoToken ? 'Yes' : 'No'}
+        </Text>
+        <Text style={[styles.debugText, { color: debugInfo.hasFcmToken ? 'green' : 'red' }]}>
+          Has FCM Token: {debugInfo.hasFcmToken ? 'Yes' : 'No'}
+        </Text>
+        <Text style={[styles.debugText, { color: debugInfo.fcmServerKeyConfigured ? 'green' : 'orange' }]}>
+          FCM Server Key: {debugInfo.fcmServerKeyConfigured ? 'Configured' : 'Not configured'}
+        </Text>
+      </View>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]} 
-            onPress={runFullDiagnostic}
-            disabled={loading}
-          >
-            <MaterialIcons name="bug-report" size={20} color="#fff" />
-            <ThemedText style={styles.buttonText}>Run Full Diagnostic</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton, loading && styles.buttonDisabled]} 
-            onPress={checkUserToken}
-            disabled={loading}
-          >
-            <MaterialIcons name="person" size={20} color="#00B2FF" />
-            <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Check User Token</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton, loading && styles.buttonDisabled]} 
-            onPress={checkAdminTokens}
-            disabled={loading}
-          >
-            <MaterialIcons name="admin-panel-settings" size={20} color="#00B2FF" />
-            <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Check Admin Tokens</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.button, styles.testButton, loading && styles.buttonDisabled]} 
-            onPress={testUserNotification}
-            disabled={loading}
-          >
-            <MaterialIcons name="notifications" size={20} color="#fff" />
-            <ThemedText style={styles.buttonText}>Test User Notification</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.button, styles.testButton, loading && styles.buttonDisabled]} 
-            onPress={testAdminNotification}
-            disabled={loading}
-          >
-            <MaterialIcons name="notifications-active" size={20} color="#fff" />
-            <ThemedText style={styles.buttonText}>Test Admin Notification</ThemedText>
-          </TouchableOpacity>
+      {!debugInfo.fcmServerKeyConfigured && (
+        <View style={[styles.section, { backgroundColor: '#fff3cd', borderLeftWidth: 4, borderLeftColor: '#ffc107' }]}>
+          <Text style={[styles.sectionTitle, { color: '#856404' }]}>⚠️ FCM Server Key Notice</Text>
+          <Text style={[styles.debugText, { color: '#856404' }]}>
+            FCM server key is not configured. Notifications will work but may be slower.
+          </Text>
+          <Text style={[styles.debugText, { color: '#856404' }]}>
+            To configure: Run "node configure-fcm.js --key YOUR_SERVER_KEY"
+          </Text>
+          <Text style={[styles.debugText, { color: '#856404' }]}>
+            Get your key from Firebase Console → Project Settings → Cloud Messaging
+          </Text>
         </View>
+      )}
 
-        {debugInfo && (
-          <View style={styles.debugContainer}>
-            <ThemedText type="subtitle" style={styles.debugTitle}>
-              Debug Information
-            </ThemedText>
-            
-            <View style={styles.debugItem}>
-              <ThemedText style={styles.debugLabel}>User ID:</ThemedText>
-              <ThemedText style={styles.debugValue}>{debugInfo.userId}</ThemedText>
-            </View>
-            
-            <View style={styles.debugItem}>
-              <ThemedText style={styles.debugLabel}>User Role:</ThemedText>
-              <ThemedText style={styles.debugValue}>{debugInfo.userRole}</ThemedText>
-            </View>
-            
-            <View style={styles.debugItem}>
-              <ThemedText style={styles.debugLabel}>User Token Status:</ThemedText>
-              <ThemedText style={[
-                styles.debugValue, 
-                debugInfo.userTokenStatus === 'Found' ? styles.success : styles.error
-              ]}>
-                {debugInfo.userTokenStatus}
-              </ThemedText>
-            </View>
-            
-            {debugInfo.userToken && (
-              <View style={styles.debugItem}>
-                <ThemedText style={styles.debugLabel}>User Token:</ThemedText>
-                <ThemedText style={styles.debugValue} numberOfLines={2}>
-                  {debugInfo.userToken.substring(0, 50)}...
-                </ThemedText>
-              </View>
-            )}
-            
-            <View style={styles.debugItem}>
-              <ThemedText style={styles.debugLabel}>Admin Token Count:</ThemedText>
-              <ThemedText style={[
-                styles.debugValue,
-                debugInfo.adminTokenCount > 0 ? styles.success : styles.error
-              ]}>
-                {debugInfo.adminTokenCount}
-              </ThemedText>
-            </View>
-            
-            {debugInfo.adminTokens && debugInfo.adminTokens.length > 0 && (
-              <View style={styles.debugItem}>
-                <ThemedText style={styles.debugLabel}>Admin Tokens:</ThemedText>
-                <ThemedText style={styles.debugValue}>
-                  {debugInfo.adminTokens.map((token: string, index: number) => (
-                    `${index + 1}. ${token.substring(0, 30)}...`
-                  )).join('\n')}
-                </ThemedText>
-              </View>
-            )}
-            
-            <View style={styles.debugItem}>
-              <ThemedText style={styles.debugLabel}>Last Updated:</ThemedText>
-              <ThemedText style={styles.debugValue}>{debugInfo.timestamp}</ThemedText>
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    </ThemedView>
+      {debugInfo.fcmServerKeyConfigured && (
+        <View style={[styles.section, { backgroundColor: '#d4edda', borderLeftWidth: 4, borderLeftColor: '#28a745' }]}>
+          <Text style={[styles.sectionTitle, { color: '#155724' }]}>✅ FCM Server Key Configured</Text>
+          <Text style={[styles.debugText, { color: '#155724' }]}>
+            FCM server key is configured. Notifications should use optimized delivery.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Test Notifications</Text>
+        
+        <TouchableOpacity 
+          style={[styles.button, styles.localButton]} 
+          onPress={testLocalNotification}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Test Local Notification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.expoButton]} 
+          onPress={testExpoPushNotification}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Test Expo Push Notification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.userButton]} 
+          onPress={testNotifyUser}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Test User Notification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.adminButton]} 
+          onPress={testNotifyAdmins}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>Test Admin Notification</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.settingsButton]} 
+          onPress={checkNotificationSettings}
+        >
+          <Text style={styles.buttonText}>Check Notification Settings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.refreshButton]} 
+          onPress={loadDebugInfo}
+        >
+          <Text style={styles.buttonText}>Refresh Debug Info</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isLoading && (
+        <Text style={styles.loadingText}>Loading...</Text>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContainer: {
     padding: 20,
+    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#001A5C',
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
   },
-  subtitle: {
-    fontSize: 14,
-    opacity: 0.8,
-    marginBottom: 24,
-    color: '#0051C1',
+  section: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  buttonContainer: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#00B2FF',
-    gap: 8,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#00B2FF',
-  },
-  testButton: {
-    backgroundColor: '#10B981',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButtonText: {
-    color: '#00B2FF',
-  },
-  debugContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  debugTitle: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#001A5C',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
   },
-  debugItem: {
-    marginBottom: 12,
-  },
-  debugLabel: {
+  debugText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 4,
-  },
-  debugValue: {
-    fontSize: 14,
-    color: '#212529',
+    marginBottom: 5,
     fontFamily: 'monospace',
   },
-  success: {
-    color: '#10B981',
-    fontWeight: '600',
+  button: {
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
   },
-  error: {
-    color: '#EF4444',
-    fontWeight: '600',
+  localButton: {
+    backgroundColor: '#4CAF50',
+  },
+  expoButton: {
+    backgroundColor: '#2196F3',
+  },
+  userButton: {
+    backgroundColor: '#FF9800',
+  },
+  adminButton: {
+    backgroundColor: '#9C27B0',
+  },
+  settingsButton: {
+    backgroundColor: '#607D8B',
+  },
+  refreshButton: {
+    backgroundColor: '#795548',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
   },
 });

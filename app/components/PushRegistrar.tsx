@@ -43,9 +43,35 @@ export default function PushRegistrar() {
         if (finalStatus !== 'granted') return;
 
         if (Platform.OS === 'android') {
+          // Create multiple notification channels for better organization
           await Notifications.setNotificationChannelAsync('default', {
             name: 'Default Notifications',
             description: 'Default notification channel for app notifications',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            showBadge: true,
+          });
+
+          // Create specific channels for different types of notifications
+          await Notifications.setNotificationChannelAsync('messages', {
+            name: 'Messages',
+            description: 'Chat and message notifications',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            showBadge: true,
+          });
+
+          await Notifications.setNotificationChannelAsync('reservations', {
+            name: 'Reservations',
+            description: 'Reservation and booking notifications',
             importance: Notifications.AndroidImportance.HIGH,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',

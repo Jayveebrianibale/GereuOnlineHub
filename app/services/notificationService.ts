@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { get, ref, set } from 'firebase/database';
 import { db } from '../firebaseConfig';
 
@@ -11,6 +12,16 @@ type ExpoPushMessage = {
 };
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
+
+// Get FCM server key from app configuration
+function getFcmServerKey(): string | null {
+  try {
+    return Constants.expoConfig?.extra?.fcmServerKey || null;
+  } catch (error) {
+    console.warn('Could not get FCM server key from config:', error);
+    return null;
+  }
+}
 
 export async function saveExpoPushToken(userId: string, token: string): Promise<void> {
   try {
@@ -83,8 +94,11 @@ export async function getAdminPushTokens(): Promise<string[]> {
 export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void> {
   try {
     const to = message.to;
+    const fcmServerKey = getFcmServerKey();
+    
     console.log('Sending push notification to:', Array.isArray(to) ? `${to.length} tokens` : 'single token');
     console.log('Message:', { title: message.title, body: message.body, data: message.data });
+    console.log('FCM Server Key configured:', fcmServerKey ? 'Yes' : 'No');
     
     if (!to || (Array.isArray(to) && to.length === 0)) {
       console.warn('No valid tokens provided for push notification');
@@ -100,8 +114,19 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
             }
             return isValid;
           })
-          .map((token) => ({ ...message, to: token }))
-      : [message];
+          .map((token) => ({ 
+            ...message, 
+            to: token,
+            // Add Android-specific channel based on notification type
+            channelId: message.data?.type === 'message' ? 'messages' : 
+                      message.data?.type === 'reservation' ? 'reservations' : 'default'
+          }))
+      : [{
+          ...message,
+          // Add Android-specific channel based on notification type
+          channelId: message.data?.type === 'message' ? 'messages' : 
+                    message.data?.type === 'reservation' ? 'reservations' : 'default'
+        }];
 
     if (messages.length === 0) {
       console.warn('No valid messages after filtering tokens');
@@ -132,7 +157,22 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
     const data = (json && json.data) || [];
     const errors = (Array.isArray(data) ? data : [data]).filter((item: any) => item?.status !== 'ok');
     if (errors.length > 0) {
-      console.warn('Expo push returned errors:', errors);
+      // Check if it's just the FCM server key warning (which is non-fatal)
+      const fcmErrors = errors.filter((error: any) => 
+        error?.details?.error === 'InvalidCredentials' && 
+        error?.message?.includes('FCM server key')
+      );
+      
+      if (fcmErrors.length > 0) {
+        if (fcmServerKey) {
+          console.warn('FCM server key is configured but still getting errors - check if key is correct');
+        } else {
+          console.warn('FCM server key not configured - notifications will still work but may be slower');
+          console.log('To fix: Run "node configure-fcm.js --key YOUR_SERVER_KEY" (see FCM_SETUP_GUIDE.md)');
+        }
+      } else {
+        console.warn('Expo push returned errors:', errors);
+      }
     } else {
       console.log('Push notification sent successfully');
     }
@@ -148,18 +188,57 @@ export async function notifyAdmins(title: string, body: string, data?: Record<st
     console.warn('No admin tokens found, skipping notification');
     return;
   }
-  await sendExpoPushAsync({ to: tokens, sound: 'default', title, body, data, priority: 'high' });
+  await sendExpoPushAsync({ 
+    to: tokens, 
+    sound: 'default', 
+    title, 
+    body, 
+    data: { ...data, type: 'admin' }, 
+    priority: 'high' 
+  });
 }
 
 export async function notifyUser(userId: string, title: string, body: string, data?: Record<string, any>): Promise<void> {
   console.log('Notifying user:', { userId, title, body, data });
-  const token = await getUserPushToken(userId);
-  if (!token) {
-    console.warn(`No push token found for user ${userId}, skipping notification`);
+  
+  // Try to get both Expo and FCM tokens
+  const [expoToken, fcmToken] = await Promise.all([
+    getUserPushToken(userId),
+    getUserFcmToken(userId)
+  ]);
+  
+  console.log('User tokens found:', { 
+    hasExpoToken: !!expoToken, 
+    hasFcmToken: !!fcmToken,
+    expoToken: expoToken ? expoToken.substring(0, 20) + '...' : 'none',
+    fcmToken: fcmToken ? fcmToken.substring(0, 20) + '...' : 'none'
+  });
+  
+  if (!expoToken && !fcmToken) {
+    console.warn(`No push tokens found for user ${userId}, skipping notification`);
     return;
   }
-  console.log('User push token found:', token.substring(0, 20) + '...');
-  await sendExpoPushAsync({ to: token, sound: 'default', title, body, data, priority: 'high' });
+  
+  // Try Expo push first (preferred for Expo apps)
+  if (expoToken) {
+    try {
+      console.log('Sending via Expo push...');
+      await sendExpoPushAsync({ 
+        to: expoToken, 
+        sound: 'default', 
+        title, 
+        body, 
+        data: { ...data, type: 'user' }, 
+        priority: 'high' 
+      });
+      console.log('Expo push sent successfully');
+    } catch (error) {
+      console.error('Expo push failed:', error);
+    }
+  }
+  
+  // If FCM token exists, we could also send via FCM here
+  // For now, we'll rely on Expo push which should work for both
 }
 
 // Get user ID by email
