@@ -191,19 +191,39 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
 
 export async function notifyAdmins(title: string, body: string, data?: Record<string, any>): Promise<void> {
   console.log('Notifying admins:', { title, body, data });
+  
+  // Try FCM first (Firebase Admin SDK)
+  try {
+    console.log('📱 Attempting to send admin notification via Firebase Admin SDK (FCM)...');
+    const { sendFCMToAdmins } = await import('./firebaseAdminService');
+    await sendFCMToAdmins(title, body, data as Record<string, string>);
+    console.log('✅ FCM admin notification sent successfully');
+    return; // Success, no need to try Expo
+  } catch (fcmError) {
+    console.warn('⚠️ FCM admin notification failed, trying Expo fallback:', fcmError);
+  }
+  
+  // Fallback to Expo push
   const tokens = await getAdminPushTokens();
   if (!Array.isArray(tokens) || tokens.length === 0) {
     console.warn('No admin tokens found, skipping notification');
     return;
   }
-  await sendExpoPushAsync({ 
-    to: tokens, 
-    sound: 'default', 
-    title, 
-    body, 
-    data: { ...data, type: 'admin' }, 
-    priority: 'high' 
-  });
+  
+  try {
+    console.log('📱 Sending admin notification via Expo push as fallback...');
+    await sendExpoPushAsync({ 
+      to: tokens, 
+      sound: 'default', 
+      title, 
+      body, 
+      data: { ...data, type: 'admin' }, 
+      priority: 'high' 
+    });
+    console.log('✅ Expo admin notification sent successfully');
+  } catch (error) {
+    console.error('❌ Both FCM and Expo admin notifications failed:', error);
+  }
 }
 
 export async function notifyUser(userId: string, title: string, body: string, data?: Record<string, any>): Promise<void> {
@@ -227,10 +247,23 @@ export async function notifyUser(userId: string, title: string, body: string, da
     return;
   }
   
-  // Try Expo push first (preferred for Expo apps)
+  // Try FCM first (Firebase Admin SDK)
+  if (fcmToken) {
+    try {
+      console.log('📱 Sending via Firebase Admin SDK (FCM)...');
+      const { sendFCMToUser } = await import('./firebaseAdminService');
+      await sendFCMToUser(userId, title, body, data as Record<string, string>);
+      console.log('✅ FCM notification sent successfully');
+      return; // Success, no need to try Expo
+    } catch (fcmError) {
+      console.warn('⚠️ FCM failed, trying Expo fallback:', fcmError);
+    }
+  }
+  
+  // Fallback to Expo push
   if (expoToken) {
     try {
-      console.log('Sending via Expo push...');
+      console.log('📱 Sending via Expo push as fallback...');
       await sendExpoPushAsync({ 
         to: expoToken, 
         sound: 'default', 
@@ -239,14 +272,11 @@ export async function notifyUser(userId: string, title: string, body: string, da
         data: { ...data, type: 'user' }, 
         priority: 'high' 
       });
-      console.log('Expo push sent successfully');
+      console.log('✅ Expo push sent successfully');
     } catch (error) {
-      console.error('Expo push failed:', error);
+      console.error('❌ Both FCM and Expo push failed:', error);
     }
   }
-  
-  // If FCM token exists, we could also send via FCM here
-  // For now, we'll rely on Expo push which should work for both
 }
 
 // Get user ID by email
