@@ -64,7 +64,7 @@ export default function TermsScreen() {
         {/* Introduction */}
         <View style={[styles.introCard, { backgroundColor: isDark ? '#1E1E1E' : '#F8F9FA' }]}>
           <ThemedText style={[styles.introText, { color: textColor }]}>
-            Welcome to Gereu Online Hub. These terms govern your use of our mobile application and services. Please read them carefully.
+            Welcome to Gereu Online Hub. These terms govern your use of our mobile application for apartment rentals, laundry services, and auto parts. Please read them carefully.
           </ThemedText>
         </View>
 
@@ -92,34 +92,34 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>2</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Description of Service
+                App Services
               </ThemedText>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              Gereu Online Hub is a centralized mobile platform designed for tenants, business owners, and customers of the Gereu Building. The App provides access to:
+              Gereu Online Hub provides access to:
             </ThemedText>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="apartment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Apartment Rentals and Lodging information
+                  Apartment rental information and booking
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="local-laundry-service" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Laundry Services (with booking and notifications)
+                  Laundry service booking and notifications
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="directions-car" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Car and Motor Parts services
+                  Auto parts and car services
                 </ThemedText>
               </View>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              The App serves only as an information and booking platform. All payments and service transactions are completed in person at the respective business locations.
+              All payments are made in person at the business location. The app is for information and booking only.
             </ThemedText>
           </View>
 
@@ -137,19 +137,19 @@ export default function TermsScreen() {
               <View style={styles.bulletItem}>
                 <MaterialIcons name="person-add" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Users must create an account to access certain features
+                  Create an account to book services and receive notifications
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="verified-user" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  You agree to provide accurate, complete, and updated information
+                  Provide accurate contact information for booking confirmations
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="lock" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  You are responsible for maintaining the confidentiality of your account and password
+                  Keep your login credentials secure and private
                 </ThemedText>
               </View>
             </View>
@@ -162,32 +162,26 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>4</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Limitations of Use
+                App Limitations
               </ThemedText>
             </View>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
-                <MaterialIcons name="location-on" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  The App is available only for services inside the Gereu Building
-                </ThemedText>
-              </View>
-              <View style={styles.bulletItem}>
                 <MaterialIcons name="payment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  The App does not support online or digital payments
+                  No online payments - all payments are made in person
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="wifi" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  The App requires a stable internet connection; offline use is not supported
+                  Internet connection required to use the app
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="info" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Service availability, prices, and details are managed by individual business owners and may change without prior notice
+                  Service prices and availability may change without notice
                 </ThemedText>
               </View>
             </View>
@@ -200,20 +194,20 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>5</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Responsibilities of Users
+                User Responsibilities
               </ThemedText>
             </View>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="gavel" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Users must use the App in a lawful and respectful manner
+                  Use the app responsibly and follow booking policies
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="warning" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Any misuse of the App, such as providing false information, attempting unauthorized access, or disrupting operations, may result in account suspension or termination
+                  Provide accurate information when making bookings
                 </ThemedText>
               </View>
             </View>
@@ -226,20 +220,20 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>6</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Responsibilities of Business Owners
+                Privacy & Data
               </ThemedText>
             </View>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
-                <MaterialIcons name="business" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <MaterialIcons name="data-usage" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Business owners are responsible for keeping their service listings, pricing, and availability updated
+                  We collect only necessary information for bookings and notifications
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
-                <MaterialIcons name="shield" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <MaterialIcons name="security" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Gereu Online Hub is not liable for inaccurate or outdated information provided by business owners
+                  Your data is stored securely and not shared with third parties
                 </ThemedText>
               </View>
             </View>
@@ -252,23 +246,12 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>7</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Privacy and Data
+                App Disclaimer
               </ThemedText>
             </View>
-            <View style={styles.bulletList}>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="data-usage" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  The App collects only necessary information such as name, contact details, and booking records
-                </ThemedText>
-              </View>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="security" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  User data is stored securely in Firebase and will not be shared with third parties without consent, unless required by law
-                </ThemedText>
-              </View>
-            </View>
+            <ThemedText style={[styles.termContent, { color: textColor }]}>
+              The app is provided "as is". We do not guarantee uninterrupted access or error-free operation. Gereu Online Hub is not liable for any issues with services or payments between users and business owners.
+            </ThemedText>
           </View>
 
           {/* Section 8 */}
@@ -278,81 +261,11 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>8</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Disclaimer of Warranties
-              </ThemedText>
-            </View>
-            <View style={styles.bulletList}>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="info-outline" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  The App is provided "as is" and "as available"
-                </ThemedText>
-              </View>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="warning" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  We do not guarantee uninterrupted access, error-free operation, or absolute accuracy of information
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 9 */}
-          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
-            <View style={styles.termHeader}>
-              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={styles.termNumberText}>9</ThemedText>
-              </View>
-              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Limitation of Liability
+                Changes to Terms
               </ThemedText>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              Gereu Online Hub and its developers shall not be held liable for:
-            </ThemedText>
-            <View style={styles.bulletList}>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="money-off" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Any damages, delays, or losses resulting from the use of the App
-                </ThemedText>
-              </View>
-              <View style={styles.bulletItem}>
-                <MaterialIcons name="people" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
-                <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Disputes between customers and business owners regarding services, payments, or quality
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 10 */}
-          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
-            <View style={styles.termHeader}>
-              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={styles.termNumberText}>10</ThemedText>
-              </View>
-              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Modification of Terms
-              </ThemedText>
-            </View>
-            <ThemedText style={[styles.termContent, { color: textColor }]}>
-              We may update or modify these Terms of Service at any time. Users will be notified of significant changes within the App. Continued use of the App means acceptance of the updated terms.
-            </ThemedText>
-          </View>
-
-          {/* Section 11 */}
-          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
-            <View style={styles.termHeader}>
-              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={styles.termNumberText}>11</ThemedText>
-              </View>
-              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                Governing Law
-              </ThemedText>
-            </View>
-            <ThemedText style={[styles.termContent, { color: textColor }]}>
-              These Terms shall be governed by and construed in accordance with the laws of the Philippines.
+              We may update these terms at any time. Continued use of the app means you accept the updated terms.
             </ThemedText>
           </View>
         </View>
@@ -361,7 +274,7 @@ export default function TermsScreen() {
         <View style={[styles.footerCard, { backgroundColor: isDark ? '#1E1E1E' : '#F8F9FA' }]}>
           <MaterialIcons name="contact-support" size={24} color={colorPalette.primary} />
           <ThemedText style={[styles.footerText, { color: textColor }]}>
-            Questions about these terms? Contact our support team.
+            Questions about these terms? Contact the app administrator.
           </ThemedText>
         </View>
       </ScrollView>

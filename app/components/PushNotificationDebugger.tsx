@@ -1,31 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import {
-    getUserFcmToken,
-    getAdminPushTokens,
-    getUserIdByEmail,
-    getUserPushToken,
-    notifyAdmins,
-    notifyUser,
-    sendExpoPushAsync
+  getAdminPushTokens,
+  getUserFcmToken,
+  getUserIdByEmail,
+  getUserPushToken,
+  notifyAdmins,
+  notifyUser,
+  sendExpoPushAsync
 } from '../services/notificationService';
 
 export default function PushNotificationDebugger() {
   const { user } = useAuthContext();
   const [debugInfo, setDebugInfo] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const addDebugInfo = (info: string) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`]);
+  const addDebugLog = (info: string) => {
+    setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`]);
   };
 
-  const clearDebugInfo = () => {
-    setDebugInfo([]);
+  const clearDebugLogs = () => {
+    setDebugLogs([]);
   };
 
   useEffect(() => {
@@ -59,10 +56,25 @@ export default function PushNotificationDebugger() {
       });
     } catch (error) {
       console.error('Error loading debug info:', error);
+    }
+  };
+
   const checkUserToken = async () => {
     if (!user) {
-      addDebugInfo('❌ No user logged in');
+      addDebugLog('❌ No user logged in');
       return;
+    }
+
+    try {
+      addDebugLog(`🔍 Checking push token for user: ${user.email}`);
+      const token = await getUserPushToken(user.uid);
+      if (token) {
+        addDebugLog(`✅ User push token found: ${token.substring(0, 30)}...`);
+      } else {
+        addDebugLog('❌ No push token found for user');
+      }
+    } catch (error) {
+      addDebugLog(`❌ Error checking user token: ${error}`);
     }
   };
 
@@ -73,13 +85,13 @@ export default function PushNotificationDebugger() {
       const Notifications = await import('expo-notifications');
       
       // Check permissions first
-      const { status } = await Notifications.getPermissionsAsync();
-      console.log('Current notification permission status:', status);
+      const { granted } = await Notifications.getPermissionsAsync();
+      console.log('Current notification permission status:', granted);
       
-      if (status !== 'granted') {
-        const { status: newStatus } = await Notifications.requestPermissionsAsync();
-        console.log('New notification permission status:', newStatus);
-        if (newStatus !== 'granted') {
+      if (!granted) {
+        const { granted: newGranted } = await Notifications.requestPermissionsAsync();
+        console.log('New notification permission status:', newGranted);
+        if (!newGranted) {
           Alert.alert('Permission Denied', 'Notification permission is required');
           return;
         }
@@ -93,23 +105,17 @@ export default function PushNotificationDebugger() {
           sound: 'default',
           data: { test: true },
         },
-        trigger: { seconds: 2 },
+        trigger: null,
       });
       
       Alert.alert('Success', 'Local notification scheduled! Check notification bar in 2 seconds.');
-      addDebugInfo(`🔍 Checking push token for user: ${user.email}`);
-      const token = await getUserPushToken(user.uid);
-      if (token) {
-        addDebugInfo(`✅ User push token found: ${token.substring(0, 30)}...`);
-      } else {
-        addDebugInfo('❌ No push token found for user');
-      }
+      addDebugLog('✅ Local notification scheduled successfully');
     } catch (error) {
       console.error('Local notification error:', error);
-      Alert.alert('Error', `Failed to schedule local notification: ${error.message}`);
+      Alert.alert('Error', `Failed to schedule local notification: ${(error as Error).message}`);
+      addDebugLog(`❌ Error scheduling local notification: ${error}`);
     } finally {
       setIsLoading(false);
-      addDebugInfo(`❌ Error checking user token: ${error}`);
     }
   };
 
@@ -120,7 +126,6 @@ export default function PushNotificationDebugger() {
     }
 
     setIsLoading(true);
-  const checkAdminTokens = async () => {
     try {
       const expoToken = await getUserPushToken(user.uid);
       if (!expoToken) {
@@ -140,90 +145,86 @@ export default function PushNotificationDebugger() {
       });
       
       Alert.alert('Success', 'Push notification sent! Check notification bar.');
-      addDebugInfo('🔍 Checking admin push tokens...');
-      const tokens = await getAdminPushTokens();
-      addDebugInfo(`📊 Found ${tokens.length} admin tokens`);
-      tokens.forEach((token, index) => {
-        addDebugInfo(`  Admin ${index + 1}: ${token.substring(0, 30)}...`);
-      });
+      addDebugLog('✅ Expo push notification sent successfully');
     } catch (error) {
       console.error('Push notification error:', error);
-      Alert.alert('Error', `Failed to send push notification: ${error.message}`);
+      Alert.alert('Error', `Failed to send push notification: ${(error as Error).message}`);
+      addDebugLog(`❌ Error sending push notification: ${error}`);
     } finally {
       setIsLoading(false);
-      addDebugInfo(`❌ Error checking admin tokens: ${error}`);
+    }
+  };
+
+  const checkAdminTokens = async () => {
+    try {
+      addDebugLog('🔍 Checking admin push tokens...');
+      const tokens = await getAdminPushTokens();
+      addDebugLog(`📊 Found ${tokens.length} admin tokens`);
+      tokens.forEach((token, index) => {
+        addDebugLog(`  Admin ${index + 1}: ${token.substring(0, 30)}...`);
+      });
+    } catch (error) {
+      addDebugLog(`❌ Error checking admin tokens: ${error}`);
     }
   };
 
   const testNotifyUser = async () => {
     if (!user) {
       Alert.alert('Error', 'User not logged in');
-      addDebugInfo('❌ No user logged in');
+      addDebugLog('❌ No user logged in');
       return;
     }
 
     setIsLoading(true);
-
-    setIsLoading(true);
     try {
-      addDebugInfo('📤 Sending test notification to current user...');
+      addDebugLog('📤 Sending test notification to current user...');
       await notifyUser(
         user.uid,
         'Test User Notification',
         'This is a test user notification via notifyUser function',
         { test: true, timestamp: Date.now() }
-        'Test Notification',
-        'This is a test notification from the debugger',
-        { type: 'test', timestamp: Date.now() }
       );
       
       Alert.alert('Success', 'User notification sent! Check notification bar.');
-      addDebugInfo('✅ Test notification sent successfully');
+      addDebugLog('✅ Test notification sent successfully');
     } catch (error) {
       console.error('User notification error:', error);
-      Alert.alert('Error', `Failed to send user notification: ${error.message}`);
-      addDebugInfo(`❌ Error sending test notification: ${error}`);
+      Alert.alert('Error', `Failed to send user notification: ${(error as Error).message}`);
+      addDebugLog(`❌ Error sending test notification: ${error}`);
     } finally {
-      setIsLoading(false);
       setIsLoading(false);
     }
   };
 
   const testNotifyAdmins = async () => {
     setIsLoading(true);
-  const testAdminNotification = async () => {
-    setIsLoading(true);
     try {
-      addDebugInfo('📤 Sending test notification to all admins...');
+      addDebugLog('📤 Sending test notification to all admins...');
       await notifyAdmins(
         'Test Admin Notification',
         'This is a test admin notification via notifyAdmins function',
         { test: true, timestamp: Date.now() }
-        'This is a test notification to all admins',
-        { type: 'test', timestamp: Date.now() }
       );
       
       Alert.alert('Success', 'Admin notification sent! Check notification bar.');
-      addDebugInfo('✅ Test admin notification sent successfully');
+      addDebugLog('✅ Test admin notification sent successfully');
     } catch (error) {
       console.error('Admin notification error:', error);
-      Alert.alert('Error', `Failed to send admin notification: ${error.message}`);
-      addDebugInfo(`❌ Error sending admin notification: ${error}`);
+      Alert.alert('Error', `Failed to send admin notification: ${(error as Error).message}`);
+      addDebugLog(`❌ Error sending admin notification: ${error}`);
     } finally {
-      setIsLoading(false);
       setIsLoading(false);
     }
   };
 
-
   const checkNotificationSettings = async () => {
     try {
       const Notifications = await import('expo-notifications');
-      const { status } = await Notifications.getPermissionsAsync();
+      const { granted } = await Notifications.getPermissionsAsync();
       
       Alert.alert(
         'Notification Settings',
-        `Permission Status: ${status}\n\n` +
+        `Permission Status: ${granted ? 'granted' : 'denied'}\n\n` +
         `If status is not 'granted', notifications won't work.\n\n` +
         `Please check:\n` +
         `1. App notification settings in Android\n` +
@@ -231,25 +232,27 @@ export default function PushNotificationDebugger() {
         `3. Battery optimization settings\n` +
         `4. App-specific notification permissions`
       );
+    } catch (error) {
+      Alert.alert('Error', `Failed to check settings: ${(error as Error).message}`);
+    }
+  };
+
   const testEmailLookup = async () => {
     if (!user) {
-      addDebugInfo('❌ No user logged in');
+      addDebugLog('❌ No user logged in');
       return;
     }
 
     try {
-      addDebugInfo(`🔍 Testing email lookup for: ${user.email}`);
-      const userId = await getUserIdByEmail(user.email);
+      addDebugLog(`🔍 Testing email lookup for: ${user.email}`);
+      const userId = await getUserIdByEmail(user.email || '');
       if (userId) {
-        addDebugInfo(`✅ Email lookup successful: ${userId}`);
+        addDebugLog(`✅ Email lookup successful: ${userId}`);
       } else {
-        addDebugInfo('❌ Email lookup failed - user not found');
+        addDebugLog('❌ Email lookup failed - user not found');
       }
     } catch (error) {
-      Alert.alert('Error', `Failed to check settings: ${error.message}`);
-    }
-  };
-      addDebugInfo(`❌ Error in email lookup: ${error}`);
+      addDebugLog(`❌ Error in email lookup: ${error}`);
     }
   };
 
@@ -357,58 +360,41 @@ export default function PushNotificationDebugger() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Debug Tools</Text>
+        
+        <TouchableOpacity style={[styles.button, styles.testButton]} onPress={checkUserToken}>
+          <Text style={styles.buttonText}>Check User Token</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.button, styles.testButton]} onPress={checkAdminTokens}>
+          <Text style={styles.buttonText}>Check Admin Tokens</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.button, styles.testButton]} onPress={testEmailLookup}>
+          <Text style={styles.buttonText}>Test Email Lookup</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearDebugLogs}>
+          <Text style={styles.buttonText}>Clear Debug Logs</Text>
+        </TouchableOpacity>
+      </View>
+
+      {debugLogs.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Debug Logs</Text>
+          <ScrollView style={styles.debugContainer}>
+            {debugLogs.map((log, index) => (
+              <Text key={index} style={styles.logText}>{log}</Text>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {isLoading && (
         <Text style={styles.loadingText}>Loading...</Text>
       )}
     </ScrollView>
-    <View style={styles.container}>
-      <Text style={styles.title}>Push Notification Debugger</Text>
-      <Text style={styles.subtitle}>Debug push notification issues</Text>
-      
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={checkUserToken}>
-          <Text style={styles.buttonText}>Check User Token</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.button} onPress={checkAdminTokens}>
-          <Text style={styles.buttonText}>Check Admin Tokens</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.button} onPress={testEmailLookup}>
-          <Text style={styles.buttonText}>Test Email Lookup</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.testButton]} 
-          onPress={testUserNotification}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Sending...' : 'Test User Notification'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.testButton]} 
-          onPress={testAdminNotification}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Sending...' : 'Test Admin Notification'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={clearDebugInfo}>
-          <Text style={styles.buttonText}>Clear Debug Info</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView style={styles.debugContainer}>
-        {debugInfo.map((info, index) => (
-          <Text key={index} style={styles.debugText}>{info}</Text>
-        ))}
-      </ScrollView>
-    </View>
   );
 }
 
@@ -417,7 +403,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#f5f5f5',
-    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 24,
@@ -425,6 +410,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     color: '#333',
+  },
+  subtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#666',
   },
   section: {
     backgroundColor: 'white',
@@ -444,21 +435,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   debugText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  subtitle: {
     fontSize: 14,
     marginBottom: 5,
     fontFamily: 'monospace',
     color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    marginBottom: 20,
   },
   button: {
     padding: 15,
@@ -477,18 +457,16 @@ const styles = StyleSheet.create({
   },
   adminButton: {
     backgroundColor: '#9C27B0',
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
   },
   settingsButton: {
     backgroundColor: '#607D8B',
-  testButton: {
-    backgroundColor: '#34C759',
   },
   refreshButton: {
     backgroundColor: '#795548',
+  },
+  testButton: {
+    backgroundColor: '#34C759',
+  },
   clearButton: {
     backgroundColor: '#FF3B30',
   },
@@ -502,17 +480,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 10,
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
   },
   debugContainer: {
-    flex: 1,
+    maxHeight: 200,
     backgroundColor: '#000',
     borderRadius: 8,
     padding: 10,
   },
-  debugText: {
+  logText: {
     color: '#00FF00',
     fontSize: 12,
     fontFamily: 'monospace',

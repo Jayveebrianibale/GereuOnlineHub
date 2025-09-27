@@ -40,11 +40,11 @@ export default function PushRegistrar() {
           },
         });
 
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
+        const { granted: existingGranted } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingGranted ? 'granted' : 'denied';
+        if (!existingGranted) {
+          const { granted } = await Notifications.requestPermissionsAsync();
+          finalStatus = granted ? 'granted' : 'denied';
         }
         if (finalStatus !== 'granted') {
           console.warn('❌ Notification permissions not granted:', finalStatus);

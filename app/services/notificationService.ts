@@ -135,15 +135,6 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
           channelId: message.data?.type === 'message' ? 'messages' : 
                     message.data?.type === 'reservation' ? 'reservations' : 'default'
         }];
-          .map((token) => ({ 
-            ...message, 
-            to: token,
-            channelId: message.data?.type === 'message' ? 'messages' : 'default'
-          }))
-      : [{ 
-          ...message, 
-          channelId: message.data?.type === 'message' ? 'messages' : 'default'
-        }];
 
     if (messages.length === 0) {
       console.warn('No valid messages after filtering tokens');

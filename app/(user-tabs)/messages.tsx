@@ -2,10 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router'; // Change from useNavigation to useRouter
-import { onValue, orderByChild, query, ref } from "firebase/database";
+import { get, onValue, orderByChild, query, ref, update } from "firebase/database";
 import { useEffect, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
@@ -60,6 +61,7 @@ export default function MessagesScreen() {
   const [messages, setMessages] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [adminProfilePictures, setAdminProfilePictures] = useState<{[key: string]: string}>({});
 
   // Get current user email from auth context
   const currentUserEmail = user?.email || '';
@@ -142,6 +144,9 @@ export default function MessagesScreen() {
           .sort((a, b) => b.time - a.time);
 
         setMessages(fetched);
+        
+        // Fetch profile pictures for all admins in messages
+        fetchAdminProfilePictures(fetched);
       } else {
         setMessages([]);
       }
@@ -149,6 +154,61 @@ export default function MessagesScreen() {
 
     return () => unsubscribe();
   }, [currentUserEmail]);
+
+  // Fetch admin profile pictures from Firebase Database
+  const fetchAdminProfilePictures = async (messagesList: any[]) => {
+    try {
+      const profilePictures: {[key: string]: string} = {};
+      
+      // Get unique admin emails from messages
+      const adminEmails = new Set<string>();
+      messagesList.forEach(message => {
+        if (message.senderEmail && message.senderEmail !== currentUserEmail) {
+          adminEmails.add(message.senderEmail);
+        }
+        if (message.recipientEmail && message.recipientEmail !== currentUserEmail) {
+          adminEmails.add(message.recipientEmail);
+        }
+      });
+      
+      // Also add admin emails from ADMIN_USERS
+      ADMIN_USERS.forEach(admin => {
+        adminEmails.add(admin.email);
+      });
+      
+      // Fetch profile pictures for each admin
+      const promises = Array.from(adminEmails).map(async (email) => {
+        try {
+          // Find admin user ID from email in users collection
+          const usersRef = ref(db, 'users');
+          const usersSnapshot = await get(usersRef);
+          if (usersSnapshot.exists()) {
+            const usersData = usersSnapshot.val();
+            for (const userId in usersData) {
+              if (usersData[userId].email === email && usersData[userId].role === 'admin') {
+                const imageRef = ref(db, `userProfileImages/${userId}/url`);
+                const imageSnapshot = await get(imageRef);
+                if (imageSnapshot.exists()) {
+                  const imageUrl = imageSnapshot.val();
+                  if (imageUrl) {
+                    profilePictures[email] = imageUrl;
+                  }
+                }
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching profile picture for ${email}:`, error);
+        }
+      });
+      
+      await Promise.all(promises);
+      setAdminProfilePictures(profilePictures);
+    } catch (error) {
+      console.error('Error fetching admin profile pictures:', error);
+    }
+  };
 
   // Filtering
   const filteredMessages = messages.filter(message => {
@@ -188,17 +248,88 @@ export default function MessagesScreen() {
   };
 
   const handleMessageClick = (message: Message) => {
-    // Navigate to chat with the admin
+    // Determine the correct recipient (the admin the user is chatting with)
+    const recipientEmail = message.senderEmail === currentUserEmail ? message.recipientEmail : message.senderEmail;
+    const recipientName = message.senderEmail === currentUserEmail ? message.recipientName || 'Admin' : message.name;
+    
+    // Navigate to chat with the correct admin
     router.push({
       pathname: '/chat/[id]',
       params: {
         id: message.chatId,
         chatId: message.chatId,
-        recipientName: message.name,
-        recipientEmail: message.senderEmail === currentUserEmail ? message.recipientEmail || 'admin@example.com' : message.senderEmail,
+        recipientName: recipientName,
+        recipientEmail: recipientEmail || 'admin@example.com',
         currentUserEmail: currentUserEmail,
       }
     });
+  };
+
+  const handleLongPress = async (message: Message) => {
+    // Add haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    const recipientName = message.name || 'Admin';
+    
+    Alert.alert(
+      'Delete Conversation',
+      `Are you sure you want to delete the conversation with ${recipientName}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteConversation(message),
+        },
+      ]
+    );
+  };
+
+  const deleteConversation = async (message: Message) => {
+    try {
+      if (!currentUserEmail) return;
+
+      // Add haptic feedback for deletion
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Mark all messages in this chat as deleted for the user
+      const messagesRef = ref(db, 'messages');
+      const snapshot = await onValue(messagesRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const updates: any = {};
+          
+          // Find all messages in this chat
+          Object.keys(data).forEach((key) => {
+            const msg = data[key];
+            if (msg.chatId === message.chatId) {
+              // Add user email to deletedFor array
+              const deletedFor = msg.deletedFor || [];
+              if (!deletedFor.includes(currentUserEmail)) {
+                deletedFor.push(currentUserEmail);
+                updates[`messages/${key}/deletedFor`] = deletedFor;
+              }
+            }
+          });
+          
+          // Apply updates
+          if (Object.keys(updates).length > 0) {
+            update(ref(db), updates).then(() => {
+              console.log('✅ Conversation deleted successfully');
+            }).catch((error) => {
+              console.error('❌ Error deleting conversation:', error);
+            });
+          }
+        }
+      }, { onlyOnce: true });
+
+    } catch (error) {
+      console.error('❌ Error deleting conversation:', error);
+      Alert.alert('Error', 'Failed to delete conversation. Please try again.');
+    }
   };
 
   return (
@@ -271,9 +402,17 @@ export default function MessagesScreen() {
           >
             <View style={[styles.messageInfo, { flex: 4 }]}>
               <View style={[styles.avatar, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
-                  {admin.avatar}
-                </ThemedText>
+                {adminProfilePictures[admin.email] ? (
+                  <Image
+                    source={{ uri: adminProfilePictures[admin.email] }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
+                    {admin.avatar}
+                  </ThemedText>
+                )}
               </View>
               <View style={styles.messageDetails}>
                 <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
@@ -327,12 +466,26 @@ export default function MessagesScreen() {
                 borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
               }]}
               onPress={() => handleMessageClick(message)}
+              onLongPress={() => handleLongPress(message)}
+              delayLongPress={500}
             >
             <View style={[styles.messageInfo, { flex: 4 }]}>
               <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
-                <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
-                  {message.avatar || 'U'}
-                </ThemedText>
+                {(() => {
+                  // Determine the admin email for this conversation
+                  const adminEmail = message.senderEmail === currentUserEmail ? message.recipientEmail : message.senderEmail;
+                  return adminProfilePictures[adminEmail] ? (
+                    <Image
+                      source={{ uri: adminProfilePictures[adminEmail] }}
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
+                      {message.avatar || 'U'}
+                    </ThemedText>
+                  );
+                })()}
               </View>
               <View style={styles.messageDetails}>
                 <ThemedText type="subtitle" style={[styles.userName, { 
@@ -477,6 +630,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   messageDetails: {
     flex: 1,

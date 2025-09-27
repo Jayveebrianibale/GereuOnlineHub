@@ -603,41 +603,31 @@ export default function SettingsScreen() {
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="security" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I change admin roles?</ThemedText>
-                  </View>
-                  <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Go to Users in Admin Panel, select a user, then update their role to Admin or Staff.
-                  </ThemedText>
-                </View>
-
-                <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
-                  <View style={styles.faqHeader}>
                     <MaterialIcons name="rate-review" size={18} color={colorPalette.primary} />
                     <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I approve or decline reservations?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Open Reservations, tap a pending booking, then choose Approve or Decline to update status.
+                    Go to Reservations tab, tap on a pending booking, then choose Approve or Decline to update the status.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="campaign" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I send notifications to users?</ThemedText>
+                    <MaterialIcons name="message" size={18} color={colorPalette.primary} />
+                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I chat with users?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Use the Messages tab to reach out to users or integrate push notifications in Settings.
+                    Use the Messages tab to start conversations with users. You can reply to their messages and provide support.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="build" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>Where can I manage services (apartment, auto, laundry)?</ThemedText>
+                    <MaterialIcons name="notifications" size={18} color={colorPalette.primary} />
+                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I manage notifications?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Go to the respective Admin management screens to add, edit, or remove service listings.
+                    Check the Notifications tab for new reservation requests and user messages. You can also delete notifications by long pressing them.
                   </ThemedText>
                 </View>
               </View>

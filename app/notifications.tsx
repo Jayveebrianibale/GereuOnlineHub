@@ -3,19 +3,20 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 
@@ -318,9 +319,60 @@ export default function NotificationsScreen() {
     loadNotifications();
   };
 
-  const handleNotificationLongPress = (notification: Notification) => {
-    // Delete immediately without confirmation
-    handleDeleteNotification(notification.id);
+  const handleNotificationLongPress = async (notification: Notification) => {
+    // Add haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'Delete Notification',
+      `Are you sure you want to delete this notification? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteNotification(notification),
+        },
+      ]
+    );
+  };
+
+  const deleteNotification = async (notification: Notification) => {
+    try {
+      // Add haptic feedback for deletion
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Get existing deleted notifications
+      const deletedKey = `user:deletedNotifications:${user.uid}`;
+      const existingDeleted = await AsyncStorage.getItem(deletedKey);
+      const deletedIds = existingDeleted ? JSON.parse(existingDeleted) : [];
+      
+      // Add this notification ID to deleted list
+      if (!deletedIds.includes(notification.id)) {
+        deletedIds.push(notification.id);
+        await AsyncStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+      }
+
+      // Remove from current notifications list
+      const updatedNotifications = notifications.filter(n => n.id !== notification.id);
+      setNotifications(updatedNotifications);
+      
+      // Update unread count
+      const newUnreadCount = updatedNotifications.filter(n => !n.isRead).length;
+      setUnreadCount(newUnreadCount);
+
+      console.log('✅ Notification deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification. Please try again.');
+    }
   };
 
   const getTimeAgo = (timestamp: number): string => {
@@ -359,6 +411,7 @@ export default function NotificationsScreen() {
         <Pressable
           style={styles.notificationPressable}
           onPress={() => handleNotificationPress(item)}
+          onLongPress={() => handleNotificationLongPress(item)}
           android_ripple={{ color: colors.primary + '20' }}
         >
           <View style={styles.notificationContent}>
@@ -425,12 +478,12 @@ export default function NotificationsScreen() {
     return colors.primary;
   };
 
-  const getStatusIcon = (title: string): string => {
-    if (title.includes('pending') || title.includes('New')) return 'schedule';
-    if (title.includes('confirmed')) return 'check-circle';
-    if (title.includes('declined')) return 'cancel';
-    if (title.includes('cancelled')) return 'block';
-    return 'notifications';
+  const getStatusIcon = (title: string) => {
+    if (title.includes('pending') || title.includes('New')) return 'schedule' as const;
+    if (title.includes('confirmed')) return 'check-circle' as const;
+    if (title.includes('declined')) return 'cancel' as const;
+    if (title.includes('cancelled')) return 'block' as const;
+    return 'notifications' as const;
   };
 
   const getStatusText = (title: string): string => {

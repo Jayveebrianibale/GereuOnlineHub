@@ -65,6 +65,13 @@ interface ChatScreenProps {
   navigation?: any;
 }
 
+interface RecipientProfile {
+  name: string;
+  email: string;
+  profileImageUrl?: string;
+  isOnline?: boolean;
+}
+
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
@@ -84,6 +91,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [recipientProfile, setRecipientProfile] = useState<RecipientProfile | null>(null);
   
   // Refs for stability
   const textInputRef = useRef<TextInput>(null);
@@ -100,6 +108,55 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const bubbleBgColor = isDark ? '#2A2A2A' : '#e6e6e6';
   const adminBubbleBgColor = isDark ? '#004d40' : '#b2dfdb';
   const userBubbleBgColor = isDark ? '#1e3a8a' : '#3b82f6';
+
+  // Function to fetch recipient profile data
+  const fetchRecipientProfile = useCallback(async (email: string) => {
+    if (!email) return;
+    
+    try {
+      // Find user ID by email
+      const usersRef = ref(db, 'users');
+      const usersSnapshot = await get(usersRef);
+      
+      if (usersSnapshot.exists()) {
+        const usersData = usersSnapshot.val();
+        for (const userId in usersData) {
+          if (usersData[userId].email === email) {
+            const userData = usersData[userId];
+            
+            // Get profile image
+            let profileImageUrl = null;
+            try {
+              const imageRef = ref(db, `userProfileImages/${userId}/url`);
+              const imageSnapshot = await get(imageRef);
+              if (imageSnapshot.exists()) {
+                profileImageUrl = imageSnapshot.val();
+              }
+            } catch (imageError) {
+              console.log('No profile image found for user:', email);
+            }
+            
+            setRecipientProfile({
+              name: userData.name || userData.displayName || email.split('@')[0],
+              email: email,
+              profileImageUrl: profileImageUrl,
+              isOnline: userData.status === 'active'
+            });
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching recipient profile:', error);
+      // Set fallback profile data
+      setRecipientProfile({
+        name: recipientName || email.split('@')[0],
+        email: email,
+        profileImageUrl: null,
+        isOnline: false
+      });
+    }
+  }, [recipientName]);
 
   // Function to mark messages as read
   const markMessagesAsRead = async (messagesList: Message[], userEmail: string) => {
@@ -169,6 +226,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
 
     return () => unsubscribe();
   }, [chatId]);
+
+  // Fetch recipient profile when component mounts
+  useEffect(() => {
+    if (recipientEmail) {
+      fetchRecipientProfile(recipientEmail);
+    }
+  }, [recipientEmail, fetchRecipientProfile]);
 
   // Keyboard event listeners
   useEffect(() => {
@@ -769,14 +833,38 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           >
             <Ionicons name="arrow-back" size={24} color={textColor} />
           </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <ThemedText style={[styles.headerTitle, { color: textColor }]}>
-              {recipientName || 'Chat'}
-            </ThemedText>
-            <ThemedText style={[styles.headerSubtitle, { color: textColor, opacity: 0.6 }]}>
-              {isAdmin ? 'Admin Chat' : 'User Chat'}
-            </ThemedText>
-          </View>
+          
+          {/* Profile Section */}
+          <TouchableOpacity style={styles.profileSection} activeOpacity={0.7}>
+            <View style={styles.profileImageContainer}>
+              {recipientProfile?.profileImageUrl ? (
+                <Image
+                  source={{ uri: recipientProfile.profileImageUrl }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: colorPalette.primary }]}>
+                  <ThemedText style={styles.profileImageText}>
+                    {(recipientProfile?.name || recipientName || 'U').charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+              )}
+              {recipientProfile?.isOnline && (
+                <View style={[styles.onlineIndicator, { backgroundColor: '#4CAF50' }]} />
+              )}
+            </View>
+            
+            <View style={styles.headerInfo}>
+              <ThemedText style={[styles.headerTitle, { color: textColor }]}>
+                {recipientProfile?.name || recipientName || 'Chat'}
+              </ThemedText>
+              <ThemedText style={[styles.headerSubtitle, { color: textColor, opacity: 0.6 }]}>
+                {recipientProfile?.isOnline ? 'Online' : (isAdmin ? 'Admin Chat' : 'User Chat')}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
+          
           <TouchableOpacity 
             style={styles.moreButton}
             onPress={() => setShowMenu(true)}
@@ -1056,9 +1144,46 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
   },
+  profileSection: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  profileImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   headerInfo: {
     flex: 1,
-    paddingTop: 24,
   },
   headerTitle: {
     fontSize: 18,

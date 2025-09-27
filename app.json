@@ -22,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#00B2FF"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.onlinegereu.hub",
@@ -54,7 +54,7 @@
           "image": "./assets/images/logo.png",
           "imageWidth": 120,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#00B2FF"
         }
       ],
       "expo-secure-store",

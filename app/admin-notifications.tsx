@@ -3,19 +3,20 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { AdminReservation, useAdminReservation } from './contexts/AdminReservationContext';
 
@@ -260,6 +261,62 @@ export default function AdminNotificationsScreen() {
     loadNotifications();
   };
 
+  const handleLongPress = async (notification: AdminNotification) => {
+    // Add haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'Delete Notification',
+      `Are you sure you want to delete this notification? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteNotification(notification),
+        },
+      ]
+    );
+  };
+
+  const deleteNotification = async (notification: AdminNotification) => {
+    try {
+      // Add haptic feedback for deletion
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Get existing deleted notifications
+      const deletedKey = `admin:deletedNotifications`;
+      const existingDeleted = await AsyncStorage.getItem(deletedKey);
+      const deletedIds = existingDeleted ? JSON.parse(existingDeleted) : [];
+      
+      // Add this notification ID to deleted list
+      if (!deletedIds.includes(notification.id)) {
+        deletedIds.push(notification.id);
+        await AsyncStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+      }
+
+      // Remove from current notifications list
+      const updatedNotifications = notifications.filter(n => n.id !== notification.id);
+      setNotifications(updatedNotifications);
+      
+      // Update unread count
+      const newUnreadCount = updatedNotifications.filter(n => !n.isRead).length;
+      setUnreadCount(newUnreadCount);
+
+      console.log('✅ Notification deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification. Please try again.');
+    }
+  };
+
   const renderNotification = ({ item, index }: { item: AdminNotification; index: number }) => {
     const isUnread = !item.isRead;
     const statusColor = getStatusColor(item.type, item.title);
@@ -280,13 +337,14 @@ export default function AdminNotificationsScreen() {
         <Pressable
           style={styles.notificationPressable}
           onPress={() => handleNotificationPress(item)}
+          onLongPress={() => handleLongPress(item)}
           android_ripple={{ color: colors.primary + '20' }}
         >
           <View style={styles.notificationContent}>
             {/* Status Indicator */}
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
               <MaterialIcons 
-                name={getStatusIcon(item.type, item.title)} 
+                name={getStatusIcon(item.type, item.title) as any} 
                 size={16} 
                 color="#FFFFFF" 
               />
