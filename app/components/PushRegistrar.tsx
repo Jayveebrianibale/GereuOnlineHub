@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
-import { saveExpoPushToken, saveFcmToken } from '../services/notificationService';
+import { saveExpoPushToken } from '../services/notificationService';
+import safeNotificationHandler from '../utils/safeNotifications';
 
 export default function PushRegistrar() {
   const { user } = useAuthContext();
@@ -15,16 +16,23 @@ export default function PushRegistrar() {
         const Constants = await import('expo-constants');
         // Short-circuit in Expo Go BEFORE importing expo-notifications to avoid SDK 53 warning
         const appOwnership = Constants.default?.appOwnership;
-        if (appOwnership === 'expo') return;
+        if (appOwnership === 'expo') {
+          console.log('⚠️ Running in Expo Go - Push notifications not available. Use development build for full functionality.');
+          console.log('📱 To enable push notifications:');
+          console.log('   1. Run: npx expo run:android (or npx expo run:ios)');
+          console.log('   2. Or build with EAS: eas build --profile development');
+          return;
+        }
 
         const Device = await import('expo-device');
-        if (!Device.isDevice) return;
+        if (!Device.isDevice) {
+          console.log('⚠️ Not running on a physical device - push notifications not available');
+          return;
+        }
 
-        const Notifications = await import('expo-notifications');
-
-        // Enhanced handler: show alerts and play sounds when app is foreground
-        Notifications.setNotificationHandler({
-          handleNotification: async (notification) => {
+        // Use safe notification handler
+        await safeNotificationHandler.setNotificationHandler({
+          handleNotification: async (notification: any) => {
             console.log('📱 Notification received in foreground:', notification);
             console.log('📱 Notification data:', notification.request.content.data);
             console.log('📱 Notification title:', notification.request.content.title);
@@ -40,11 +48,11 @@ export default function PushRegistrar() {
           },
         });
 
-        const { granted: existingGranted } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingGranted ? 'granted' : 'denied';
-        if (!existingGranted) {
-          const { granted } = await Notifications.requestPermissionsAsync();
-          finalStatus = granted ? 'granted' : 'denied';
+        const { status: existingStatus } = await safeNotificationHandler.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await safeNotificationHandler.requestPermissionsAsync();
+          finalStatus = status;
         }
         if (finalStatus !== 'granted') {
           console.warn('❌ Notification permissions not granted:', finalStatus);
@@ -54,10 +62,10 @@ export default function PushRegistrar() {
 
         if (Platform.OS === 'android') {
           // Create multiple notification channels for better organization
-          await Notifications.setNotificationChannelAsync('default', {
+          await safeNotificationHandler.setNotificationChannelAsync('default', {
             name: 'Default Notifications',
             description: 'Default notification channel for app notifications',
-            importance: Notifications.AndroidImportance.HIGH,
+            importance: 4, // HIGH
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
             sound: 'default',
@@ -67,10 +75,10 @@ export default function PushRegistrar() {
           });
 
           // Create specific channels for different types of notifications
-          await Notifications.setNotificationChannelAsync('messages', {
+          await safeNotificationHandler.setNotificationChannelAsync('messages', {
             name: 'Messages',
             description: 'Chat and message notifications',
-            importance: Notifications.AndroidImportance.HIGH,
+            importance: 4, // HIGH
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
             sound: 'default',
@@ -79,10 +87,10 @@ export default function PushRegistrar() {
             showBadge: true,
           });
 
-          await Notifications.setNotificationChannelAsync('reservations', {
+          await safeNotificationHandler.setNotificationChannelAsync('reservations', {
             name: 'Reservations',
             description: 'Reservation and booking notifications',
-            importance: Notifications.AndroidImportance.HIGH,
+            importance: 4, // HIGH
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
             sound: 'default',
@@ -90,40 +98,6 @@ export default function PushRegistrar() {
             enableLights: true,
             showBadge: true,
           });
-          try {
-            await Notifications.setNotificationChannelAsync('default', {
-              name: 'Default Notifications',
-              description: 'Default notification channel for app notifications',
-              importance: Notifications.AndroidImportance.HIGH,
-              vibrationPattern: [0, 250, 250, 250],
-              lightColor: '#FF231F7C',
-              sound: 'default',
-              enableVibrate: true,
-              enableLights: true,
-              showBadge: true,
-              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-              bypassDnd: true,
-            });
-            console.log('✅ Default notification channel created');
-            
-            // Create a high priority channel for messages
-            await Notifications.setNotificationChannelAsync('messages', {
-              name: 'Messages',
-              description: 'Chat message notifications',
-              importance: Notifications.AndroidImportance.HIGH,
-              vibrationPattern: [0, 250, 250, 250],
-              lightColor: '#FF231F7C',
-              sound: 'default',
-              enableVibrate: true,
-              enableLights: true,
-              showBadge: true,
-              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-              bypassDnd: true,
-            });
-            console.log('✅ Messages notification channel created');
-          } catch (channelError) {
-            console.error('❌ Failed to create notification channels:', channelError);
-          }
         }
 
         // In development builds, `projectId` may be required explicitly
@@ -138,7 +112,7 @@ export default function PushRegistrar() {
         console.log('✅ EAS projectId found:', projectId);
 
         try {
-          const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
+          const pushToken = await safeNotificationHandler.getExpoPushTokenAsync({ projectId });
           if (!isMounted) return;
           if (pushToken?.data) {
             console.log('✅ Expo push token generated:', pushToken.data);
@@ -152,30 +126,17 @@ export default function PushRegistrar() {
           console.error('❌ Failed to get Expo push token:', tokenError);
         }
 
-        // Try to fetch native FCM token on Android (EAS/dev client or standalone builds)
-        if (Platform.OS === 'android' && Notifications.getDevicePushTokenAsync) {
-          try {
-            const deviceToken = await Notifications.getDevicePushTokenAsync();
-            const tokenString = (deviceToken as any)?.data || (deviceToken as any)?.token;
-            if (tokenString) {
-              console.log('Android device push token (FCM):', tokenString);
-              await saveFcmToken(user.uid, tokenString);
-            }
-          } catch (err) {
-            // Non-fatal
-            console.warn('FCM token fetch failed:', (err as any)?.message || err);
-          }
-        }
+        // FCM token fetching removed - using Expo Push only
 
         // Add notification received listener for background notifications
-        const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+        const notificationListener = safeNotificationHandler.addNotificationReceivedListener((notification: any) => {
           console.log('📱 Background notification received:', notification);
           console.log('📱 Background notification data:', notification.request.content.data);
           console.log('📱 Background notification title:', notification.request.content.title);
           console.log('📱 Background notification body:', notification.request.content.body);
         });
 
-        const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        const responseListener = safeNotificationHandler.addNotificationResponseReceivedListener((response: any) => {
           console.log('📱 Notification response received:', response);
           console.log('📱 Notification response data:', response.notification.request.content.data);
           

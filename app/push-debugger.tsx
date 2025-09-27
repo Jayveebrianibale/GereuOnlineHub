@@ -1,5 +1,5 @@
-import MessageNotificationTester from './components/MessageNotificationTester';
+import NotificationDebugger from './components/NotificationDebugger';
 
 export default function PushDebuggerScreen() {
-  return <MessageNotificationTester />;
+  return <NotificationDebugger />;
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getAdminPushTokens, notifyAdmins, sendExpoPushAsync } from '../services/notificationService';
+import { getAdminPushTokens, notifyAdmins } from '../services/notificationService';
 
-export default function NotificationTester() {
+export default function AdminTokenTester() {
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -38,41 +38,9 @@ export default function NotificationTester() {
     }
   };
 
-  const testDirectExpoPush = async () => {
-    setIsLoading(true);
-    addLog('🧪 Testing direct Expo Push...');
-    
-    try {
-      const tokens = await getAdminPushTokens();
-      
-      if (tokens.length === 0) {
-        addLog('⚠️ No admin tokens found for testing');
-        Alert.alert('Warning', 'No admin tokens found for testing');
-        return;
-      }
-      
-      await sendExpoPushAsync({
-        to: tokens,
-        title: 'Direct Expo Push Test',
-        body: 'This notification was sent directly via Expo Push API',
-        data: { test: 'true', source: 'direct-expo' },
-        priority: 'high',
-        sound: 'default'
-      });
-      
-      addLog('✅ Direct Expo Push test completed');
-      Alert.alert('Success', 'Direct Expo Push test completed');
-    } catch (error) {
-      addLog(`❌ Direct Expo Push test failed: ${error}`);
-      Alert.alert('Error', `Direct Expo Push test failed: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const testAdminNotification = async () => {
     setIsLoading(true);
-    addLog('🧪 Testing admin notification (with fallback)...');
+    addLog('🧪 Testing admin notification...');
     
     try {
       await notifyAdmins(
@@ -97,23 +65,15 @@ export default function NotificationTester() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Notification Tester</Text>
+      <Text style={styles.title}>Admin Token Tester</Text>
       
       <View style={styles.section}>
         <TouchableOpacity 
-          style={[styles.button, styles.primaryButton, isLoading && styles.buttonDisabled]} 
+          style={[styles.button, isLoading && styles.buttonDisabled]} 
           onPress={testAdminTokens}
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>Test Admin Token Detection</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={testDirectExpoPush}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>Test Direct Expo Push</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -148,10 +108,10 @@ export default function NotificationTester() {
         <Text style={styles.infoTitle}>ℹ️ What this tests:</Text>
         <Text style={styles.infoText}>
           • Admin token detection from Firebase database{'\n'}
-          • Direct Expo Push API calls{'\n'}
-          • Admin notification with automatic fallback{'\n'}
-          • Error handling and logging{'\n'}
-          • Works without Firebase Admin SDK server
+          • Token validation and filtering{'\n'}
+          • Notification sending with fallback{'\n'}
+          • Server connection (if server is running){'\n'}
+          • Expo Push fallback (if server fails)
         </Text>
       </View>
     </ScrollView>
@@ -194,9 +154,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
     alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#34C759',
   },
   buttonDisabled: {
     backgroundColor: '#ccc',

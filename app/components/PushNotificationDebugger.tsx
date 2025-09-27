@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import {
-  getAdminPushTokens,
-  getUserFcmToken,
-  getUserIdByEmail,
-  getUserPushToken,
-  notifyAdmins,
-  notifyUser,
-  sendExpoPushAsync
+    getAdminPushTokens,
+    getUserFcmToken,
+    getUserIdByEmail,
+    getUserPushToken,
+    notifyAdmins,
+    notifyUser,
+    sendExpoPushAsync
 } from '../services/notificationService';
 
 export default function PushNotificationDebugger() {
@@ -36,14 +36,7 @@ export default function PushNotificationDebugger() {
       const expoToken = await getUserPushToken(user.uid);
       const fcmToken = await getUserFcmToken(user.uid);
       
-      // Check FCM server key configuration
-      let fcmServerKeyConfigured = false;
-      try {
-        const Constants = await import('expo-constants');
-        fcmServerKeyConfigured = !!Constants.default?.expoConfig?.extra?.fcmServerKey;
-      } catch (error) {
-        console.warn('Could not check FCM server key configuration:', error);
-      }
+      // FCM server key not needed - using Expo Push only
       
       setDebugInfo({
         userId: user.uid,
@@ -52,7 +45,6 @@ export default function PushNotificationDebugger() {
         fcmToken: fcmToken ? `${fcmToken.substring(0, 30)}...` : 'Not found',
         hasExpoToken: !!expoToken,
         hasFcmToken: !!fcmToken,
-        fcmServerKeyConfigured,
       });
     } catch (error) {
       console.error('Error loading debug info:', error);
@@ -281,34 +273,9 @@ export default function PushNotificationDebugger() {
         <Text style={[styles.debugText, { color: debugInfo.hasFcmToken ? 'green' : 'red' }]}>
           Has FCM Token: {debugInfo.hasFcmToken ? 'Yes' : 'No'}
         </Text>
-        <Text style={[styles.debugText, { color: debugInfo.fcmServerKeyConfigured ? 'green' : 'orange' }]}>
-          FCM Server Key: {debugInfo.fcmServerKeyConfigured ? 'Configured' : 'Not configured'}
-        </Text>
       </View>
 
-      {!debugInfo.fcmServerKeyConfigured && (
-        <View style={[styles.section, { backgroundColor: '#fff3cd', borderLeftWidth: 4, borderLeftColor: '#ffc107' }]}>
-          <Text style={[styles.sectionTitle, { color: '#856404' }]}>⚠️ FCM Server Key Notice</Text>
-          <Text style={[styles.debugText, { color: '#856404' }]}>
-            FCM server key is not configured. Notifications will work but may be slower.
-          </Text>
-          <Text style={[styles.debugText, { color: '#856404' }]}>
-            To configure: Run "node configure-fcm.js --key YOUR_SERVER_KEY"
-          </Text>
-          <Text style={[styles.debugText, { color: '#856404' }]}>
-            Get your key from Firebase Console → Project Settings → Cloud Messaging
-          </Text>
-        </View>
-      )}
 
-      {debugInfo.fcmServerKeyConfigured && (
-        <View style={[styles.section, { backgroundColor: '#d4edda', borderLeftWidth: 4, borderLeftColor: '#28a745' }]}>
-          <Text style={[styles.sectionTitle, { color: '#155724' }]}>✅ FCM Server Key Configured</Text>
-          <Text style={[styles.debugText, { color: '#155724' }]}>
-            FCM server key is configured. Notifications should use optimized delivery.
-          </Text>
-        </View>
-      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Test Notifications</Text>

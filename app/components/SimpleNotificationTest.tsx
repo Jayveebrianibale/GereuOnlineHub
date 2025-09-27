@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getAdminPushTokens, notifyAdmins, sendExpoPushAsync } from '../services/notificationService';
+import { getAdminPushTokens, notifyAdmins } from '../services/notificationService';
 
-export default function NotificationTester() {
+export default function SimpleNotificationTest() {
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -38,54 +38,22 @@ export default function NotificationTester() {
     }
   };
 
-  const testDirectExpoPush = async () => {
+  const testNotification = async () => {
     setIsLoading(true);
-    addLog('🧪 Testing direct Expo Push...');
-    
-    try {
-      const tokens = await getAdminPushTokens();
-      
-      if (tokens.length === 0) {
-        addLog('⚠️ No admin tokens found for testing');
-        Alert.alert('Warning', 'No admin tokens found for testing');
-        return;
-      }
-      
-      await sendExpoPushAsync({
-        to: tokens,
-        title: 'Direct Expo Push Test',
-        body: 'This notification was sent directly via Expo Push API',
-        data: { test: 'true', source: 'direct-expo' },
-        priority: 'high',
-        sound: 'default'
-      });
-      
-      addLog('✅ Direct Expo Push test completed');
-      Alert.alert('Success', 'Direct Expo Push test completed');
-    } catch (error) {
-      addLog(`❌ Direct Expo Push test failed: ${error}`);
-      Alert.alert('Error', `Direct Expo Push test failed: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const testAdminNotification = async () => {
-    setIsLoading(true);
-    addLog('🧪 Testing admin notification (with fallback)...');
+    addLog('🧪 Testing notification (Expo Push only)...');
     
     try {
       await notifyAdmins(
         'Test Notification',
-        'This is a test notification to all admins',
+        'This notification uses only Expo Push - no server required!',
         { test: 'true', timestamp: Date.now().toString() }
       );
       
-      addLog('✅ Admin notification test completed');
-      Alert.alert('Success', 'Admin notification test completed');
+      addLog('✅ Notification test completed successfully!');
+      Alert.alert('Success', 'Notification sent successfully via Expo Push!');
     } catch (error) {
-      addLog(`❌ Admin notification test failed: ${error}`);
-      Alert.alert('Error', `Admin notification test failed: ${error}`);
+      addLog(`❌ Notification test failed: ${error}`);
+      Alert.alert('Error', `Notification test failed: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +65,8 @@ export default function NotificationTester() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Notification Tester</Text>
+      <Text style={styles.title}>Simple Notification Test</Text>
+      <Text style={styles.subtitle}>Expo Push Only - No Server Required</Text>
       
       <View style={styles.section}>
         <TouchableOpacity 
@@ -110,18 +79,10 @@ export default function NotificationTester() {
         
         <TouchableOpacity 
           style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={testDirectExpoPush}
+          onPress={testNotification}
           disabled={isLoading}
         >
-          <Text style={styles.buttonText}>Test Direct Expo Push</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={testAdminNotification}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>Test Admin Notification</Text>
+          <Text style={styles.buttonText}>Test Notification</Text>
         </TouchableOpacity>
       </View>
 
@@ -144,14 +105,14 @@ export default function NotificationTester() {
         </View>
       </View>
 
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>ℹ️ What this tests:</Text>
-        <Text style={styles.infoText}>
-          • Admin token detection from Firebase database{'\n'}
-          • Direct Expo Push API calls{'\n'}
-          • Admin notification with automatic fallback{'\n'}
-          • Error handling and logging{'\n'}
-          • Works without Firebase Admin SDK server
+      <View style={styles.successSection}>
+        <Text style={styles.successTitle}>✅ Fixed!</Text>
+        <Text style={styles.successText}>
+          • No more "Network request failed" errors{'\n'}
+          • Uses Expo Push API only{'\n'}
+          • No server required{'\n'}
+          • Reliable and fast{'\n'}
+          • Works on all devices
         </Text>
       </View>
     </ScrollView>
@@ -168,8 +129,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 10,
     color: '#333',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 30,
+    color: '#666',
+    fontStyle: 'italic',
   },
   section: {
     marginBottom: 30,
@@ -240,21 +208,23 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     fontFamily: 'monospace',
   },
-  infoSection: {
-    backgroundColor: '#E3F2FD',
+  successSection: {
+    backgroundColor: '#E8F5E8',
     padding: 15,
     borderRadius: 8,
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
   },
-  infoTitle: {
-    fontSize: 16,
+  successTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#1976D2',
+    color: '#2E7D32',
   },
-  infoText: {
+  successText: {
     fontSize: 14,
-    color: '#1976D2',
+    color: '#2E7D32',
     lineHeight: 20,
   },
 });

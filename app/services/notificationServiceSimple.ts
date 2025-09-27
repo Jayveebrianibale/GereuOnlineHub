@@ -44,14 +44,8 @@ export async function getUserPushToken(userId: string): Promise<string | null> {
     const snap = await get(ref(db, `users/${userId}/expoPushToken`));
     if (snap.exists()) {
       const token = snap.val();
-      const isValidExpoToken = token && (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['));
-      if (isValidExpoToken) {
-        console.log('✅ Valid Expo push token found:', token?.substring(0, 30) + '...');
-        return token;
-      } else {
-        console.warn('❌ Invalid token format (not an Expo push token):', token?.substring(0, 30) + '...');
-        return null;
-      }
+      console.log('✅ User push token found:', token?.substring(0, 30) + '...');
+      return token;
     }
     console.warn('❌ No push token found for user:', userId);
     return null;
@@ -92,13 +86,12 @@ export async function getAdminPushTokens(): Promise<string[]> {
       .filter((u: any) => {
         const isAdmin = u.role === 'admin';
         const hasToken = typeof u.expoPushToken === 'string' && u.expoPushToken.length > 0;
-        const isValidExpoToken = hasToken && (u.expoPushToken.startsWith('ExponentPushToken[') || u.expoPushToken.startsWith('ExpoPushToken['));
-        console.log(`User ${u.email || 'unknown'}: role=${u.role}, hasToken=${hasToken}, isValidExpoToken=${isValidExpoToken}, token=${u.expoPushToken?.substring(0, 20)}...`);
-        return isAdmin && hasToken && isValidExpoToken;
+        console.log(`User ${u.email || 'unknown'}: role=${u.role}, hasToken=${hasToken}, token=${u.expoPushToken?.substring(0, 20)}...`);
+        return isAdmin && hasToken;
       })
       .map((u: any) => u.expoPushToken as string);
     
-    console.log(`Found ${adminTokens.length} valid admin Expo push tokens:`, adminTokens);
+    console.log(`Found ${adminTokens.length} admin push tokens:`, adminTokens);
     return adminTokens;
   } catch (error) {
     console.error('Failed to get admin push tokens:', error);
@@ -137,11 +130,11 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
   try {
     const to = message.to;
     
-    console.log('📤 Sending push notification to:', Array.isArray(to) ? `${to.length} tokens` : 'single token');
-    console.log('📤 Message:', { title: message.title, body: message.body, data: message.data });
+    console.log('Sending push notification to:', Array.isArray(to) ? `${to.length} tokens` : 'single token');
+    console.log('Message:', { title: message.title, body: message.body, data: message.data });
     
     if (!to || (Array.isArray(to) && to.length === 0)) {
-      console.warn('❌ No valid tokens provided for push notification');
+      console.warn('No valid tokens provided for push notification');
       return;
     }
 
@@ -149,13 +142,10 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
       ? to
           .filter((token) => {
             const isValid = typeof token === 'string' && token.length > 0;
-            const isExpoToken = isValid && (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['));
             if (!isValid) {
-              console.warn('⚠️ Invalid token filtered out:', token?.substring(0, 20) + '...');
-            } else if (!isExpoToken) {
-              console.warn('⚠️ Non-Expo token filtered out (FCM token detected):', token?.substring(0, 20) + '...');
+              console.warn('Invalid token filtered out:', token?.substring(0, 20) + '...');
             }
-            return isValid && isExpoToken;
+            return isValid;
           })
           .map((token) => ({ 
             ...message, 
@@ -172,11 +162,11 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
         }];
 
     if (messages.length === 0) {
-      console.warn('❌ No valid messages after filtering tokens');
+      console.warn('No valid messages after filtering tokens');
       return;
     }
 
-    console.log(`📤 Sending ${messages.length} push messages to Expo API`);
+    console.log(`Sending ${messages.length} push messages to Expo API`);
 
     const response = await fetch(EXPO_PUSH_ENDPOINT, {
       method: 'POST',
@@ -188,26 +178,24 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
       body: JSON.stringify(messages),
     });
 
-    console.log('📤 Expo push response status:', response.status);
+    console.log('Expo push response status:', response.status);
 
     // Inspect Expo push API response for errors
     const json: any = await (response as any).json().catch(() => null);
     if (!response.ok) {
-      console.error('❌ Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
-      throw new Error(`Expo push failed with status ${response.status}`);
+      console.error('Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
+      return;
     }
 
     const data = (json && json.data) || [];
     const errors = (Array.isArray(data) ? data : [data]).filter((item: any) => item?.status !== 'ok');
     if (errors.length > 0) {
-      console.warn('⚠️ Expo push returned errors:', errors);
-      throw new Error(`Expo push errors: ${JSON.stringify(errors)}`);
+      console.warn('Expo push returned errors:', errors);
     } else {
-      console.log('✅ Push notification sent successfully');
+      console.log('Push notification sent successfully');
     }
   } catch (error) {
-    console.error('❌ Failed to send Expo push:', error);
-    throw error;
+    console.error('Failed to send Expo push:', error);
   }
 }
 
@@ -215,25 +203,13 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
 export async function notifyAdmins(title: string, body: string, data?: Record<string, any>): Promise<void> {
   console.log('📱 Notifying admins via Expo Push:', { title, body, data });
   
+  const tokens = await getAdminPushTokens();
+  if (!Array.isArray(tokens) || tokens.length === 0) {
+    console.warn('No admin tokens found, skipping notification');
+    return;
+  }
+  
   try {
-    // Check if running in Expo Go BEFORE any imports
-    const Constants = await import('expo-constants');
-    const appOwnership = Constants.default?.appOwnership;
-    if (appOwnership === 'expo') {
-      console.log('⚠️ Running in Expo Go - Push notifications not available. Skipping notification.');
-      console.log('📱 To enable push notifications, use a development build instead of Expo Go.');
-      return;
-    }
-
-    // Clean up any invalid tokens first
-    await cleanupInvalidTokens();
-    
-    const tokens = await getAdminPushTokens();
-    if (!Array.isArray(tokens) || tokens.length === 0) {
-      console.warn('No admin tokens found, skipping notification');
-      return;
-    }
-    
     console.log(`📱 Sending notification to ${tokens.length} admin tokens`);
     await sendExpoPushAsync({ 
       to: tokens, 
@@ -246,32 +222,21 @@ export async function notifyAdmins(title: string, body: string, data?: Record<st
     console.log('✅ Admin notification sent successfully via Expo Push');
   } catch (error) {
     console.error('❌ Admin notification failed:', error);
-    // Don't throw the error to prevent app crashes
-    // Just log it and continue
-    console.warn('⚠️ Continuing without notification due to error');
+    throw error;
   }
 }
 
 export async function notifyUser(userId: string, title: string, body: string, data?: Record<string, any>): Promise<void> {
   console.log('📱 Notifying user via Expo Push:', { userId, title, body, data });
   
+  const expoToken = await getUserPushToken(userId);
+  
+  if (!expoToken) {
+    console.warn(`No push token found for user ${userId}, skipping notification`);
+    return;
+  }
+  
   try {
-    // Check if running in Expo Go BEFORE any imports
-    const Constants = await import('expo-constants');
-    const appOwnership = Constants.default?.appOwnership;
-    if (appOwnership === 'expo') {
-      console.log('⚠️ Running in Expo Go - Push notifications not available. Skipping notification.');
-      console.log('📱 To enable push notifications, use a development build instead of Expo Go.');
-      return;
-    }
-
-    const expoToken = await getUserPushToken(userId);
-    
-    if (!expoToken) {
-      console.warn(`No push token found for user ${userId}, skipping notification`);
-      return;
-    }
-    
     console.log('📱 Sending notification to user');
     await sendExpoPushAsync({ 
       to: expoToken, 
@@ -284,9 +249,7 @@ export async function notifyUser(userId: string, title: string, body: string, da
     console.log('✅ User notification sent successfully via Expo Push');
   } catch (error) {
     console.error('❌ User notification failed:', error);
-    // Don't throw the error to prevent app crashes
-    // Just log it and continue
-    console.warn('⚠️ Continuing without notification due to error');
+    throw error;
   }
 }
 
@@ -333,51 +296,4 @@ export async function notifyAdminByEmail(email: string, title: string, body: str
     return;
   }
   await notifyUser(userId, title, body, data);
-}
-
-// Clean up invalid tokens from database
-export async function cleanupInvalidTokens(): Promise<void> {
-  try {
-    console.log('🧹 Cleaning up invalid tokens from database...');
-    const snap = await get(ref(db, 'users'));
-    if (!snap.exists()) {
-      console.log('No users found to clean up');
-      return;
-    }
-    
-    const users = snap.val() || {};
-    let cleanedCount = 0;
-    
-    for (const [userId, userData] of Object.entries(users)) {
-      const user = userData as any;
-      let needsUpdate = false;
-      const updates: any = {};
-      
-      // Check expoPushToken
-      if (user.expoPushToken && typeof user.expoPushToken === 'string') {
-        const isValidExpoToken = user.expoPushToken.startsWith('ExponentPushToken[') || user.expoPushToken.startsWith('ExpoPushToken[');
-        if (!isValidExpoToken) {
-          console.log(`🧹 Removing invalid expoPushToken for user ${user.email || userId}:`, user.expoPushToken.substring(0, 30) + '...');
-          updates.expoPushToken = null;
-          needsUpdate = true;
-        }
-      }
-      
-      // Remove FCM tokens entirely since we're not using them
-      if (user.fcmToken) {
-        console.log(`🧹 Removing FCM token for user ${user.email || userId}:`, user.fcmToken.substring(0, 30) + '...');
-        updates.fcmToken = null;
-        needsUpdate = true;
-      }
-      
-      if (needsUpdate) {
-        await set(ref(db, `users/${userId}`), { ...user, ...updates });
-        cleanedCount++;
-      }
-    }
-    
-    console.log(`✅ Cleaned up tokens for ${cleanedCount} users`);
-  } catch (error) {
-    console.error('❌ Failed to cleanup invalid tokens:', error);
-  }
 }
