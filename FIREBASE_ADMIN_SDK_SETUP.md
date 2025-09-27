@@ -1,56 +1,59 @@
-# Firebase Admin SDK Push Notifications - Complete Setup Guide
+# FCM Push Notifications - Complete Setup Guide
 
 ## 🎯 What Was Fixed
 
-Your push notifications weren't working with Firebase Admin SDK because:
+Your push notifications weren't working because:
 
-1. **You were only using Expo Push API** - not Firebase Admin SDK
-2. **Missing Firebase Admin SDK dependency** - now installed
-3. **No FCM token handling** - now implemented
+1. **Firebase Admin SDK is server-side only** - can't run in React Native/Expo
+2. **Missing FCM REST API implementation** - now implemented
+3. **No direct FCM token handling** - now supports FCM tokens
 4. **No hybrid approach** - now supports both FCM and Expo fallback
 
 ## 📁 New Files Created
 
-### 1. `app/services/firebaseAdminService.ts`
-- Complete Firebase Admin SDK implementation
-- Direct FCM notification sending
-- Admin and user notification functions
+### 1. `app/services/notificationService.ts` (Updated)
+- Direct FCM REST API implementation
+- FCM token management
+- Hybrid approach (FCM + Expo fallback)
 - Proper error handling and logging
 
-### 2. `app/components/FirebaseAdminNotificationTester.tsx`
-- Test component for Firebase Admin SDK notifications
+### 2. `app/components/FCMNotificationTester.tsx`
+- Test component for FCM notifications
 - Hybrid notification testing
 - Real-time logging and debugging
 
-## 🔧 Updated Files
+## 🔧 Key Changes
 
-### 1. `app/services/notificationService.ts`
-- Now tries FCM first, then falls back to Expo
+### 1. **Removed Firebase Admin SDK**
+- Firebase Admin SDK is for server-side only
+- Now using FCM REST API directly from client
+
+### 2. **Updated Notification Service**
+- Direct FCM API calls using REST endpoints
+- FCM token support alongside Expo tokens
 - Hybrid approach for maximum reliability
-- Better error handling and logging
 
-### 2. `package.json`
-- Added `firebase-admin` dependency
-
-## 🚀 How to Use Firebase Admin SDK Notifications
+## 🚀 How to Use FCM Notifications
 
 ### Method 1: Direct FCM (Recommended)
 ```typescript
-import { sendFCMNotification, sendFCMToAdmins, sendFCMToUserByEmail } from '../services/firebaseAdminService';
+import { sendFCMNotificationDirect, sendFCMNotificationMulticast } from '../services/notificationService';
 
-// Send to specific FCM tokens
-await sendFCMNotification(
-  ['token1', 'token2'],
+// Send to specific FCM token
+await sendFCMNotificationDirect(
+  fcmToken,
   'Title',
   'Message body',
   { customData: 'value' }
 );
 
-// Send to all admins
-await sendFCMToAdmins('Admin Title', 'Admin message', { type: 'admin' });
-
-// Send to user by email
-await sendFCMToUserByEmail('user@example.com', 'Title', 'Message', { type: 'user' });
+// Send to multiple FCM tokens
+await sendFCMNotificationMulticast(
+  [token1, token2],
+  'Title',
+  'Message body',
+  { customData: 'value' }
+);
 ```
 
 ### Method 2: Hybrid Approach (FCM + Expo Fallback)
@@ -68,31 +71,34 @@ await notifyAdmins('Title', 'Message', { type: 'admin' });
 Add this to your admin dashboard or create a test screen:
 
 ```typescript
-import FirebaseAdminNotificationTester from '../components/FirebaseAdminNotificationTester';
+import FCMNotificationTester from '../components/FCMNotificationTester';
 
 // In your component
-<FirebaseAdminNotificationTester />
+<FCMNotificationTester />
 ```
 
 ### 2. Test Steps
 1. **Run the app** and navigate to the test component
-2. **Test Direct FCM** - Replace test tokens with real FCM tokens
-3. **Test FCM to Admins** - Should work if admins have FCM tokens
-4. **Test Hybrid Notifications** - Tests both FCM and Expo fallback
+2. **Check FCM Configuration** - See if FCM tokens are available
+3. **Test Direct FCM** - Replace test tokens with real FCM tokens
+4. **Test FCM to Admins** - Should work if admins have FCM tokens
+5. **Test Hybrid Notifications** - Tests both FCM and Expo fallback
 
 ## 🔑 Required Setup Steps
 
-### 1. FCM Tokens Must Be Registered
+### 1. Configure FCM Server Key
+Run this command to add your FCM server key:
+```bash
+node configure-fcm.js --key YOUR_FCM_SERVER_KEY
+```
+
+### 2. FCM Tokens Must Be Registered
 Make sure your users have FCM tokens stored in the database:
 ```typescript
 // In your FCMRegistrar component
 const fcmToken = await getToken(messaging);
 await saveFcmToken(userId, fcmToken);
 ```
-
-### 2. Service Account File
-The service account file is now in your project root:
-- `gereuonlinehub-firebase-adminsdk-fbsvc-9ad1f6a162.json`
 
 ### 3. Database Structure
 Ensure your users have both token types:
@@ -110,8 +116,8 @@ Ensure your users have both token types:
 
 ## 🐛 Troubleshooting
 
-### Issue 1: "Firebase Admin SDK not initialized"
-**Solution**: Check that the service account file is in the correct location and readable.
+### Issue 1: "FCM server key not configured"
+**Solution**: Run `node configure-fcm.js --key YOUR_SERVER_KEY`
 
 ### Issue 2: "No FCM tokens found"
 **Solution**: 
@@ -119,11 +125,11 @@ Ensure your users have both token types:
 2. Check that tokens are saved to the database
 3. Verify users have valid FCM tokens
 
-### Issue 3: "Permission denied"
-**Solution**: 
-1. Check Firebase Database rules
-2. Ensure service account has proper permissions
-3. Verify database URL is correct
+### Issue 3: "FCM API error"
+**Solution**:
+1. Check FCM server key is correct
+2. Verify FCM tokens are valid
+3. Check Firebase project configuration
 
 ### Issue 4: "Invalid FCM token"
 **Solution**:
@@ -134,7 +140,7 @@ Ensure your users have both token types:
 ## 📊 Monitoring and Debugging
 
 ### Console Logs
-The new implementation provides detailed logging:
+The implementation provides detailed logging:
 - ✅ Success messages
 - ⚠️ Warning messages  
 - ❌ Error messages
@@ -145,7 +151,7 @@ The test component shows real-time logs of all operations.
 
 ## 🔄 Migration Strategy
 
-### Phase 1: Test Firebase Admin SDK
+### Phase 1: Test FCM
 1. Use the test component to verify FCM works
 2. Check console logs for any errors
 3. Ensure FCM tokens are being registered
@@ -169,15 +175,16 @@ await notifyUser(userId, title, body, data);
 
 1. **Reliability**: FCM + Expo fallback ensures notifications are delivered
 2. **Performance**: FCM is faster and more reliable than Expo Push
-3. **Scalability**: Firebase Admin SDK handles high-volume notifications
+3. **Client-side**: No server required - works directly from your app
 4. **Debugging**: Comprehensive logging and testing tools
 5. **Flexibility**: Can use either method or both
 
 ## 📝 Next Steps
 
-1. **Test the setup** using the test component
-2. **Update your existing notification calls** to use the hybrid approach
-3. **Monitor the logs** to ensure everything works correctly
-4. **Remove the test component** once you're confident it works
+1. **Configure FCM server key** using the configure script
+2. **Test the setup** using the test component
+3. **Update your existing notification calls** to use the hybrid approach
+4. **Monitor the logs** to ensure everything works correctly
+5. **Remove the test component** once you're confident it works
 
-Your push notifications should now work reliably with Firebase Admin SDK! 🚀
+Your push notifications should now work reliably with FCM! 🚀

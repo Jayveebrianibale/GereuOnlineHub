@@ -23,6 +23,165 @@ function getFcmServerKey(): string | null {
   }
 }
 
+// Send FCM notification directly using Firebase REST API
+export async function sendFCMNotificationDirect(
+  fcmToken: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<void> {
+  try {
+    const fcmServerKey = getFcmServerKey();
+    
+    if (!fcmServerKey) {
+      throw new Error('FCM server key not configured. Run: node configure-fcm.js --key YOUR_SERVER_KEY');
+    }
+
+    const message = {
+      to: fcmToken,
+      notification: {
+        title,
+        body,
+        sound: 'default',
+      },
+      data: data || {},
+      android: {
+        notification: {
+          channelId: 'default',
+          priority: 'high',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    };
+
+    console.log('📱 Sending FCM notification directly:', {
+      token: fcmToken.substring(0, 20) + '...',
+      title,
+      body,
+      data
+    });
+
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `key=${fcmServerKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`FCM API error: ${result.error || 'Unknown error'}`);
+    }
+
+    if (result.failure > 0) {
+      console.warn('⚠️ Some FCM notifications failed:', result.results);
+    }
+
+    console.log('✅ FCM notification sent successfully:', {
+      success: result.success,
+      failure: result.failure,
+      messageId: result.multicast_id
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to send FCM notification:', error);
+    throw error;
+  }
+}
+
+// Send FCM notification to multiple tokens
+export async function sendFCMNotificationMulticast(
+  fcmTokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<void> {
+  try {
+    const fcmServerKey = getFcmServerKey();
+    
+    if (!fcmServerKey) {
+      throw new Error('FCM server key not configured. Run: node configure-fcm.js --key YOUR_SERVER_KEY');
+    }
+
+    const message = {
+      registration_ids: fcmTokens,
+      notification: {
+        title,
+        body,
+        sound: 'default',
+      },
+      data: data || {},
+      android: {
+        notification: {
+          channelId: 'default',
+          priority: 'high',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    };
+
+    console.log('📱 Sending FCM multicast notification:', {
+      tokenCount: fcmTokens.length,
+      title,
+      body,
+      data
+    });
+
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `key=${fcmServerKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`FCM API error: ${result.error || 'Unknown error'}`);
+    }
+
+    console.log('✅ FCM multicast notification sent:', {
+      success: result.success,
+      failure: result.failure,
+      messageId: result.multicast_id
+    });
+
+    // Log individual results
+    if (result.results) {
+      result.results.forEach((res: any, index: number) => {
+        if (res.error) {
+          console.error(`❌ FCM failed for token ${index}:`, res.error);
+        } else {
+          console.log(`✅ FCM success for token ${index}:`, res.message_id);
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Failed to send FCM multicast notification:', error);
+    throw error;
+  }
+}
+
 export async function saveExpoPushToken(userId: string, token: string): Promise<void> {
   try {
     console.log('💾 Saving Expo push token to Firebase:', { userId, token: token.substring(0, 30) + '...' });
@@ -35,9 +194,11 @@ export async function saveExpoPushToken(userId: string, token: string): Promise<
 
 export async function saveFcmToken(userId: string, token: string): Promise<void> {
   try {
+    console.log('💾 Saving FCM token to Firebase:', { userId, token: token.substring(0, 30) + '...' });
     await set(ref(db, `users/${userId}/fcmToken`), token);
+    console.log('✅ FCM token saved to Firebase successfully');
   } catch (error) {
-    console.error('Failed to save FCM token:', error);
+    console.error('❌ Failed to save FCM token:', error);
   }
 }
 
@@ -63,11 +224,17 @@ export async function getUserPushToken(userId: string): Promise<string | null> {
 
 export async function getUserFcmToken(userId: string): Promise<string | null> {
   try {
+    console.log('🔍 Getting user FCM token for:', userId);
     const snap = await get(ref(db, `users/${userId}/fcmToken`));
-    if (snap.exists()) return snap.val();
+    if (snap.exists()) {
+      const token = snap.val();
+      console.log('✅ User FCM token found:', token?.substring(0, 30) + '...');
+      return token;
+    }
+    console.warn('❌ No FCM token found for user:', userId);
     return null;
   } catch (error) {
-    console.error('Failed to get user FCM token:', error);
+    console.error('❌ Failed to get user FCM token:', error);
     return null;
   }
 }
@@ -95,6 +262,33 @@ export async function getAdminPushTokens(): Promise<string[]> {
     return adminTokens;
   } catch (error) {
     console.error('Failed to get admin push tokens:', error);
+    return [];
+  }
+}
+
+export async function getAdminFcmTokens(): Promise<string[]> {
+  try {
+    const snap = await get(ref(db, 'users'));
+    if (!snap.exists()) {
+      console.warn('No users found in database');
+      return [];
+    }
+    const users = snap.val() || {};
+    console.log('All users:', Object.keys(users).length);
+    
+    const adminTokens = Object.values(users)
+      .filter((u: any) => {
+        const isAdmin = u.role === 'admin';
+        const hasFcmToken = typeof u.fcmToken === 'string' && u.fcmToken.length > 0;
+        console.log(`User ${u.email || 'unknown'}: role=${u.role}, hasFcmToken=${hasFcmToken}, token=${u.fcmToken?.substring(0, 20)}...`);
+        return isAdmin && hasFcmToken;
+      })
+      .map((u: any) => u.fcmToken as string);
+    
+    console.log(`Found ${adminTokens.length} admin FCM tokens:`, adminTokens);
+    return adminTokens;
+  } catch (error) {
+    console.error('Failed to get admin FCM tokens:', error);
     return [];
   }
 }
@@ -192,13 +386,18 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
 export async function notifyAdmins(title: string, body: string, data?: Record<string, any>): Promise<void> {
   console.log('Notifying admins:', { title, body, data });
   
-  // Try FCM first (Firebase Admin SDK)
+  // Try FCM first (direct FCM API)
   try {
-    console.log('📱 Attempting to send admin notification via Firebase Admin SDK (FCM)...');
-    const { sendFCMToAdmins } = await import('./firebaseAdminService');
-    await sendFCMToAdmins(title, body, data as Record<string, string>);
-    console.log('✅ FCM admin notification sent successfully');
-    return; // Success, no need to try Expo
+    console.log('📱 Attempting to send admin notification via FCM...');
+    const fcmTokens = await getAdminFcmTokens();
+    
+    if (fcmTokens.length > 0) {
+      await sendFCMNotificationMulticast(fcmTokens, title, body, data as Record<string, string>);
+      console.log('✅ FCM admin notification sent successfully');
+      return; // Success, no need to try Expo
+    } else {
+      console.warn('⚠️ No admin FCM tokens found, trying Expo fallback');
+    }
   } catch (fcmError) {
     console.warn('⚠️ FCM admin notification failed, trying Expo fallback:', fcmError);
   }
@@ -247,12 +446,11 @@ export async function notifyUser(userId: string, title: string, body: string, da
     return;
   }
   
-  // Try FCM first (Firebase Admin SDK)
+  // Try FCM first (direct FCM API)
   if (fcmToken) {
     try {
-      console.log('📱 Sending via Firebase Admin SDK (FCM)...');
-      const { sendFCMToUser } = await import('./firebaseAdminService');
-      await sendFCMToUser(userId, title, body, data as Record<string, string>);
+      console.log('📱 Sending via FCM (direct API)...');
+      await sendFCMNotificationDirect(fcmToken, title, body, data as Record<string, string>);
       console.log('✅ FCM notification sent successfully');
       return; // Success, no need to try Expo
     } catch (fcmError) {
@@ -323,5 +521,3 @@ export async function notifyAdminByEmail(email: string, title: string, body: str
   }
   await notifyUser(userId, title, body, data);
 }
-
-
