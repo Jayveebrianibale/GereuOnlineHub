@@ -292,31 +292,51 @@ export default function MessagesScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Clean Header */}
         <View style={styles.header}>
-          <View>
-            <ThemedText type="title" style={[styles.title, { color: textColor }]}>
-              Messages
-            </ThemedText>
+          <View style={styles.headerContent}>
+            <View style={styles.titleSection}>
+              <ThemedText type="title" style={[styles.title, { color: textColor }]}>
+                Messages
+              </ThemedText>
+              <View style={[styles.titleAccent, { backgroundColor: colorPalette.primary }]} />
+            </View>
             <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
-              Your recent conversations
+              Manage your conversations
+            </ThemedText>
+          </View>
+          <View style={[styles.headerBadge, { backgroundColor: colorPalette.primaryLight }]}>
+            <Ionicons name="chatbubbles" size={20} color={colorPalette.darkest} />
+            <ThemedText style={[styles.badgeText, { color: colorPalette.darkest }]}>
+              {filteredMessages.length}
             </ThemedText>
           </View>
         </View>
 
-        {/* Search and Filter */}
+        {/* Clean Search and Filter */}
         <View style={[styles.searchContainer, { backgroundColor: cardBgColor, borderColor }]}>
-          <Ionicons name="search" size={20} color={subtitleColor} style={styles.searchIcon} />
+          <View style={[styles.searchIconWrapper, { backgroundColor: colorPalette.lightest }]}>
+            <Ionicons name="search" size={18} color={colorPalette.primary} />
+          </View>
           <TextInput
-            placeholder="Search messages..."
+            placeholder="Search conversations..."
             placeholderTextColor={subtitleColor}
             style={[styles.searchInput, { color: textColor }]}
             value={search}
             onChangeText={setSearch}
           />
           <TouchableOpacity
-            style={styles.filterButton}
+            style={[styles.filterButton, { 
+              backgroundColor: filter === 'unread' ? colorPalette.primary : colorPalette.lightest,
+              borderRadius: 20,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }]}
             onPress={() =>
               setFilter(
                 filter === 'all' ? 'unread' : 'all'
@@ -325,10 +345,15 @@ export default function MessagesScreen() {
           >
             <MaterialIcons 
               name={filter === 'unread' ? "mark-email-read" : "mark-email-unread"} 
-              size={20} 
-              color={colorPalette.primary} 
+              size={16} 
+              color={filter === 'unread' ? '#fff' : colorPalette.primary} 
             />
-            <ThemedText style={{ color: subtitleColor, marginLeft: 4, fontSize: 12 }}>
+            <ThemedText style={{ 
+              color: filter === 'unread' ? '#fff' : colorPalette.primary, 
+              marginLeft: 6, 
+              fontSize: 12,
+              fontWeight: '600'
+            }}>
               {filter === 'unread' ? 'Unread' : 'All'}
             </ThemedText>
           </TouchableOpacity>
@@ -336,7 +361,7 @@ export default function MessagesScreen() {
 
         {/* Message Stats removed as requested */}
 
-        {/* Message List Header */}
+        {/* Clean Message List Header */}
         <View style={[styles.listHeader, { borderBottomColor: borderColor }]}>
           <ThemedText type="default" style={[styles.headerText, { color: subtitleColor, flex: 4 }]}>
             Conversation
@@ -346,23 +371,27 @@ export default function MessagesScreen() {
           </ThemedText>
         </View>
 
-        {/* Message List */}
+        {/* Clean Message List */}
         {filteredMessages.length === 0 ? (
-          <View style={[styles.messageCard, { 
-            backgroundColor: cardBgColor, 
-            borderColor,
-            opacity: 0.8,
-            paddingLeft: 9
-          }]}>
-            <View style={[styles.messageInfo, { flex: 1 }]}> 
-              <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
-              <ThemedText style={{ color: subtitleColor, fontSize: 14, flexShrink: 1 }}>
+          <View style={[styles.emptyStateCard, { backgroundColor: cardBgColor, borderColor }]}>
+            <View style={styles.emptyStateContent}> 
+              <View style={[styles.emptyStateIcon, { backgroundColor: colorPalette.lightest }]}>
+                <Ionicons name="chatbubble-outline" size={32} color={colorPalette.primary} />
+              </View>
+              <ThemedText style={{ 
+                color: subtitleColor, 
+                fontSize: 16, 
+                textAlign: 'center',
+                marginTop: 16,
+                lineHeight: 24,
+                fontWeight: '500'
+              }}>
                 {search ? 'No messages found matching your search.' : 'No messages yet. Users will appear here when they message you.'}
               </ThemedText>
             </View>
           </View>
         ) : (
-          filteredMessages.map((message) => (
+          filteredMessages.map((message, index) => (
           <TouchableOpacity 
             key={message.id} 
             style={[styles.messageCard, { 
@@ -370,14 +399,20 @@ export default function MessagesScreen() {
               borderColor,
               borderLeftWidth: message.unread ? 4 : 0,
               borderLeftColor: message.unread ? colorPalette.primary : 'transparent',
-              paddingLeft: message.unread ? 16 : 12
+              paddingLeft: message.unread ? 20 : 16,
+              marginBottom: index === filteredMessages.length - 1 ? 0 : 12,
             }]}
             onPress={() => handleMessageClick(message)}
             onLongPress={() => handleLongPress(message)}
             delayLongPress={500}
+            activeOpacity={0.8}
           >
             <View style={[styles.messageInfo, { flex: 4 }]}>
-              <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
+              <View style={[styles.avatar, { 
+                backgroundColor: colorPalette.primaryLight,
+                borderWidth: 2,
+                borderColor: message.unread ? colorPalette.primary : 'transparent',
+              }]}>
                 {(() => {
                   // Determine the user email for this conversation
                   const userEmail = message.senderEmail === user?.email ? message.recipientEmail : message.senderEmail;
@@ -388,19 +423,24 @@ export default function MessagesScreen() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
+                    <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold', fontSize: 16 }}>
                       {message.avatar}
                     </ThemedText>
                   );
                 })()}
               </View>
               <View style={styles.messageDetails}>
-                <ThemedText type="subtitle" style={[styles.userName, { 
-                  color: message.unread ? textColor : subtitleColor,
-                  fontWeight: message.unread ? '600' : '400'
-                }]}>
-                  {getFirstName(message.name)}
-                </ThemedText>
+                <View style={styles.userNameRow}>
+                  <ThemedText type="subtitle" style={[styles.userName, { 
+                    color: message.unread ? textColor : subtitleColor,
+                    fontWeight: message.unread ? '600' : '500'
+                  }]}>
+                    {getFirstName(message.name)}
+                  </ThemedText>
+                  {message.unread && (
+                    <View style={[styles.statusIndicator, { backgroundColor: colorPalette.primary }]} />
+                  )}
+                </View>
                 <ThemedText 
                   numberOfLines={1} 
                   style={[styles.lastMessage, { 
@@ -412,13 +452,13 @@ export default function MessagesScreen() {
                 </ThemedText>
               </View>
             </View>
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <View style={styles.timeSection}>
               <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
                 {message.time ? new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
               </ThemedText>
               {message.unread && (
-                <View style={styles.unreadBadge}>
-                  <ThemedText style={{ color: '#fff', fontSize: 10 }}>New</ThemedText>
+                <View style={[styles.unreadBadge, { backgroundColor: colorPalette.primary }]}>
+                  <ThemedText style={{ color: '#fff', fontSize: 9, fontWeight: '600' }}>New</ThemedText>
                 </View>
               )}
             </View>
@@ -445,13 +485,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  headerContent: {
+    flex: 1,
+  },
+  titleSection: {
+    marginBottom: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
   },
+  titleAccent: {
+    height: 3,
+    width: 50,
+    borderRadius: 2,
+    marginTop: 6,
+  },
   subtitle: {
     fontSize: 14,
     opacity: 0.8,
+  },
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 16,
+  },
+  badgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -462,46 +527,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 20,
   },
-  searchIcon: {
+  searchIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
+    marginLeft: 4,
   },
   filterButton: {
     marginLeft: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    width: '32%',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  statLabel: {
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
   listHeader: {
     flexDirection: 'row',
     paddingVertical: 12,
     borderBottomWidth: 1,
     marginBottom: 8,
+    alignItems: 'center',
   },
   headerText: {
     fontSize: 12,
@@ -509,13 +558,30 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  emptyStateCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   messageCard: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 12,
     borderWidth: 1,
   },
   messageInfo: {
@@ -523,36 +589,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   messageDetails: {
     flex: 1,
     justifyContent: 'center',
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   userName: {
     fontSize: 16,
-    marginBottom: 4,
+    marginRight: 8,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   lastMessage: {
     fontSize: 14,
+    lineHeight: 18,
+  },
+  timeSection: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   timeText: {
     fontSize: 12,
     marginBottom: 4,
   },
   unreadBadge: {
-    backgroundColor: colorPalette.primary,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,

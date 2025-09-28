@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router'; // Change from useNavigation to useRouter
+import { useRouter } from 'expo-router';
 import { get, onValue, orderByChild, query, ref, update } from "firebase/database";
 import { useEffect, useState } from 'react';
 import { Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -39,7 +39,7 @@ interface Message {
 // Admin data - you might want to fetch this from Firebase or another source
 const ADMIN_USERS = [
   { id: '1', name: 'Jayvee Briani', email: 'jayveebriani@gmail.com', avatar: 'JB' },
-  { id: '2', name: 'Alfredo', email: 'alfredosayson@gmail.com', avatar: 'AS' },
+  { id: '2', name: 'Admin For Laundry', email: 'alfredosayson@gmail.com', avatar: 'AS' },
 ];
 
 export default function MessagesScreen() {
@@ -62,9 +62,46 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [adminProfilePictures, setAdminProfilePictures] = useState<{[key: string]: string}>({});
+  const [adminStatus, setAdminStatus] = useState<{[key: string]: boolean}>({});
 
   // Get current user email from auth context
   const currentUserEmail = user?.email || '';
+
+  // ✅ Real-time admin status listener
+  useEffect(() => {
+    const adminStatusRef = ref(db, "adminStatus");
+    
+    const unsubscribeStatus = onValue(adminStatusRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const statusData = snapshot.val();
+        console.log('Real-time admin status update:', statusData);
+        setAdminStatus(statusData);
+      } else {
+        console.log('No admin status data found, setting all offline');
+        // Set all admins as offline by default
+        const defaultStatus: {[key: string]: boolean} = {};
+        ADMIN_USERS.forEach(admin => {
+          defaultStatus[admin.email.replace(/\./g, '_')] = false;
+        });
+        setAdminStatus(defaultStatus);
+      }
+    });
+
+    return () => unsubscribeStatus();
+  }, []);
+
+  // ✅ Set current user as online when component mounts
+  useEffect(() => {
+    if (currentUserEmail) {
+      // Encode email to make it Firebase-safe (replace . with _)
+      const encodedEmail = currentUserEmail.replace(/\./g, '_');
+      // Set current user as online in adminStatus
+      const userStatusRef = ref(db, `adminStatus/${encodedEmail}`);
+      update(userStatusRef, { [encodedEmail]: true }).catch(error => {
+        console.error('Error setting user status:', error);
+      });
+    }
+  }, [currentUserEmail]);
 
   // ✅ Real-time listener
   useEffect(() => {
@@ -334,39 +371,61 @@ export default function MessagesScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Enhanced Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.titleContainer}>
             <ThemedText type="title" style={[styles.title, { color: textColor }]}>
               Messages
             </ThemedText>
-            <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
-              Your recent conversations
-            </ThemedText>
+            <View style={[styles.titleUnderline, { backgroundColor: colorPalette.primary }]} />
           </View>
+          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
+            Connect with our support team
+          </ThemedText>
         </View>
 
-        {/* Search and Filter */}
-        <View style={[styles.searchContainer, { backgroundColor: cardBgColor, borderColor }]}>
-          <Ionicons name="search" size={20} color={subtitleColor} style={styles.searchIcon} />
+        {/* Enhanced Search and Filter */}
+        <View style={[styles.searchContainer, { 
+          backgroundColor: cardBgColor, 
+          borderColor: isDark ? '#333' : colorPalette.lightest,
+          shadowColor: isDark ? '#000' : colorPalette.primary,
+          shadowOpacity: isDark ? 0.3 : 0.1,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 4,
+        }]}>
+          <View style={[styles.searchIconContainer, { backgroundColor: colorPalette.lightest }]}>
+            <Ionicons name="search" size={18} color={colorPalette.primary} />
+          </View>
           <TextInput
-            placeholder="Search messages..."
+            placeholder="Search conversations..."
             placeholderTextColor={subtitleColor}
             style={[styles.searchInput, { color: textColor }]}
             value={search}
             onChangeText={setSearch}
           />
           <TouchableOpacity
-            style={styles.filterButton}
+            style={[styles.filterButton, { 
+              backgroundColor: filter === 'unread' ? colorPalette.primary : 'transparent',
+            }]}
             onPress={() => setFilter(filter === 'all' ? 'unread' : 'all')}
           >
             <MaterialIcons 
               name={filter === 'unread' ? "mark-email-read" : "mark-email-unread"} 
-              size={20} 
-              color={colorPalette.primary} 
+              size={16} 
+              color={filter === 'unread' ? '#fff' : colorPalette.primary} 
             />
-            <ThemedText style={{ color: subtitleColor, marginLeft: 4, fontSize: 12 }}>
+            <ThemedText style={{ 
+              color: filter === 'unread' ? '#fff' : colorPalette.primary, 
+              marginLeft: 4, 
+              fontSize: 12,
+              fontWeight: '600'
+            }}>
               {filter === 'unread' ? 'Unread' : 'All'}
             </ThemedText>
           </TouchableOpacity>
@@ -389,135 +448,196 @@ export default function MessagesScreen() {
           </View>
         )}
 
-        {ADMIN_USERS.map((admin) => (
-          <TouchableOpacity 
-            key={admin.id}
-            style={[styles.messageCard, { 
-              backgroundColor: cardBgColor, 
-              borderColor,
-              opacity: currentUserEmail ? 1 : 0.6,
-            }]}
-            onPress={() => handleAdminChat(admin)}
-            disabled={!currentUserEmail}
-          >
-            <View style={[styles.messageInfo, { flex: 4 }]}>
-              <View style={[styles.avatar, { backgroundColor: colorPalette.primary }]}>
-                {adminProfilePictures[admin.email] ? (
-                  <Image
-                    source={{ uri: adminProfilePictures[admin.email] }}
-                    style={styles.avatarImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
-                    {admin.avatar}
-                  </ThemedText>
-                )}
+        {/* Enhanced Admin Section */}
+        <View style={styles.adminSection}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+              Support Team
+            </ThemedText>
+            <View style={[styles.sectionUnderline, { backgroundColor: colorPalette.light }]} />
+          </View>
+          
+          {ADMIN_USERS.map((admin, index) => (
+            <TouchableOpacity 
+              key={admin.id}
+              style={[styles.adminCard, { 
+                backgroundColor: cardBgColor, 
+                borderColor: isDark ? '#333' : colorPalette.lightest,
+                opacity: currentUserEmail ? 1 : 0.6,
+                shadowColor: isDark ? '#000' : colorPalette.primary,
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
+                transform: [{ scale: currentUserEmail ? 1 : 0.98 }],
+              }]}
+              onPress={() => handleAdminChat(admin)}
+              disabled={!currentUserEmail}
+              activeOpacity={0.7}
+            >
+              <View style={styles.adminCardContent}>
+                <View style={styles.adminInfo}>
+                  <View style={[styles.adminAvatar, { 
+                    backgroundColor: colorPalette.primary,
+                    shadowColor: colorPalette.primary,
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: 4,
+                  }]}>
+                    {adminProfilePictures[admin.email] ? (
+                      <Image
+                        source={{ uri: adminProfilePictures[admin.email] }}
+                        style={styles.adminAvatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <ThemedText style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                        {admin.avatar}
+                      </ThemedText>
+                    )}
+                    {adminStatus[admin.email.replace(/\./g, '_')] === true && (
+                      <View style={[styles.onlineIndicator, { 
+                        backgroundColor: '#4CAF50'
+                      }]} />
+                    )}
+                  </View>
+                  <View style={styles.adminDetails}>
+                    <ThemedText type="subtitle" style={[styles.adminName, { color: textColor }]}>
+                      {admin.name}
+                    </ThemedText>
+                    <ThemedText 
+                      numberOfLines={1} 
+                      style={[styles.adminStatus, { color: subtitleColor }]}
+                    >
+                      {adminStatus[admin.email.replace(/\./g, '_')] === true ? 'Online' : 'Admin • Available to Support'}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={[styles.chatButton, { backgroundColor: colorPalette.primary }]}>
+                  <MaterialIcons name="chat" size={20} color="#fff" />
+                </View>
               </View>
-              <View style={styles.messageDetails}>
-                <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}>
-                  Admin
-                </ThemedText>
-                <ThemedText 
-                  numberOfLines={1} 
-                  style={[styles.lastMessage, { color: subtitleColor }]}
-                >
-                  Available for support
-                </ThemedText>
-              </View>
-            </View>
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <MaterialIcons name="chat" size={20} color={colorPalette.primary} />
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Stats removed as requested */}
 
-        {/* Message List Header */}
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-            Recent Conversations
-          </ThemedText>
-        </View>
-
-        {/* Message List */}
-        {filteredMessages.length === 0 ? (
-          <View style={[styles.messageCard, { 
-            backgroundColor: cardBgColor, 
-            borderColor,
-            opacity: 0.8,
-          }]}>
-            <View style={styles.messageInfo}>
-              <Ionicons name="chatbubble-outline" size={24} color={subtitleColor} style={{ marginRight: 12 }} />
-              <ThemedText style={{ color: subtitleColor, fontSize: 14 }}>
-                No conversations yet.
-              </ThemedText>
-            </View>
+        {/* Enhanced Message List Header */}
+        <View style={styles.conversationSection}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+              Recent Conversations
+            </ThemedText>
+            <View style={[styles.sectionUnderline, { backgroundColor: colorPalette.light }]} />
           </View>
-        ) : (
-          filteredMessages.map((message) => (
-            <TouchableOpacity 
-              key={message.id} 
-              style={[styles.messageCard, { 
-                backgroundColor: cardBgColor, 
-                borderColor,
-                borderLeftWidth: message.unread ? 4 : 0,
-                borderLeftColor: message.unread ? colorPalette.primary : 'transparent'
-              }]}
-              onPress={() => handleMessageClick(message)}
-              onLongPress={() => handleLongPress(message)}
-              delayLongPress={500}
-            >
-            <View style={[styles.messageInfo, { flex: 4 }]}>
-              <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
-                {(() => {
-                  // Determine the admin email for this conversation
-                  const adminEmail = message.senderEmail === currentUserEmail ? message.recipientEmail : message.senderEmail;
-                  return adminProfilePictures[adminEmail] ? (
-                    <Image
-                      source={{ uri: adminProfilePictures[adminEmail] }}
-                      style={styles.avatarImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
-                      {message.avatar || 'U'}
-                    </ThemedText>
-                  );
-                })()}
+
+          {/* Enhanced Message List */}
+          {filteredMessages.length === 0 ? (
+            <View style={[styles.emptyState, { 
+              backgroundColor: cardBgColor, 
+              borderColor: isDark ? '#333' : colorPalette.lightest,
+              shadowColor: isDark ? '#000' : colorPalette.primary,
+              shadowOpacity: isDark ? 0.2 : 0.05,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 3,
+            }]}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: colorPalette.lightest }]}>
+                <Ionicons name="chatbubble-outline" size={32} color={colorPalette.primary} />
               </View>
-              <View style={styles.messageDetails}>
-                <ThemedText type="subtitle" style={[styles.userName, { 
-                  color: message.unread ? textColor : subtitleColor,
-                  fontWeight: message.unread ? '600' : '400'
-                }]}>
-                  {getFirstName(message.name || 'Unknown')}
-                </ThemedText>
-                <ThemedText 
-                  numberOfLines={1} 
-                  style={[styles.lastMessage, { 
-                    color: message.unread ? textColor : subtitleColor,
-                    fontWeight: message.unread ? '500' : '400'
-                  }]}
-                >
-                  {message.lastMessage || 'No message'}
-                </ThemedText>
-              </View>
-            </View>
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
-                {message.time ? new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+              <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
+                No conversations yet
               </ThemedText>
-              {message.unread && (
-                <View style={styles.unreadBadge}>
-                  <ThemedText style={{ color: '#fff', fontSize: 10 }}>New</ThemedText>
-                </View>
-              )}
+              <ThemedText style={[styles.emptySubtitle, { color: subtitleColor }]}>
+                Start a conversation with our support team above
+              </ThemedText>
             </View>
-          </TouchableOpacity>
-        ))
-        )}
+          ) : (
+            filteredMessages.map((message, index) => (
+              <TouchableOpacity 
+                key={message.id} 
+                style={[styles.enhancedMessageCard, { 
+                  backgroundColor: cardBgColor, 
+                  borderColor: isDark ? '#333' : colorPalette.lightest,
+                  borderLeftWidth: message.unread ? 4 : 0,
+                  borderLeftColor: message.unread ? colorPalette.primary : 'transparent',
+                  shadowColor: isDark ? '#000' : colorPalette.primary,
+                  shadowOpacity: isDark ? 0.2 : 0.06,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 3 },
+                  elevation: 4,
+                  marginBottom: index === filteredMessages.length - 1 ? 0 : 12,
+                }]}
+                onPress={() => handleMessageClick(message)}
+                onLongPress={() => handleLongPress(message)}
+                delayLongPress={500}
+                activeOpacity={0.7}
+              >
+                <View style={styles.messageCardContent}>
+                  <View style={styles.messageInfo}>
+                    <View style={[styles.enhancedAvatar, { 
+                      backgroundColor: message.unread ? colorPalette.primary : colorPalette.primaryLight,
+                      shadowColor: message.unread ? colorPalette.primary : colorPalette.primaryLight,
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 2 },
+                      elevation: 4,
+                    }]}>
+                      {(() => {
+                        // Determine the admin email for this conversation
+                        const adminEmail = message.senderEmail === currentUserEmail ? message.recipientEmail : message.senderEmail;
+                        return adminProfilePictures[adminEmail] ? (
+                          <Image
+                            source={{ uri: adminProfilePictures[adminEmail] }}
+                            style={styles.enhancedAvatarImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <ThemedText style={{ 
+                            color: message.unread ? '#fff' : colorPalette.darkest, 
+                            fontWeight: 'bold',
+                            fontSize: 16
+                          }}>
+                            {message.avatar || 'U'}
+                          </ThemedText>
+                        );
+                      })()}
+                    </View>
+                    <View style={styles.messageDetails}>
+                      <View style={styles.messageHeader}>
+                        <ThemedText type="subtitle" style={[styles.enhancedUserName, { 
+                          color: message.unread ? textColor : subtitleColor,
+                          fontWeight: message.unread ? '700' : '600'
+                        }]}>
+                          {getFirstName(message.name || 'Unknown')}
+                        </ThemedText>
+                        <ThemedText style={[styles.enhancedTimeText, { color: subtitleColor }]}>
+                          {message.time ? new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                        </ThemedText>
+                      </View>
+                      <ThemedText 
+                        numberOfLines={2} 
+                        style={[styles.enhancedLastMessage, { 
+                          color: message.unread ? textColor : subtitleColor,
+                          fontWeight: message.unread ? '500' : '400'
+                        }]}
+                      >
+                        {message.lastMessage || 'No message'}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  {message.unread && (
+                    <View style={[styles.enhancedUnreadBadge, { backgroundColor: colorPalette.primary }]}>
+                      <ThemedText style={{ color: '#fff', fontSize: 10, fontWeight: '600' }}>New</ThemedText>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -532,84 +652,233 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     marginTop: 30,
   },
+  // Enhanced Header Styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
+  },
+  titleContainer: {
+    marginBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  titleUnderline: {
+    height: 3,
+    width: 60,
+    borderRadius: 2,
+    marginTop: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     opacity: 0.8,
+    fontWeight: '500',
   },
-  newMessageButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-  },
+  // Enhanced Search Styles
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
+    paddingVertical: 14,
+    marginBottom: 24,
   },
-  searchIcon: {
+  searchIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
+    fontWeight: '500',
   },
   filterButton: {
     marginLeft: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
+  // Section Styles
   sectionHeader: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    opacity: 0.8,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    marginTop: 20,
-  },
-  statCard: {
-    width: '32%',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  statLabel: {
-    fontSize: 12,
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 8,
   },
-  statValue: {
+  sectionUnderline: {
+    height: 2,
+    width: 40,
+    borderRadius: 1,
+  },
+  // Admin Section Styles
+  adminSection: {
+    marginBottom: 32,
+  },
+  adminCard: {
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  adminCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  adminInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  adminAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    position: 'relative',
+  },
+  adminAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  adminDetails: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  adminStatus: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  chatButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  // Conversation Section Styles
+  conversationSection: {
+    marginBottom: 20,
+  },
+  // Empty State Styles
+  emptyState: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  emptyIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 8,
   },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  // Enhanced Message Card Styles
+  enhancedMessageCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  messageCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  messageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  enhancedAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    position: 'relative',
+  },
+  enhancedAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  messageDetails: {
+    flex: 1,
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  enhancedUserName: {
+    fontSize: 16,
+    flex: 1,
+  },
+  enhancedTimeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  enhancedLastMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  enhancedUnreadBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  // Legacy styles for compatibility
   messageCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -618,10 +887,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-  },
-  messageInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   avatar: {
     width: 40,
@@ -636,10 +901,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-  },
-  messageDetails: {
-    flex: 1,
-    justifyContent: 'center',
   },
   userName: {
     fontSize: 16,

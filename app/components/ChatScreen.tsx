@@ -6,18 +6,18 @@ import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -107,7 +107,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
   const bubbleBgColor = isDark ? '#2A2A2A' : '#e6e6e6';
   const adminBubbleBgColor = isDark ? '#004d40' : '#b2dfdb';
-  const userBubbleBgColor = isDark ? '#1e3a8a' : '#3b82f6';
+  const userBubbleBgColor = isDark ? '#1b5e20' : '#81c784';
 
   // Function to fetch recipient profile data
   const fetchRecipientProfile = useCallback(async (email: string) => {
@@ -152,7 +152,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       setRecipientProfile({
         name: recipientName || email.split('@')[0],
         email: email,
-        profileImageUrl: null,
+        profileImageUrl: undefined,
         isOnline: false
       });
     }
@@ -290,7 +290,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             chatId: chatId,
             senderEmail: currentUserEmail,
             senderName: isAdmin ? 'Admin' : currentUserEmail.split('@')[0],
-            messageId: messageData.id || 'unknown'
+            messageId: (messageData as any).id || 'unknown'
           };
 
           console.log('📱 Sending text message notification:', {
@@ -372,7 +372,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             chatId: chatId,
             senderEmail: currentUserEmail,
             senderName: senderName,
-            messageId: messageData.id || 'unknown',
+            messageId: (messageData as any).id || 'unknown',
             messageType: 'image'
           };
 
@@ -612,23 +612,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     );
   };
 
-  const handleReportUser = () => {
-    Alert.alert(
-      'Report User',
-      `Are you sure you want to report ${recipientName || 'this user'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Success', 'User reported successfully!');
-            setShowMenu(false);
-          }
-        }
-      ]
-    );
-  };
 
   const handleBlockUser = () => {
     Alert.alert(
@@ -892,20 +875,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           }
         />
         
-        {/* Input Container */}
+        {/* Enhanced Input Container */}
         <View style={[
           styles.inputContainer, 
           { 
-            backgroundColor: bgColor, 
-            borderTopColor: isDark ? '#333' : '#e0e0e0',
-            shadowColor: '#000',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+            borderTopColor: isDark ? '#2A2A2A' : '#E0E0E0',
+            borderTopWidth: 1,
+            shadowColor: isDark ? '#000' : '#000',
             shadowOffset: {
               width: 0,
               height: -2,
             },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 5,
+            shadowOpacity: isDark ? 0.2 : 0.08,
+            shadowRadius: isDark ? 6 : 8,
+            elevation: isDark ? 6 : 8,
           }
         ]}>
           <View style={styles.inputWrapper}>
@@ -913,8 +897,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.imageButton,
                 {
-                  backgroundColor: inputBgColor,
-                  borderColor: isDark ? '#444' : '#ddd',
+                  backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
+                  borderColor: isDark ? '#444' : '#E1E5E9',
+                  shadowColor: isDark ? '#000' : '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: isDark ? 0.2 : 0.1,
+                  shadowRadius: isDark ? 4 : 6,
+                  elevation: isDark ? 4 : 6,
                 }
               ]}
               onPress={pickImage}
@@ -922,8 +914,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             >
               <Ionicons 
                 name="camera" 
-                size={20} 
-                color={textColor} 
+                size={22} 
+                color={isDark ? '#FFFFFF' : '#007AFF'} 
               />
             </TouchableOpacity>
             
@@ -932,15 +924,26 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor: inputBgColor,
+                  backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
                   color: textColor,
-                  borderColor: isInputFocused ? '#007AFF' : (isDark ? '#444' : '#ddd'),
+                  borderColor: isInputFocused 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#444' : '#E1E5E9'),
+                  borderWidth: isInputFocused ? 2 : 1,
+                  shadowColor: isDark ? '#000' : '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: isDark ? 0.2 : 0.08,
+                  shadowRadius: isDark ? 4 : 8,
+                  elevation: isDark ? 4 : 8,
                 }
               ]}
               value={inputText}
               onChangeText={setInputText}
               placeholder={`Message ${recipientName || 'user'}...`}
-              placeholderTextColor={isDark ? '#aaa' : '#666'}
+              placeholderTextColor={isDark ? '#AAA' : '#8E8E93'}
               multiline
               maxLength={1000}
               returnKeyType="send"
@@ -967,8 +970,26 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.sendButton,
                 {
-                  backgroundColor: inputText.trim() && !isLoading ? '#007AFF' : '#ccc',
-                  opacity: isLoading ? 0.5 : 1,
+                  backgroundColor: inputText.trim() && !isLoading 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#444' : '#C7C7CC'),
+                  shadowColor: inputText.trim() && !isLoading 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#000' : '#000'),
+                  shadowOffset: {
+                    width: 0,
+                    height: 3,
+                  },
+                  shadowOpacity: inputText.trim() && !isLoading 
+                    ? (isDark ? 0.4 : 0.3) 
+                    : (isDark ? 0.2 : 0.1),
+                  shadowRadius: inputText.trim() && !isLoading 
+                    ? (isDark ? 6 : 8) 
+                    : (isDark ? 4 : 6),
+                  elevation: inputText.trim() && !isLoading 
+                    ? (isDark ? 6 : 8) 
+                    : (isDark ? 4 : 6),
+                  opacity: isLoading ? 0.6 : 1,
                 }
               ]}
               onPress={sendMessage}
@@ -979,7 +1000,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               ) : (
                 <Ionicons 
                   name="send" 
-                  size={20} 
+                  size={22} 
                   color="#fff" 
                 />
               )}
@@ -1016,13 +1037,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 <ThemedText style={[styles.menuText, { color: '#F44336' }]}>Clear Chat</ThemedText>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={handleReportUser}
-              >
-                <Ionicons name="flag" size={20} color="#FF9800" />
-                <ThemedText style={[styles.menuText, { color: '#FF9800' }]}>Report User</ThemedText>
-              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.menuItem}
@@ -1263,11 +1277,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   inputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 2 : 1,
-    minHeight: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 12,
+    minHeight: 80,
     backgroundColor: 'transparent',
     position: 'relative',
     zIndex: 1000,
@@ -1275,60 +1288,34 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: 12,
   },
   imageButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
   },
   textInput: {
     flex: 1,
-    borderWidth: 2,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
-    maxHeight: 100,
-    minHeight: 44,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    maxHeight: 120,
+    minHeight: 48,
     fontSize: 16,
     textAlignVertical: 'top',
     includeFontPadding: false,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    fontWeight: '400',
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   menuOverlay: {
     flex: 1,

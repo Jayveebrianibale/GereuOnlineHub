@@ -347,7 +347,7 @@ const colorPalette = {
     };
 
     const handleAmenityChange = (text: string, index: number) => {
-        const updatedAmenities = [...currentApartment.amenities];
+        const updatedAmenities = [...(currentApartment.amenities || [])];
         updatedAmenities[index] = text;
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
     };
@@ -355,12 +355,12 @@ const colorPalette = {
     const addAmenity = () => {
         setCurrentApartment({ 
         ...currentApartment, 
-        amenities: [...currentApartment.amenities, ''] 
+        amenities: [...(currentApartment.amenities || []), ''] 
         });
     };
 
     const removeAmenity = (index: number) => {
-        const updatedAmenities = [...currentApartment.amenities];
+        const updatedAmenities = [...(currentApartment.amenities || [])];
         updatedAmenities.splice(index, 1);
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
     };
