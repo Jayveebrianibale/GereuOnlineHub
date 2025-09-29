@@ -40,8 +40,6 @@ const emptyLaundryService = {
   reviews: 0,
   description: '',
   services: [],
-  pickup: '',
-  delivery: '',
   minOrder: '',
   available: true,
 };
@@ -231,8 +229,8 @@ export default function AdminLaundryManagement() {
       errors.title = 'Service title must be at least 3 characters';
     }
     
-    if (currentService.price && !currentService.price.match(/^[Pp]?\d+[\/\-]?\w*$/)) {
-      errors.price = 'Please enter a valid price (e.g., P250/lb, From P200)';
+    if (currentService.price && !currentService.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
+      errors.price = 'Please enter a valid price (e.g., P250/lb, 20,000)';
     }
     
     setFieldErrors(errors);
@@ -636,27 +634,6 @@ export default function AdminLaundryManagement() {
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Pickup Information</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor }]}
-                  value={currentService.pickup}
-                  onChangeText={(text) => setCurrentService({ ...currentService, pickup: text })}
-                  placeholder="e.g. Free pickup or Scheduled pickup"
-                  placeholderTextColor={subtitleColor}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Delivery Information</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor }]}
-                  value={currentService.delivery}
-                  onChangeText={(text) => setCurrentService({ ...currentService, delivery: text })}
-                  placeholder="e.g. Free delivery or Same day delivery"
-                  placeholderTextColor={subtitleColor}
-                />
-              </View>
 
               <View style={styles.formGroup}>
                 <ThemedText style={[styles.label, { color: textColor }]}>Minimum Order</ThemedText>

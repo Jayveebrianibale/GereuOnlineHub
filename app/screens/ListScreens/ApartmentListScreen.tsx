@@ -8,19 +8,21 @@ import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
+import { APARTMENT_ADMIN } from '../../config/adminConfig';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
 import {
-    cacheApartments,
-    getCachedApartments
+  cacheApartments,
+  getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
+import { isSmallScreen, isTablet, normalize, wp } from '../../utils/responsiveUtils';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
 
 
@@ -112,8 +114,8 @@ export default function ApartmentListScreen() {
   const handleMessageAdmin = async (apartment: any) => {
     try {
       if (!user?.email) return;
-      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
-      const ADMIN_NAME = 'Jayvee Brian';
+      const ADMIN_EMAIL = APARTMENT_ADMIN.email;
+      const ADMIN_NAME = APARTMENT_ADMIN.name;
       const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
 
       const priceText = typeof apartment?.price !== 'undefined' ? `Price: ${formatPHP(apartment.price)}` : '';
@@ -171,6 +173,16 @@ export default function ApartmentListScreen() {
   };
 
   const handleReservation = async (apartment: any) => {
+    // Check if apartment is available
+    if (!apartment.available) {
+      Alert.alert(
+        'Service Unavailable',
+        'This apartment is currently unavailable for reservation. Please try again later or contact the admin.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
     if (!isReserved) {
       try {
@@ -347,6 +359,21 @@ export default function ApartmentListScreen() {
           <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
           <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
             {item.location || 'Location not specified'}
+          </ThemedText>
+        </View>
+        
+        {/* Availability Status */}
+        <View style={styles.availabilityRow}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={16} 
+            color={item.available ? "#4CAF50" : "#F44336"} 
+          />
+          <ThemedText style={[
+            styles.availabilityText, 
+            { color: item.available ? "#4CAF50" : "#F44336" }
+          ]}>
+            {item.available ? "Available" : "Unavailable"}
           </ThemedText>
         </View>
         
@@ -602,47 +629,66 @@ export default function ApartmentListScreen() {
                         style={[
                           styles.bookButton,
                           {
-                            borderColor: colorPalette.primary,
+                            borderColor: selectedApartment.available ? colorPalette.primary : '#ccc',
                             backgroundColor: (() => {
+                              if (!selectedApartment.available) return '#f5f5f5';
                               const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
                               const status = (match as any)?.status;
                               const active = status === 'pending' || status === 'confirmed';
                               return active ? colorPalette.primary : 'transparent';
                             })(),
+                            opacity: selectedApartment.available ? 1 : 0.6,
                           },
                         ]}
-                        onPress={() => handleReservation(selectedApartment)}
+                        onPress={() => selectedApartment.available ? handleReservation(selectedApartment) : null}
+                        disabled={!selectedApartment.available}
                       >
-                        {(() => {
-                          const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                          const status = (match as any)?.status;
-                          const active = status === 'pending' || status === 'confirmed';
-                          return (
-                            <MaterialIcons
-                              name={active ? 'check-circle' : 'bookmark-border'}
-                              size={20}
-                              color={active ? '#fff' : colorPalette.primary}
-                            />
-                          );
-                        })()}
-                        <ThemedText
-                          style={[
-                            styles.bookButtonText,
-                            (() => {
+                         {(() => {
+                           if (!selectedApartment.available) {
+                             return (
+                               <MaterialIcons
+                                 name="cancel"
+                                 size={20}
+                                 color="#999"
+                               />
+                             );
+                           }
+                           const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                           const status = (match as any)?.status;
+                           const active = status === 'pending' || status === 'confirmed';
+                           return (
+                             <MaterialIcons
+                               name={active ? 'check-circle' : 'bookmark-border'}
+                               size={20}
+                               color={active ? '#fff' : colorPalette.primary}
+                             />
+                           );
+                         })()}
+                        {!selectedApartment.available ? (
+                          <View style={styles.unavailableContainer}>
+                            <MaterialIcons name="block" size={16} color="#fff" />
+                            <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                          </View>
+                        ) : (
+                          <ThemedText
+                            style={[
+                              styles.bookButtonText,
+                              (() => {
+                                const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                const status = (match as any)?.status;
+                                const active = status === 'pending' || status === 'confirmed';
+                                return { color: active ? '#fff' : colorPalette.primary };
+                              })(),
+                            ]}
+                          >
+                            {(() => {
                               const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
                               const status = (match as any)?.status;
                               const active = status === 'pending' || status === 'confirmed';
-                              return { color: active ? '#fff' : colorPalette.primary };
-                            })(),
-                          ]}
-                        >
-                          {(() => {
-                            const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                            const status = (match as any)?.status;
-                            const active = status === 'pending' || status === 'confirmed';
-                            return active ? 'Reserved' : 'Reserve';
-                          })()}
-                        </ThemedText>
+                              return active ? 'Reserved' : 'Reserve';
+                            })()}
+                          </ThemedText>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -760,6 +806,16 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 14,
   },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  availabilityText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   description: {
     fontSize: 14,
     lineHeight: 20,
@@ -870,33 +926,34 @@ const styles = StyleSheet.create({
   },
   detailModal: {
     width: '100%',
-    borderRadius: 16,
+    borderRadius: normalize(isTablet ? 20 : 16),
     maxHeight: '90%',
     overflow: 'hidden',
+    maxWidth: isTablet ? wp(80) : wp(95),
   },
   detailScrollView: {
     // flex: 1, // Removed to fix modal content visibility
   },
   detailScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: normalize(20),
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   detailTitle: {
-    fontSize: 18,
+    fontSize: normalize(isTablet ? 20 : 18),
     fontWeight: '600',
     flex: 1,
-    marginRight: 12,
+    marginRight: normalize(12),
   },
   detailImage: {
     width: '100%',
-    height: 250,
+    height: normalize(isTablet ? 300 : 250),
   },
   imageOverlay: {
     position: 'absolute',
@@ -910,27 +967,28 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   detailContent: {
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
   },
   detailRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   detailPrice: {
-    fontSize: 20,
+    fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
   },
   detailDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
+    fontSize: normalize(isTablet ? 18 : 16),
+    lineHeight: normalize(isTablet ? 28 : 24),
+    marginBottom: normalize(20),
   },
   detailSpecs: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+    flexDirection: isTablet ? 'row' : 'column',
+    justifyContent: isTablet ? 'space-between' : 'flex-start',
+    marginBottom: normalize(24),
+    gap: normalize(12),
   },
   specItem: {
     flexDirection: 'row',
@@ -938,65 +996,90 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   specText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: normalize(8),
+    fontSize: normalize(isTablet ? 15 : 14),
     fontWeight: '500',
   },
   amenitiesSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: normalize(12),
   },
   amenitiesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: normalize(8),
   },
   amenityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '50%',
-    marginBottom: 8,
+    width: isTablet ? '33%' : '50%',
+    marginBottom: normalize(8),
+    minWidth: isSmallScreen ? wp(45) : wp(40),
   },
   amenityItemText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: normalize(8),
+    fontSize: normalize(isTablet ? 15 : 14),
+    flex: 1,
   },
   detailActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: normalize(12),
   },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(isTablet ? 14 : 12),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
+    minHeight: normalize(isTablet ? 48 : 44),
   },
   contactButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginLeft: normalize(8),
   },
   bookButton: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(isTablet ? 14 : 12),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: normalize(isTablet ? 48 : 44),
   },
   bookButtonText: {
     fontWeight: 'bold',
-    fontSize: 14,
-    
+    fontSize: normalize(isTablet ? 16 : 14),
+  },
+  unavailableContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  unavailableText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: normalize(isTablet ? 14 : 12),
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
   emptyText: {
     fontSize: 16,

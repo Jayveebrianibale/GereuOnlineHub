@@ -231,8 +231,8 @@ export default function AdminAutoManagement() {
       errors.title = 'Service title must be at least 3 characters';
     }
     
-    if (currentService.price && !currentService.price.match(/^[Pp]?\d+[\/\-]?\w*$/)) {
-      errors.price = 'Please enter a valid price (e.g., P300, From P200)';
+    if (currentService.price && !currentService.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
+      errors.price = 'Please enter a valid price (e.g., P300, 20,000)';
     }
     
     setFieldErrors(errors);
@@ -391,7 +391,7 @@ export default function AdminAutoManagement() {
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Auto Service Management
+          Car and Motor Parts
         </ThemedText>
         <TouchableOpacity
           style={styles.headerAddButton}

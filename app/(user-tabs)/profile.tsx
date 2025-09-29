@@ -353,11 +353,22 @@ export default function Profile() {
         displayName: personalInfo.fullName.trim() 
       });
 
-      // Save to Realtime Database
-      await set(dbRef(db, `users/${user.uid}/personalInfo`), {
-        ...personalInfo,
-        updatedAt: new Date().toISOString(),
-      });
+      // Save to Realtime Database - update both personalInfo and main user data
+      const updateData = {
+        [`users/${user.uid}/personalInfo`]: {
+          ...personalInfo,
+          updatedAt: new Date().toISOString(),
+        },
+        [`users/${user.uid}/name`]: personalInfo.fullName.trim(),
+        [`users/${user.uid}/updatedAt`]: new Date().toISOString()
+      };
+      
+      // Use a single transaction for faster updates
+      await Promise.all(
+        Object.entries(updateData).map(([path, data]) => 
+          set(dbRef(db, path), data)
+        )
+      );
 
       // Update local user data
       setUserData(prev => ({

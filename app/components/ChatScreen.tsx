@@ -49,13 +49,21 @@ interface Message {
   senderName?: string;
   imageUrl?: string;
   image?: string; // For apartment inquiry images
-  messageType?: 'text' | 'image' | 'apartment_inquiry';
+  messageType?: 'text' | 'image' | 'apartment_inquiry' | 'laundry_inquiry' | 'auto_inquiry';
   deletedFor?: string[]; // Array of user emails who have deleted this message
   readBy?: string[]; // Array of user emails who have read this message
   // Apartment inquiry fields
   apartmentTitle?: string;
   apartmentPrice?: number;
   apartmentLocation?: string;
+  // Laundry inquiry fields
+  laundryTitle?: string;
+  laundryPrice?: number;
+  laundryTurnaround?: string;
+  // Auto inquiry fields
+  autoTitle?: string;
+  autoPrice?: number;
+  autoDuration?: string;
   category?: string;
   serviceId?: string;
 }
@@ -690,6 +698,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const isMessageFromAdmin = item.isAdmin;
     const isImageMessage = item.messageType === 'image' && item.imageUrl;
     const isApartmentInquiry = item.messageType === 'apartment_inquiry' && (item.image || item.imageUrl);
+    const isLaundryInquiry = item.messageType === 'laundry_inquiry' && (item.image || item.imageUrl);
+    const isAutoInquiry = item.messageType === 'auto_inquiry' && (item.image || item.imageUrl);
     
     return (
       <View style={[
@@ -701,6 +711,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             styles.messageBubble,
             isImageMessage ? styles.imageMessageBubble : {},
             isApartmentInquiry ? styles.apartmentInquiryBubble : {},
+            isLaundryInquiry ? styles.laundryInquiryBubble : {},
+            isAutoInquiry ? styles.autoInquiryBubble : {},
             {
               backgroundColor: isCurrentUser 
                 ? (isMessageFromAdmin ? adminBubbleBgColor : userBubbleBgColor)
@@ -765,6 +777,100 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                     <MaterialIcons name="location-on" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
                     <ThemedText style={[styles.apartmentLocationText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
                       {item.apartmentLocation}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8, fontStyle: 'italic' }]}>
+                {item.text}
+              </ThemedText>
+            </View>
+          ) : isLaundryInquiry ? (
+            <View style={styles.laundryInquiryContainer}>
+              <View style={styles.laundryInquiryHeader}>
+                <ThemedText style={[styles.laundryInquiryTitle, { color: textColor }]}>
+                  🧺 Laundry Inquiry
+                </ThemedText>
+              </View>
+              
+              {(item.image || item.imageUrl) && (
+                <TouchableOpacity
+                  onPress={() => handleImagePress(item.image || item.imageUrl!)}
+                  activeOpacity={0.8}
+                  style={styles.laundryImageContainer}
+                >
+                  <Image
+                    source={{ uri: item.image || item.imageUrl }}
+                    style={styles.laundryInquiryImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.laundryInquiryDetails}>
+                <ThemedText style={[styles.laundryInquiryName, { color: textColor }]}>
+                  {item.laundryTitle || 'Laundry Service'}
+                </ThemedText>
+                
+                {item.laundryPrice && (
+                  <ThemedText style={[styles.laundryInquiryPrice, { color: colorPalette.primary }]}>
+                    {formatPHP(item.laundryPrice)}
+                  </ThemedText>
+                )}
+                
+                {item.laundryTurnaround && (
+                  <View style={styles.laundryTurnaroundRow}>
+                    <MaterialIcons name="schedule" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
+                    <ThemedText style={[styles.laundryTurnaroundText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
+                      {item.laundryTurnaround}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8, fontStyle: 'italic' }]}>
+                {item.text}
+              </ThemedText>
+            </View>
+          ) : isAutoInquiry ? (
+            <View style={styles.autoInquiryContainer}>
+              <View style={styles.autoInquiryHeader}>
+                <ThemedText style={[styles.autoInquiryTitle, { color: textColor }]}>
+                  🚗 Car and Motor Parts Inquiry
+                </ThemedText>
+              </View>
+              
+              {(item.image || item.imageUrl) && (
+                <TouchableOpacity
+                  onPress={() => handleImagePress(item.image || item.imageUrl!)}
+                  activeOpacity={0.8}
+                  style={styles.autoImageContainer}
+                >
+                  <Image
+                    source={{ uri: item.image || item.imageUrl }}
+                    style={styles.autoInquiryImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.autoInquiryDetails}>
+                <ThemedText style={[styles.autoInquiryName, { color: textColor }]}>
+                  {item.autoTitle || 'Car and Motor Parts Service'}
+                </ThemedText>
+                
+                {item.autoPrice && (
+                  <ThemedText style={[styles.autoInquiryPrice, { color: colorPalette.primary }]}>
+                    {formatPHP(item.autoPrice)}
+                  </ThemedText>
+                )}
+                
+                {item.autoDuration && (
+                  <View style={styles.autoDurationRow}>
+                    <MaterialIcons name="schedule" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
+                    <ThemedText style={[styles.autoDurationText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
+                      {item.autoDuration}
                     </ThemedText>
                   </View>
                 )}
@@ -1502,6 +1608,114 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   apartmentLocationText: {
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  // Laundry inquiry message styles
+  laundryInquiryBubble: {
+    maxWidth: '85%',
+    padding: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  laundryInquiryContainer: {
+    padding: 12,
+  },
+  laundryInquiryHeader: {
+    marginBottom: 8,
+  },
+  laundryInquiryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B2FF',
+  },
+  laundryImageContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  laundryInquiryImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  laundryInquiryDetails: {
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  laundryInquiryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  laundryInquiryPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  laundryTurnaroundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  laundryTurnaroundText: {
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  // Auto inquiry message styles
+  autoInquiryBubble: {
+    maxWidth: '85%',
+    padding: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  autoInquiryContainer: {
+    padding: 12,
+  },
+  autoInquiryHeader: {
+    marginBottom: 8,
+  },
+  autoInquiryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B2FF',
+  },
+  autoImageContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  autoInquiryImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  autoInquiryDetails: {
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  autoInquiryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  autoInquiryPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  autoDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  autoDurationText: {
     fontSize: 13,
     marginLeft: 4,
     fontWeight: '500',

@@ -2,13 +2,32 @@
 // Add or remove admin email addresses here
 
 export const ADMIN_EMAILS: string[] = [
-  'jayveebriani@gmail.com',
-  'alfredosayson@gmail.com',
-  'sayson5@gmail.com',
+  'xxc49540@gmail.com',
+  'bton79538@gmail.com',
+  'ketbe800@gmail.com',
+
   // Add more admin emails here as needed
   // 'admin2@example.com',
   // 'admin3@example.com',
 ];
+
+// Apartment Admin Configuration
+export const APARTMENT_ADMIN = {
+  email: 'xxc49540@gmail.com', // Change this to the correct email for 'Apartment Account'
+  name: 'Apartment Account',
+};
+
+// Laundry Admin Configuration
+export const LAUNDRY_ADMIN = {
+  email: 'bton79538@gmail.com', // Change this to the correct email for 'Laundry Account'
+  name: 'Laundry Account',
+};
+
+// Car and Motor Part Admin Configuration
+export const AUTO_ADMIN = {
+  email: 'ketbe800@gmail.com', // Change this to the correct email for 'Car and Motor Part' account
+  name: 'Car and Motor Part',
+};
 
 // Contact Information Configuration
 export const CONTACT_INFO = {

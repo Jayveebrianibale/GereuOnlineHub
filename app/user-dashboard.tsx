@@ -5,20 +5,16 @@ import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
+import { off, onValue, ref } from 'firebase/database';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from './components/RobustImage';
-import { getApartments } from './services/apartmentService';
-import { getAutoServices } from './services/autoService';
+import { db } from './firebaseConfig';
 import {
-    cacheApartments,
-    cacheAutoServices,
-    cacheLaundryServices,
-    getCachedApartments,
-    getCachedAutoServices,
-    getCachedLaundryServices
+  cacheApartments,
+  cacheAutoServices,
+  cacheLaundryServices
 } from './services/dataCache';
-import { getLaundryServices } from './services/laundryService';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
 
@@ -175,76 +171,66 @@ export default function UserHome() {
     }
   };
 
+  // Real-time listeners for all services
   useEffect(() => {
-    const fetchApartments = async () => {
-      try {
-        // Check cache first
-        const cachedApartments = getCachedApartments();
-        if (cachedApartments) {
-          console.log('🚀 Using cached apartments data');
-          setApartments(cachedApartments);
-          return;
-        }
-
-        console.log('📡 Fetching apartments from Firebase...');
-        const apartmentsData = await getApartments();
-        setApartments(apartmentsData);
-        
-        // Cache the data
-        cacheApartments(apartmentsData);
-      } catch (error) {
-        console.error('Error fetching apartments:', error);
+    console.log('🔄 Setting up real-time listeners for services...');
+    
+    // Set up real-time listener for apartments
+    const apartmentsRef = ref(db, 'apartments');
+    const apartmentsListener = onValue(apartmentsRef, (snapshot) => {
+      const apartmentsData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          const apartment = { id: key, ...data[key] };
+          apartmentsData.push(apartment);
+        });
       }
-    };
-    fetchApartments();
-  }, []);
+      console.log('🏠 Real-time apartments update:', apartmentsData.length, 'apartments');
+      setApartments(apartmentsData);
+      // Update cache with new data
+      cacheApartments(apartmentsData);
+    });
 
-  useEffect(() => {
-    const fetchAutoServices = async () => {
-      try {
-        // Check cache first
-        const cachedAutoServices = getCachedAutoServices();
-        if (cachedAutoServices) {
-          console.log('🚀 Using cached auto services data');
-          setAutoServices(cachedAutoServices);
-          return;
-        }
-
-        console.log('📡 Fetching auto services from Firebase...');
-        const autoServicesData = await getAutoServices();
-        setAutoServices(autoServicesData);
-        
-        // Cache the data
-        cacheAutoServices(autoServicesData);
-      } catch (error) {
-        console.error('Error fetching auto services:', error);
+    // Set up real-time listener for auto services
+    const autoServicesRef = ref(db, 'autoServices');
+    const autoServicesListener = onValue(autoServicesRef, (snapshot) => {
+      const autoServicesData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          autoServicesData.push({ id: key, ...data[key] });
+        });
       }
-    };
-    fetchAutoServices();
-  }, []);
+      console.log('🚗 Real-time auto services update:', autoServicesData.length, 'services');
+      setAutoServices(autoServicesData);
+      // Update cache with new data
+      cacheAutoServices(autoServicesData);
+    });
 
-  useEffect(() => {
-    const fetchLaundryServices = async () => {
-      try {
-        // Check cache first
-        const cachedLaundryServices = getCachedLaundryServices();
-        if (cachedLaundryServices) {
-          console.log('🚀 Using cached laundry services data');
-          setLaundryServices(cachedLaundryServices);
-          return;
-        }
-
-        console.log('📡 Fetching laundry services from Firebase...');
-        const laundryServicesData = await getLaundryServices();
-        setLaundryServices(laundryServicesData);
-        
-        // Cache the data
-        cacheLaundryServices(laundryServicesData);
-      } catch (error) {
-        console.error('Error fetching laundry services:', error);
+    // Set up real-time listener for laundry services
+    const laundryServicesRef = ref(db, 'laundryServices');
+    const laundryServicesListener = onValue(laundryServicesRef, (snapshot) => {
+      const laundryServicesData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          laundryServicesData.push({ id: key, ...data[key] });
+        });
       }
+      console.log('🧺 Real-time laundry services update:', laundryServicesData.length, 'services');
+      setLaundryServices(laundryServicesData);
+      // Update cache with new data
+      cacheLaundryServices(laundryServicesData);
+    });
+
+    // Cleanup listeners when component unmounts
+    return () => {
+      console.log('🧹 Cleaning up real-time listeners...');
+      off(apartmentsRef, 'value', apartmentsListener);
+      off(autoServicesRef, 'value', autoServicesListener);
+      off(laundryServicesRef, 'value', laundryServicesListener);
     };
-    fetchLaundryServices();
   }, []);
 
   const bgColor = isDark ? '#121212' : '#fff';

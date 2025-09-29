@@ -22,6 +22,7 @@ import {
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 import { storeUserData } from '../../../utils/userUtils';
+import { isAdminEmail } from '../../config/adminConfig';
 import { auth } from '../../firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
@@ -63,6 +64,8 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
+  const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
   const colors = Colors.light;
   const router = useRouter();
 
@@ -108,21 +111,131 @@ export default function SignupScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  const handleSignUp = async () => {
-    if (!fullName.trim() || !email.trim() || !password) {
-      setToast({ visible: true, message: 'Please fill in all fields', type: 'error' });
-      return;
+  // Validation functions
+  const validateFullName = (name: string) => {
+    if (!name.trim()) {
+      return 'Full name is required';
     }
-    if (password !== confirmPassword) {
-      setToast({ visible: true, message: 'Passwords do not match', type: 'error' });
-      return;
+    if (name.trim().length < 2) {
+      return 'Full name must be at least 2 characters';
     }
-    if (password.length < 6) {
-      setToast({ visible: true, message: 'Password must be at least 6 characters long', type: 'error' });
-      return;
+    if (name.trim().length > 50) {
+      return 'Full name must be less than 50 characters';
     }
+    if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+      return 'Full name can only contain letters and spaces';
+    }
+    return '';
+  };
+
+  const validateEmail = (email: string) => {
+    if (!email.trim()) {
+      return 'Email address is required';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePassword = (password: string) => {
+    if (!password) {
+      return 'Password is required';
+    }
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (password.length > 128) {
+      return 'Password must be less than 128 characters';
+    }
+    if (!/(?=.*[a-z])/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    if (!/(?=.*[@$!%*?&])/.test(password)) {
+      return 'Password must contain at least one special character (@$!%*?&)';
+    }
+    return '';
+  };
+
+  const validateConfirmPassword = (confirmPassword: string, password: string) => {
+    if (!confirmPassword) {
+      return 'Please confirm your password';
+    }
+    if (confirmPassword !== password) {
+      return 'Passwords do not match';
+    }
+    return '';
+  };
+
+  const validateField = (fieldName: string, value: string) => {
+    let error = '';
+    
+    switch (fieldName) {
+      case 'fullName':
+        error = validateFullName(value);
+        break;
+      case 'email':
+        error = validateEmail(value);
+        break;
+      case 'password':
+        error = validatePassword(value);
+        break;
+      case 'confirmPassword':
+        error = validateConfirmPassword(value, password);
+        break;
+    }
+    
+    setFieldErrors(prev => ({
+      ...prev,
+      [fieldName]: error
+    }));
+    
+    return error === '';
+  };
+
+  const validateAllFields = () => {
+    const errors: {[key: string]: string} = {};
+    
+    const fullNameError = validateFullName(fullName);
+    if (fullNameError) errors.fullName = fullNameError;
+    
+    const emailError = validateEmail(email);
+    if (emailError) errors.email = emailError;
+    
+    const passwordError = validatePassword(password);
+    if (passwordError) errors.password = passwordError;
+    
+    const confirmPasswordError = validateConfirmPassword(confirmPassword, password);
+    if (confirmPasswordError) errors.confirmPassword = confirmPasswordError;
+    
     if (!acceptedTerms) {
-      setToast({ visible: true, message: 'Please accept the Terms and Conditions', type: 'error' });
+      errors.terms = 'Please accept the Terms and Conditions';
+    }
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSignUp = async () => {
+    // Mark all fields as touched
+    setTouchedFields({
+      fullName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+      terms: true
+    });
+
+    // Validate all fields
+    if (!validateAllFields()) {
+      setToast({ visible: true, message: 'Please fix the errors below', type: 'error' });
       return;
     }
 
@@ -137,7 +250,7 @@ export default function SignupScreen() {
       
       // Manual navigation based on user role
       setTimeout(() => {
-        if (email.toLowerCase() === 'alfredosayson@gmail.com' || email.toLowerCase() === 'jayveebriani@gmail.com' || email.toLowerCase() === 'sayson5@gmail.com') {
+        if (isAdminEmail(email)) {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');
@@ -283,55 +396,113 @@ export default function SignupScreen() {
                 {/* Full Name Input */}
                 <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                   <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Full Name</Text>
-                  <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
+                  <View style={[
+                    styles.inputContainer, 
+                    { 
+                      height: responsiveValues.inputHeight,
+                      borderColor: fieldErrors.fullName ? '#EF4444' : '#E2E8F0',
+                      borderWidth: fieldErrors.fullName ? 2 : 2
+                    }
+                  ]}>
                     <View style={styles.inputIconContainer}>
-                      <Ionicons name="person" size={20} color="#00B2FF" />
+                      <Ionicons name="person" size={20} color={fieldErrors.fullName ? "#EF4444" : "#00B2FF"} />
                     </View>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter your full name"
                       placeholderTextColor="#9CA3AF"
                       value={fullName}
-                      onChangeText={setFullName}
+                      onChangeText={(text) => {
+                        setFullName(text);
+                        if (touchedFields.fullName) {
+                          validateField('fullName', text);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, fullName: true }));
+                        validateField('fullName', fullName);
+                      }}
                       autoCapitalize="words"
                       autoComplete="name"
                     />
                   </View>
+                  {fieldErrors.fullName && (
+                    <Text style={styles.errorText}>{fieldErrors.fullName}</Text>
+                  )}
                 </View>
 
                 {/* Email Input */}
                 <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                   <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Email Address</Text>
-                  <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
+                  <View style={[
+                    styles.inputContainer, 
+                    { 
+                      height: responsiveValues.inputHeight,
+                      borderColor: fieldErrors.email ? '#EF4444' : '#E2E8F0',
+                      borderWidth: fieldErrors.email ? 2 : 2
+                    }
+                  ]}>
                     <View style={styles.inputIconContainer}>
-                      <Ionicons name="mail" size={20} color="#00B2FF" />
+                      <Ionicons name="mail" size={20} color={fieldErrors.email ? "#EF4444" : "#00B2FF"} />
                     </View>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter your email"
                       placeholderTextColor="#9CA3AF"
                       value={email}
-                      onChangeText={setEmail}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (touchedFields.email) {
+                          validateField('email', text);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, email: true }));
+                        validateField('email', email);
+                      }}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoComplete="email"
                     />
                   </View>
+                  {fieldErrors.email && (
+                    <Text style={styles.errorText}>{fieldErrors.email}</Text>
+                  )}
                 </View>
 
                 {/* Password Input */}
                 <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                   <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Password</Text>
-                  <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
+                  <View style={[
+                    styles.inputContainer, 
+                    { 
+                      height: responsiveValues.inputHeight,
+                      borderColor: fieldErrors.password ? '#EF4444' : '#E2E8F0',
+                      borderWidth: fieldErrors.password ? 2 : 2
+                    }
+                  ]}>
                     <View style={styles.inputIconContainer}>
-                      <Ionicons name="lock-closed" size={20} color="#00B2FF" />
+                      <Ionicons name="lock-closed" size={20} color={fieldErrors.password ? "#EF4444" : "#00B2FF"} />
                     </View>
                     <TextInput
                       style={styles.input}
                       placeholder="Create a password"
                       placeholderTextColor="#9CA3AF"
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (touchedFields.password) {
+                          validateField('password', text);
+                        }
+                        // Re-validate confirm password when password changes
+                        if (touchedFields.confirmPassword && confirmPassword) {
+                          validateField('confirmPassword', confirmPassword);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, password: true }));
+                        validateField('password', password);
+                      }}
                       secureTextEntry={!showPassword}
                       autoComplete="password"
                     />
@@ -346,21 +517,40 @@ export default function SignupScreen() {
                       />
                     </TouchableOpacity>
                   </View>
+                  {fieldErrors.password && (
+                    <Text style={styles.errorText}>{fieldErrors.password}</Text>
+                  )}
                 </View>
 
                 {/* Confirm Password Input */}
                 <View style={[styles.inputSection, { marginBottom: responsiveValues.inputSectionMargin }]}>
                   <Text style={[styles.inputLabel, { fontSize: responsiveValues.inputLabelSize }]}>Confirm Password</Text>
-                  <View style={[styles.inputContainer, { height: responsiveValues.inputHeight }]}>
+                  <View style={[
+                    styles.inputContainer, 
+                    { 
+                      height: responsiveValues.inputHeight,
+                      borderColor: fieldErrors.confirmPassword ? '#EF4444' : '#E2E8F0',
+                      borderWidth: fieldErrors.confirmPassword ? 2 : 2
+                    }
+                  ]}>
                     <View style={styles.inputIconContainer}>
-                      <Ionicons name="shield-checkmark" size={20} color="#00B2FF" />
+                      <Ionicons name="shield-checkmark" size={20} color={fieldErrors.confirmPassword ? "#EF4444" : "#00B2FF"} />
                     </View>
                     <TextInput
                       style={styles.input}
                       placeholder="Confirm your password"
                       placeholderTextColor="#9CA3AF"
                       value={confirmPassword}
-                      onChangeText={setConfirmPassword}
+                      onChangeText={(text) => {
+                        setConfirmPassword(text);
+                        if (touchedFields.confirmPassword) {
+                          validateField('confirmPassword', text);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, confirmPassword: true }));
+                        validateField('confirmPassword', confirmPassword);
+                      }}
                       secureTextEntry={!showConfirmPassword}
                       autoComplete="password"
                     />
@@ -375,19 +565,32 @@ export default function SignupScreen() {
                       />
                     </TouchableOpacity>
                   </View>
+                  {fieldErrors.confirmPassword && (
+                    <Text style={styles.errorText}>{fieldErrors.confirmPassword}</Text>
+                  )}
                 </View>
 
                 {/* Terms and Conditions */}
                 <View style={styles.termsSection}>
                   <TouchableOpacity
                     style={styles.termsContainer}
-                    onPress={() => setAcceptedTerms(!acceptedTerms)}
+                    onPress={() => {
+                      setAcceptedTerms(!acceptedTerms);
+                      setTouchedFields(prev => ({ ...prev, terms: true }));
+                      if (fieldErrors.terms) {
+                        setFieldErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.terms;
+                          return newErrors;
+                        });
+                      }
+                    }}
                   >
                     <View style={[
                       styles.checkbox, 
                       { 
                         backgroundColor: acceptedTerms ? '#00B2FF' : 'transparent',
-                        borderColor: acceptedTerms ? '#00B2FF' : '#ddd'
+                        borderColor: fieldErrors.terms ? '#EF4444' : (acceptedTerms ? '#00B2FF' : '#ddd')
                       }
                     ]}>
                       {acceptedTerms && (
@@ -404,6 +607,9 @@ export default function SignupScreen() {
                       </Text>
                     </Text>
                   </TouchableOpacity>
+                  {fieldErrors.terms && (
+                    <Text style={styles.errorText}>{fieldErrors.terms}</Text>
+                  )}
                 </View>
 
                 {/* Sign Up Button */}
@@ -765,5 +971,12 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     fontWeight: '700',
     color: '#00B2FF',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 6,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });

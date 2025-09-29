@@ -7,6 +7,7 @@ import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-nat
 import { RobustImage } from "../components/RobustImage";
 import { useReservation } from "../contexts/ReservationContext";
 import { formatPHP } from "../utils/currency";
+import { isTablet, normalize } from "../utils/responsiveUtils";
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -196,15 +197,6 @@ export default function ReservationDetails() {
                     </View>
                   </View>
                 )}
-                {(reservation as any).delivery && (
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="delivery-dining" size={20} color={subtitleColor} />
-                    <View style={styles.detailContent}>
-                      <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Delivery</ThemedText>
-                      <ThemedText style={[styles.detailValue, { color: textColor }]}>{(reservation as any).delivery}</ThemedText>
-                    </View>
-                  </View>
-                )}
                 {(reservation as any).minOrder && (
                   <View style={styles.detailRow}>
                     <MaterialIcons name="scale" size={20} color={subtitleColor} />
@@ -322,19 +314,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 20,
+    marginBottom: normalize(24),
+    marginTop: normalize(20),
   },
   heroContainer: {
-    height: 220,
-    borderRadius: 16,
+    height: normalize(isTablet ? 280 : 220),
+    borderRadius: normalize(isTablet ? 20 : 16),
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   heroImage: {
     width: '100%',
@@ -408,15 +400,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    fontSize: 20,
+    fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 24,
+    marginTop: normalize(16),
+    marginBottom: normalize(24),
     textAlign: 'center',
   },
   reservationCard: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: normalize(isTablet ? 20 : 16),
+    padding: normalize(isTablet ? 24 : 20),
     borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -427,118 +419,119 @@ const styles = StyleSheet.create({
   serviceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
-    paddingBottom: 20,
+    marginBottom: normalize(24),
+    paddingBottom: normalize(20),
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   serviceInfoCompact: {
-    marginBottom: 12,
+    marginBottom: normalize(12),
   },
   serviceDetails: {
-    marginLeft: 16,
+    marginLeft: normalize(16),
     flex: 1,
   },
   serviceName: {
-    fontSize: 20,
+    fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: normalize(4),
   },
   serviceType: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     opacity: 0.8,
   },
   detailsSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: normalize(isTablet ? 20 : 18),
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   detailContent: {
-    marginLeft: 16,
+    marginLeft: normalize(16),
     flex: 1,
   },
   detailLabel: {
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginBottom: normalize(4),
     opacity: 0.8,
   },
   detailValue: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '500',
   },
   statusSection: {
-    marginBottom: 24,
-    paddingBottom: 20,
+    marginBottom: normalize(24),
+    paddingBottom: normalize(20),
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 8,
+    marginBottom: normalize(8),
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: normalize(16),
+    paddingVertical: normalize(8),
+    borderRadius: normalize(20),
   },
   statusText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
     fontWeight: '600',
   },
   statusHelp: {
-    marginTop: 6,
-    fontSize: 12,
+    marginTop: normalize(6),
+    fontSize: normalize(isTablet ? 14 : 12),
   },
   chipsSection: {
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: normalize(8),
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.04)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: normalize(10),
+    paddingVertical: normalize(6),
+    borderRadius: normalize(12),
   },
   chipText: {
-    marginLeft: 6,
-    fontSize: 12,
+    marginLeft: normalize(6),
+    fontSize: normalize(isTablet ? 14 : 12),
   },
   actionsSection: {
-    gap: 12,
+    gap: normalize(12),
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: normalize(isTablet ? 16 : 14),
+    paddingHorizontal: normalize(isTablet ? 24 : 20),
+    borderRadius: normalize(12),
     borderWidth: 1,
-    gap: 8,
+    gap: normalize(8),
+    minHeight: normalize(isTablet ? 52 : 48),
   },
   actionButtonText: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
   },
 });

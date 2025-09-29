@@ -64,7 +64,7 @@ export default function TermsScreen() {
         {/* Introduction */}
         <View style={[styles.introCard, { backgroundColor: isDark ? '#1E1E1E' : '#F8F9FA' }]}>
           <ThemedText style={[styles.introText, { color: textColor }]}>
-            Welcome to Gereu Online Hub. These terms govern your use of our mobile application for apartment rentals, laundry services, and auto parts. Please read them carefully.
+            Welcome to Gereu Online Hub - your comprehensive platform for property management, apartment rentals, laundry services, and automotive solutions. These Terms of Service govern your use of our mobile application and services. By using our app, you agree to be bound by these terms.
           </ThemedText>
         </View>
 
@@ -92,34 +92,40 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>2</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
-                App Services
+                Services Provided
               </ThemedText>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              Gereu Online Hub provides access to:
+              Gereu Online Hub provides a comprehensive platform for:
             </ThemedText>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="apartment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Apartment rental information and booking
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Property Management:</ThemedText> Apartment listings, rental information, availability checking, and booking management
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="local-laundry-service" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Laundry service booking and notifications
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service booking, status tracking, pickup/delivery scheduling, and notifications
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="directions-car" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  Auto parts and car services
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Automotive Services:</ThemedText> Auto parts catalog, service booking, maintenance scheduling, and repair services
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="chat" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Customer Support:</ThemedText> Real-time messaging with admin support, booking assistance, and service inquiries
                 </ThemedText>
               </View>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              All payments are made in person at the business location. The app is for information and booking only.
+              <ThemedText style={[styles.termContent, { color: textColor, fontWeight: '600' }]}>Payment Policy:</ThemedText> All payments are processed in person at our business location. The app serves as an information and booking platform only. No online payments are processed through the application.
             </ThemedText>
           </View>
 
@@ -261,11 +267,126 @@ export default function TermsScreen() {
                 <ThemedText style={styles.termNumberText}>8</ThemedText>
               </View>
               <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
+                Booking & Cancellation Policies
+              </ThemedText>
+            </View>
+            <View style={styles.bulletList}>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="schedule" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Apartment Rentals:</ThemedText> Bookings are subject to availability and require confirmation. Cancellation must be made 24 hours in advance.
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="local-laundry-service" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service slots are limited. Same-day cancellations may incur charges. Pickup times are estimates.
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="directions-car" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Auto Services:</ThemedText> Appointments are required for major services. Parts availability may affect service timelines.
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 9 */}
+          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+            <View style={styles.termHeader}>
+              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.termNumberText}>9</ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
+                Prohibited Activities
+              </ThemedText>
+            </View>
+            <View style={styles.bulletList}>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="block" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  Misuse of the app for fraudulent or illegal activities
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="block" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  Attempting to reverse engineer or modify the application
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="block" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  Harassment or inappropriate communication with staff or other users
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="block" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  Creating multiple accounts to circumvent booking restrictions
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 10 */}
+          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+            <View style={styles.termHeader}>
+              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.termNumberText}>10</ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
+                Intellectual Property
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.termContent, { color: textColor }]}>
+              All content, features, and functionality of the Gereu Online Hub app, including but not limited to text, graphics, logos, images, and software, are owned by Gereu Online Hub and are protected by copyright, trademark, and other intellectual property laws. You may not reproduce, distribute, or create derivative works without written permission.
+            </ThemedText>
+          </View>
+
+          {/* Section 11 */}
+          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+            <View style={styles.termHeader}>
+              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.termNumberText}>11</ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
+                Limitation of Liability
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.termContent, { color: textColor }]}>
+              To the maximum extent permitted by law, Gereu Online Hub shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, or use, arising out of or relating to your use of the app or services. Our total liability shall not exceed the amount you paid for the app (if any).
+            </ThemedText>
+          </View>
+
+          {/* Section 12 */}
+          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+            <View style={styles.termHeader}>
+              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.termNumberText}>12</ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
                 Changes to Terms
               </ThemedText>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              We may update these terms at any time. Continued use of the app means you accept the updated terms.
+              We reserve the right to modify these Terms of Service at any time. We will notify users of significant changes through the app or via email. Your continued use of the app after such modifications constitutes acceptance of the updated terms. If you do not agree to the changes, you must stop using the app.
+            </ThemedText>
+          </View>
+
+          {/* Section 13 */}
+          <View style={[styles.termCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+            <View style={styles.termHeader}>
+              <View style={[styles.termNumber, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.termNumberText}>13</ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={[styles.termTitle, { color: textColor }]}>
+                Governing Law & Dispute Resolution
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.termContent, { color: textColor }]}>
+              These Terms of Service shall be governed by and construed in accordance with the laws of the Philippines. Any disputes arising from these terms or your use of the app shall be resolved through binding arbitration in accordance with the rules of the Philippine Dispute Resolution Center, Inc.
             </ThemedText>
           </View>
         </View>
@@ -274,7 +395,23 @@ export default function TermsScreen() {
         <View style={[styles.footerCard, { backgroundColor: isDark ? '#1E1E1E' : '#F8F9FA' }]}>
           <MaterialIcons name="contact-support" size={24} color={colorPalette.primary} />
           <ThemedText style={[styles.footerText, { color: textColor }]}>
-            Questions about these terms? Contact the app administrator.
+            Questions about these terms? Contact our support team through the in-app messaging system or visit our business location for assistance.
+          </ThemedText>
+        </View>
+
+        {/* Contact Information */}
+        <View style={[styles.contactCard, { backgroundColor: isDark ? '#1E1E1E' : '#fff' }]}>
+          <View style={styles.contactHeader}>
+            <MaterialIcons name="business" size={20} color={colorPalette.primary} />
+            <ThemedText type="subtitle" style={[styles.contactTitle, { color: textColor }]}>
+              Gereu Online Hub
+            </ThemedText>
+          </View>
+          <ThemedText style={[styles.contactText, { color: textColor }]}>
+            Property Management & Services Platform
+          </ThemedText>
+          <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+            Last Updated: September 2025
           </ThemedText>
         </View>
       </ScrollView>
@@ -453,5 +590,32 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
     textAlign: 'center',
+  },
+  // Contact Card Styles
+  contactCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  contactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  contactTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  contactText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });

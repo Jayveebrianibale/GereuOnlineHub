@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { get, orderByChild, query, ref } from 'firebase/database';
+import { get, onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
@@ -73,7 +73,7 @@ export default function UsersScreen() {
           setLoading(false);
           setError(null);
           
-          // Fetch profile pictures for all users
+          // Fetch profile pictures for all users immediately
           fetchUserProfilePictures(fetchedUsers);
         });
 
@@ -108,12 +108,34 @@ export default function UsersScreen() {
     return () => clearInterval(refreshInterval);
   }, []);
 
+  // Set up real-time listener for immediate user data changes
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const userRef = ref(db, `users/${user.uid}`);
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        // Update the current user's data immediately in the users list
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.id === user.uid 
+              ? { ...u, ...userData, id: user.uid }
+              : u
+          )
+        );
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   // Fetch user profile pictures from Firebase Database
   const fetchUserProfilePictures = async (usersList: UserData[]) => {
     try {
       const profilePictures: {[key: string]: string} = {};
       
-      // Fetch profile pictures for each user
+      // Fetch profile pictures for each user with immediate updates
       const promises = usersList.map(async (user) => {
         try {
           const imageRef = ref(db, `userProfileImages/${user.id}/url`);
@@ -123,6 +145,11 @@ export default function UsersScreen() {
             const imageUrl = snapshot.val();
             if (imageUrl) {
               profilePictures[user.id] = imageUrl;
+              // Update immediately for each user as we fetch them
+              setUserProfilePictures(prev => ({
+                ...prev,
+                [user.id]: imageUrl
+              }));
             }
           }
         } catch (error) {
@@ -131,6 +158,7 @@ export default function UsersScreen() {
       });
       
       await Promise.all(promises);
+      // Final update with all collected pictures
       setUserProfilePictures(profilePictures);
     } catch (error) {
       console.error('Error fetching profile pictures:', error);
@@ -259,6 +287,16 @@ export default function UsersScreen() {
     const safeName = (user.name || '').toLowerCase();
     const safeEmail = (user.email || '').toLowerCase();
     const searchText = (search || '').toLowerCase();
+    
+    // Exclude specific admin users
+    const isExcludedAdmin = 
+      safeName.includes('alfredo sayson jr') || 
+      safeName.includes('jeibii');
+    
+    if (isExcludedAdmin) {
+      return false;
+    }
+    
     const matchesSearch =
       safeName.includes(searchText) ||
       safeEmail.includes(searchText);

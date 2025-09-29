@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
+import { isSmallScreen, isTablet, responsiveValues } from '../utils/responsiveUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -113,10 +114,10 @@ export default function AdminTabLayout() {
   // Custom icon component with badge
   const MessagesIcon = ({ color, size }: { color: string; size: number }) => (
     <View style={styles.iconContainer}>
-      <MaterialIcons name="message" size={size} color={color} />
+      <MaterialIcons name="message" size={responsiveValues.tabBar.iconSize} color={color} />
       {unreadCount > 0 && (
         <View style={[styles.badge, { backgroundColor: '#FF4444' }]}>
-          <Text style={styles.badgeText}>
+          <Text style={[styles.badgeText, { fontSize: responsiveValues.tabBar.badgeFontSize }]}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </Text>
         </View>
@@ -127,10 +128,10 @@ export default function AdminTabLayout() {
   // Custom reservations icon component with badge
   const ReservationsIcon = ({ color, size }: { color: string; size: number }) => (
     <View style={styles.iconContainer}>
-      <MaterialIcons name="receipt" size={size} color={color} />
+      <MaterialIcons name="receipt" size={responsiveValues.tabBar.iconSize} color={color} />
       {pendingReservationCount > 0 && (
         <View style={[styles.badge, { backgroundColor: '#F59E0B' }]}>
-          <Text style={styles.badgeText}>
+          <Text style={[styles.badgeText, { fontSize: responsiveValues.tabBar.badgeFontSize }]}>
             {pendingReservationCount > 99 ? '99+' : pendingReservationCount}
           </Text>
         </View>
@@ -148,20 +149,25 @@ export default function AdminTabLayout() {
           backgroundColor: isDark ? '#000' : '#fff',
           borderTopWidth: 1,
           borderTopColor: isDark ? '#222' : '#e5e7eb',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: responsiveValues.tabBar.height,
+          paddingBottom: responsiveValues.tabBar.paddingVertical,
+          paddingTop: responsiveValues.tabBar.paddingVertical,
+          paddingHorizontal: responsiveValues.tabBar.paddingHorizontal,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: responsiveValues.tabBar.fontSize,
           fontWeight: '500',
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
+        },
+        tabBarIconStyle: {
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -175,7 +181,7 @@ export default function AdminTabLayout() {
         name="users"
         options={{
           title: 'Users',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
        <Tabs.Screen
@@ -189,7 +195,7 @@ export default function AdminTabLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
     </Tabs>
@@ -201,14 +207,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: responsiveValues.tabBar.iconSize + 8,
+    height: responsiveValues.tabBar.iconSize + 8,
   },
   badge: {
     position: 'absolute',
     top: -6,
     right: -8,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: responsiveValues.tabBar.badgeSize,
+    height: responsiveValues.tabBar.badgeSize,
+    borderRadius: responsiveValues.tabBar.badgeSize / 2,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
@@ -220,7 +228,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: responsiveValues.tabBar.badgeFontSize,
     fontWeight: '700',
     textAlign: 'center',
   },

@@ -240,8 +240,8 @@ const colorPalette = {
             errors.title = 'Title must be at least 3 characters';
         }
         
-        if (currentApartment.price && !currentApartment.price.match(/^[Pp]?\d+[\/\-]?\w*$/)) {
-            errors.price = 'Please enter a valid price (e.g., P1200, 1200/mo)';
+        if (currentApartment.price && !currentApartment.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
+            errors.price = 'Please enter a valid price (e.g., P1,200, 20,000/mo)';
         }
         
         if (currentApartment.bedrooms < 0) {

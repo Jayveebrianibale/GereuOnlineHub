@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { get, onValue, orderByChild, query, ref, update } from "firebase/database";
 import { useEffect, useState } from 'react';
 import { Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ADMIN_EMAILS } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
@@ -36,11 +37,8 @@ interface Message {
   senderName?: string;
 }
 
-// Admin data - you might want to fetch this from Firebase or another source
-const ADMIN_USERS = [
-  { id: '1', name: 'Jayvee Briani', email: 'jayveebriani@gmail.com', avatar: 'JB' },
-  { id: '2', name: 'Admin For Laundry', email: 'alfredosayson@gmail.com', avatar: 'AS' },
-];
+// Admin data will be fetched from Firebase
+const ADMIN_USERS: any[] = [];
 
 export default function MessagesScreen() {
   const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
@@ -63,9 +61,55 @@ export default function MessagesScreen() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [adminProfilePictures, setAdminProfilePictures] = useState<{[key: string]: string}>({});
   const [adminStatus, setAdminStatus] = useState<{[key: string]: boolean}>({});
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [loadingProfilePictures, setLoadingProfilePictures] = useState<{[key: string]: boolean}>({});
 
   // Get current user email from auth context
   const currentUserEmail = user?.email || '';
+
+  // ✅ Fetch admin users from Firebase
+  const fetchAdminUsers = async () => {
+    try {
+      const usersRef = ref(db, 'users');
+      const snapshot = await get(usersRef);
+      
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        const adminUsersList: any[] = [];
+        
+        // Find users with admin emails
+        Object.keys(usersData).forEach(userId => {
+          const userData = usersData[userId];
+          if (ADMIN_EMAILS.includes(userData.email)) {
+            adminUsersList.push({
+              id: userId,
+              name: userData.name || 'Admin',
+              email: userData.email,
+              avatar: userData.avatar || userData.name?.charAt(0)?.toUpperCase() || 'A',
+              role: userData.role || 'admin'
+            });
+          }
+        });
+        
+        console.log('Fetched admin users:', adminUsersList);
+        setAdminUsers(adminUsersList);
+      }
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+    }
+  };
+
+  // ✅ Fetch admin users on component mount
+  useEffect(() => {
+    fetchAdminUsers();
+  }, []);
+
+  // ✅ Fetch profile pictures when admin users change
+  useEffect(() => {
+    if (adminUsers.length > 0) {
+      fetchAdminProfilePictures();
+    }
+  }, [adminUsers]);
 
   // ✅ Real-time admin status listener
   useEffect(() => {
@@ -80,7 +124,7 @@ export default function MessagesScreen() {
         console.log('No admin status data found, setting all offline');
         // Set all admins as offline by default
         const defaultStatus: {[key: string]: boolean} = {};
-        ADMIN_USERS.forEach(admin => {
+        adminUsers.forEach(admin => {
           defaultStatus[admin.email.replace(/\./g, '_')] = false;
         });
         setAdminStatus(defaultStatus);
@@ -88,7 +132,7 @@ export default function MessagesScreen() {
     });
 
     return () => unsubscribeStatus();
-  }, []);
+  }, [adminUsers]);
 
   // ✅ Set current user as online when component mounts
   useEffect(() => {
@@ -182,8 +226,8 @@ export default function MessagesScreen() {
 
         setMessages(fetched);
         
-        // Fetch profile pictures for all admins in messages
-        fetchAdminProfilePictures(fetched);
+        // Fetch profile pictures for admin users in messages (additional ones not already loaded)
+        fetchMessageAdminProfilePictures(fetched);
       } else {
         setMessages([]);
       }
@@ -192,12 +236,89 @@ export default function MessagesScreen() {
     return () => unsubscribe();
   }, [currentUserEmail]);
 
-  // Fetch admin profile pictures from Firebase Database
-  const fetchAdminProfilePictures = async (messagesList: any[]) => {
+  // Fetch admin profile pictures from Firebase Database - independent of messages
+  const fetchAdminProfilePictures = async () => {
+    try {
+      if (adminUsers.length === 0) {
+        console.log('No admin users to fetch profile pictures for');
+        return;
+      }
+
+      const profilePictures: {[key: string]: string} = {};
+      
+      // Only use admin emails from adminUsers (not from messages)
+      const adminEmails = adminUsers.map(admin => admin.email);
+      
+      console.log('Fetching profile pictures for admin emails:', adminEmails);
+      
+      // Set loading state for all admin emails
+      const loadingState: {[key: string]: boolean} = {};
+      adminEmails.forEach(email => {
+        loadingState[email] = true;
+      });
+      setLoadingProfilePictures(loadingState);
+      
+      // Fetch profile pictures for each admin
+      const promises = adminEmails.map(async (email) => {
+        try {
+          // Find admin user ID from email in users collection
+          const usersRef = ref(db, 'users');
+          const usersSnapshot = await get(usersRef);
+          if (usersSnapshot.exists()) {
+            const usersData = usersSnapshot.val();
+            for (const userId in usersData) {
+              if (usersData[userId].email === email && usersData[userId].role === 'admin') {
+                console.log(`Found admin user ${userId} for email ${email}`);
+                
+                // Try to get profile picture from userProfileImages
+                const imageRef = ref(db, `userProfileImages/${userId}/url`);
+                const imageSnapshot = await get(imageRef);
+                if (imageSnapshot.exists()) {
+                  const imageUrl = imageSnapshot.val();
+                  if (imageUrl && imageUrl.trim() !== '') {
+                    console.log(`Found profile picture for ${email}: ${imageUrl}`);
+                    profilePictures[email] = imageUrl;
+                  } else {
+                    console.log(`Empty profile picture URL for ${email}`);
+                  }
+                } else {
+                  console.log(`No profile picture found for ${email}`);
+                }
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching profile picture for ${email}:`, error);
+        } finally {
+          // Remove loading state for this email
+          setLoadingProfilePictures(prev => {
+            const updated = { ...prev };
+            delete updated[email];
+            return updated;
+          });
+        }
+      });
+      
+      await Promise.all(promises);
+      console.log('Final profile pictures:', profilePictures);
+      
+      // Merge with existing profile pictures to preserve any that might already be loaded
+      setAdminProfilePictures(prev => ({
+        ...prev,
+        ...profilePictures
+      }));
+    } catch (error) {
+      console.error('Error fetching admin profile pictures:', error);
+    }
+  };
+
+  // Fetch profile pictures for admin users in messages (for message cards)
+  const fetchMessageAdminProfilePictures = async (messagesList: any[]) => {
     try {
       const profilePictures: {[key: string]: string} = {};
       
-      // Get unique admin emails from messages
+      // Get unique admin emails from messages only
       const adminEmails = new Set<string>();
       messagesList.forEach(message => {
         if (message.senderEmail && message.senderEmail !== currentUserEmail) {
@@ -208,13 +329,27 @@ export default function MessagesScreen() {
         }
       });
       
-      // Also add admin emails from ADMIN_USERS
-      ADMIN_USERS.forEach(admin => {
-        adminEmails.add(admin.email);
+      // Only fetch if we don't already have the profile picture
+      const emailsToFetch = Array.from(adminEmails).filter(email => 
+        !adminProfilePictures[email] && !loadingProfilePictures[email]
+      );
+      
+      if (emailsToFetch.length === 0) {
+        console.log('All message admin profile pictures already loaded');
+        return;
+      }
+      
+      console.log('Fetching additional profile pictures for message admins:', emailsToFetch);
+      
+      // Set loading state for emails we need to fetch
+      const loadingState: {[key: string]: boolean} = {};
+      emailsToFetch.forEach(email => {
+        loadingState[email] = true;
       });
+      setLoadingProfilePictures(prev => ({ ...prev, ...loadingState }));
       
       // Fetch profile pictures for each admin
-      const promises = Array.from(adminEmails).map(async (email) => {
+      const promises = emailsToFetch.map(async (email) => {
         try {
           // Find admin user ID from email in users collection
           const usersRef = ref(db, 'users');
@@ -223,13 +358,21 @@ export default function MessagesScreen() {
             const usersData = usersSnapshot.val();
             for (const userId in usersData) {
               if (usersData[userId].email === email && usersData[userId].role === 'admin') {
+                console.log(`Found admin user ${userId} for email ${email}`);
+                
+                // Try to get profile picture from userProfileImages
                 const imageRef = ref(db, `userProfileImages/${userId}/url`);
                 const imageSnapshot = await get(imageRef);
                 if (imageSnapshot.exists()) {
                   const imageUrl = imageSnapshot.val();
-                  if (imageUrl) {
+                  if (imageUrl && imageUrl.trim() !== '') {
+                    console.log(`Found profile picture for ${email}: ${imageUrl}`);
                     profilePictures[email] = imageUrl;
+                  } else {
+                    console.log(`Empty profile picture URL for ${email}`);
                   }
+                } else {
+                  console.log(`No profile picture found for ${email}`);
                 }
                 break;
               }
@@ -237,13 +380,26 @@ export default function MessagesScreen() {
           }
         } catch (error) {
           console.error(`Error fetching profile picture for ${email}:`, error);
+        } finally {
+          // Remove loading state for this email
+          setLoadingProfilePictures(prev => {
+            const updated = { ...prev };
+            delete updated[email];
+            return updated;
+          });
         }
       });
       
       await Promise.all(promises);
-      setAdminProfilePictures(profilePictures);
+      console.log('Additional profile pictures:', profilePictures);
+      
+      // Merge with existing profile pictures
+      setAdminProfilePictures(prev => ({
+        ...prev,
+        ...profilePictures
+      }));
     } catch (error) {
-      console.error('Error fetching admin profile pictures:', error);
+      console.error('Error fetching message admin profile pictures:', error);
     }
   };
 
@@ -457,7 +613,7 @@ export default function MessagesScreen() {
             <View style={[styles.sectionUnderline, { backgroundColor: colorPalette.light }]} />
           </View>
           
-          {ADMIN_USERS.map((admin, index) => (
+          {adminUsers.map((admin, index) => (
             <TouchableOpacity 
               key={admin.id}
               style={[styles.adminCard, { 
@@ -485,15 +641,31 @@ export default function MessagesScreen() {
                     shadowOffset: { width: 0, height: 2 },
                     elevation: 4,
                   }]}>
-                    {adminProfilePictures[admin.email] ? (
+                    {loadingProfilePictures[admin.email] ? (
+                      <View style={[styles.adminAvatarImage, { justifyContent: 'center', alignItems: 'center' }]}>
+                        <ThemedText style={{ color: '#fff', fontSize: 12 }}>...</ThemedText>
+                      </View>
+                    ) : adminProfilePictures[admin.email] ? (
                       <Image
                         source={{ uri: adminProfilePictures[admin.email] }}
                         style={styles.adminAvatarImage}
                         resizeMode="cover"
+                        onError={(error) => {
+                          console.log(`Error loading profile picture for ${admin.email}:`, error);
+                          // Remove the failed image from state
+                          setAdminProfilePictures(prev => {
+                            const updated = { ...prev };
+                            delete updated[admin.email];
+                            return updated;
+                          });
+                        }}
+                        onLoad={() => {
+                          console.log(`Successfully loaded profile picture for ${admin.email}`);
+                        }}
                       />
                     ) : (
                       <ThemedText style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                        {admin.avatar}
+                        {admin.avatar || admin.name?.charAt(0)?.toUpperCase() || 'A'}
                       </ThemedText>
                     )}
                     {adminStatus[admin.email.replace(/\./g, '_')] === true && (
@@ -588,11 +760,30 @@ export default function MessagesScreen() {
                       {(() => {
                         // Determine the admin email for this conversation
                         const adminEmail = message.senderEmail === currentUserEmail ? message.recipientEmail : message.senderEmail;
-                        return adminProfilePictures[adminEmail] ? (
+                        return loadingProfilePictures[adminEmail] ? (
+                          <View style={[styles.enhancedAvatarImage, { justifyContent: 'center', alignItems: 'center' }]}>
+                            <ThemedText style={{ 
+                              color: message.unread ? '#fff' : colorPalette.darkest, 
+                              fontSize: 12 
+                            }}>...</ThemedText>
+                          </View>
+                        ) : adminProfilePictures[adminEmail] ? (
                           <Image
                             source={{ uri: adminProfilePictures[adminEmail] }}
                             style={styles.enhancedAvatarImage}
                             resizeMode="cover"
+                            onError={(error) => {
+                              console.log(`Error loading profile picture for ${adminEmail}:`, error);
+                              // Remove the failed image from state
+                              setAdminProfilePictures(prev => {
+                                const updated = { ...prev };
+                                delete updated[adminEmail];
+                                return updated;
+                              });
+                            }}
+                            onLoad={() => {
+                              console.log(`Successfully loaded profile picture for ${adminEmail}`);
+                            }}
                           />
                         ) : (
                           <ThemedText style={{ 
@@ -600,7 +791,7 @@ export default function MessagesScreen() {
                             fontWeight: 'bold',
                             fontSize: 16
                           }}>
-                            {message.avatar || 'U'}
+                            {message.avatar || message.name?.charAt(0)?.toUpperCase() || 'U'}
                           </ThemedText>
                         );
                       })()}

@@ -5,6 +5,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { RobustImage } from '../../components/RobustImage';
+import { LAUNDRY_ADMIN } from '../../config/adminConfig';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
@@ -16,6 +17,7 @@ import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
+import { isSmallScreen, isTablet, normalize, wp } from '../../utils/responsiveUtils';
 
 import { push, ref, set } from 'firebase/database';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -65,8 +67,8 @@ export default function LaundryListScreen() {
   const handleMessageAdmin = async (service: any) => {
     try {
       if (!user?.email) return;
-      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
-      const ADMIN_NAME = 'Jayvee Briani';
+      const ADMIN_EMAIL = LAUNDRY_ADMIN.email;
+      const ADMIN_NAME = LAUNDRY_ADMIN.name;
       const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
 
       const priceText = typeof service?.price !== 'undefined' ? `Price: ${formatPHP(service.price)}` : '';
@@ -78,6 +80,7 @@ export default function LaundryListScreen() {
         chatId,
         text: messageText,
         image: service?.image || null,
+        imageUrl: service?.image || null, // Add imageUrl for consistency
         category: 'laundry',
         serviceId: service?.id || null,
         senderEmail: user.email,
@@ -86,6 +89,10 @@ export default function LaundryListScreen() {
         recipientName: ADMIN_NAME,
         timestamp: Date.now(),
         time: Date.now(),
+        messageType: 'laundry_inquiry', // Add message type
+        laundryTitle: service?.title || 'Laundry Service',
+        laundryPrice: service?.price || 0,
+        laundryTurnaround: service?.turnaround || 'N/A',
       });
 
       setDetailModalVisible(false);
@@ -96,6 +103,16 @@ export default function LaundryListScreen() {
   };
   
   const handleLaundryReservation = async (service: any) => {
+    // Check if service is available
+    if (!service.available) {
+      Alert.alert(
+        'Service Unavailable',
+        'This laundry service is currently unavailable for reservation. Please try again later or contact the admin.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
@@ -315,6 +332,21 @@ export default function LaundryListScreen() {
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
           {item.description}
         </ThemedText>
+        
+        {/* Availability Status */}
+        <View style={styles.availabilityRow}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={16} 
+            color={item.available ? "#4CAF50" : "#F44336"} 
+          />
+          <ThemedText style={[
+            styles.availabilityText, 
+            { color: item.available ? "#4CAF50" : "#F44336" }
+          ]}>
+            {item.available ? "Available" : "Unavailable"}
+          </ThemedText>
+        </View>
         
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
@@ -554,12 +586,6 @@ export default function LaundryListScreen() {
                        </ThemedText>
                        <View style={styles.infoGrid}>
                          <View style={styles.infoItem}>
-                           <MaterialIcons name="delivery-dining" size={16} color={colorPalette.primary} />
-                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
-                             {selectedLaundryService.delivery}
-                           </ThemedText>
-                         </View>
-                         <View style={styles.infoItem}>
                            <MaterialIcons name="scale" size={16} color={colorPalette.primary} />
                            <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
                              {selectedLaundryService.minOrder}
@@ -576,51 +602,70 @@ export default function LaundryListScreen() {
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
-                       <TouchableOpacity
-                         style={[
-                           styles.bookButton,
-                           {
-                             borderColor: colorPalette.primary,
-                             backgroundColor: (() => {
-                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
-                               const status = (match as any)?.status;
-                               const active = status === 'pending' || status === 'confirmed';
-                               return active ? colorPalette.primary : 'transparent';
-                             })(),
-                           },
-                         ]}
-                         onPress={() => handleLaundryReservation(selectedLaundryService)}
-                       >
-                         {(() => {
-                           const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
-                           const status = (match as any)?.status;
-                           const active = status === 'pending' || status === 'confirmed';
-                           return (
-                             <MaterialIcons
-                               name={active ? 'check-circle' : 'bookmark-border'}
-                               size={20}
-                               color={active ? '#fff' : colorPalette.primary}
-                             />
-                           );
-                         })()}
-                         <ThemedText
-                           style={[
-                             styles.bookButtonText,
-                             (() => {
-                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
-                               const status = (match as any)?.status;
-                               const active = status === 'pending' || status === 'confirmed';
-                               return { color: active ? '#fff' : colorPalette.primary };
-                             })(),
-                           ]}
-                         >
-                           {(() => {
-                             const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
-                             const status = (match as any)?.status;
-                             const active = status === 'pending' || status === 'confirmed';
-                             return active ? 'Reserved' : 'Reserve';
-                           })()}
-                         </ThemedText>
+                        <TouchableOpacity 
+                        style={[
+                          styles.bookButton,
+                          {
+                            borderColor: selectedLaundryService.available ? colorPalette.primary : '#ccc',
+                            backgroundColor: (() => {
+                              if (!selectedLaundryService.available) return '#f5f5f5';
+                              const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return active ? colorPalette.primary : 'transparent';
+                            })(),
+                            opacity: selectedLaundryService.available ? 1 : 0.6,
+                          },
+                        ]}
+                        onPress={() => selectedLaundryService.available ? handleLaundryReservation(selectedLaundryService) : null}
+                        disabled={!selectedLaundryService.available}
+                      >
+                        {(() => {
+                          if (!selectedLaundryService.available) {
+                            return (
+                              <MaterialIcons
+                                name="cancel"
+                                size={20}
+                                color="#999"
+                              />
+                            );
+                          }
+                          const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                          const status = (match as any)?.status;
+                          const active = status === 'pending' || status === 'confirmed';
+                          return (
+                            <MaterialIcons
+                              name={active ? 'check-circle' : 'bookmark-border'}
+                              size={20}
+                              color={active ? '#fff' : colorPalette.primary}
+                            />
+                          );
+                        })()}
+                        {!selectedLaundryService.available ? (
+                          <View style={styles.unavailableContainer}>
+                            <MaterialIcons name="block" size={16} color="#fff" />
+                            <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                          </View>
+                        ) : (
+                          <ThemedText
+                            style={[
+                              styles.bookButtonText,
+                              (() => {
+                                const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                                const status = (match as any)?.status;
+                                const active = status === 'pending' || status === 'confirmed';
+                                return { color: active ? '#fff' : colorPalette.primary };
+                              })(),
+                            ]}
+                          >
+                            {(() => {
+                              const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return active ? 'Reserved' : 'Reserve';
+                            })()}
+                          </ThemedText>
+                        )}
                        </TouchableOpacity>
                      </View>
                    </View>
@@ -734,6 +779,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  availabilityText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   detailsRow: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -741,11 +796,14 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: normalize(16),
+    marginBottom: normalize(8),
+    flex: isTablet ? 1 : 0,
   },
   detailText: {
-    marginLeft: 4,
-    fontSize: 14,
+    marginLeft: normalize(4),
+    fontSize: normalize(isTablet ? 15 : 14),
+    flex: 1,
   },
   servicesContainer: {
     flexDirection: 'row',
@@ -860,33 +918,34 @@ const styles = StyleSheet.create({
   },
   detailModal: {
     width: '100%',
-    borderRadius: 16,
+    borderRadius: normalize(isTablet ? 20 : 16),
     maxHeight: '90%',
     overflow: 'hidden',
+    maxWidth: isTablet ? wp(80) : wp(95),
   },
   detailScrollView: {
     // flex: 1, // Removed to fix modal content visibility
   },
   detailScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: normalize(20),
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   detailTitle: {
-    fontSize: 18,
+    fontSize: normalize(isTablet ? 20 : 18),
     fontWeight: '600',
     flex: 1,
-    marginRight: 12,
+    marginRight: normalize(12),
   },
   detailImage: {
     width: '100%',
-    height: 250,
+    height: normalize(isTablet ? 300 : 250),
   },
   imageOverlay: {
     position: 'absolute',
@@ -900,61 +959,66 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   detailContent: {
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
   },
   detailRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   detailPrice: {
-    fontSize: 20,
+    fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
   },
   detailDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
+    fontSize: normalize(isTablet ? 18 : 16),
+    lineHeight: normalize(isTablet ? 28 : 24),
+    marginBottom: normalize(20),
   },
   detailSpecs: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+    flexDirection: isTablet ? 'row' : 'column',
+    justifyContent: isTablet ? 'space-between' : 'flex-start',
+    marginBottom: normalize(24),
+    gap: normalize(12),
   },
   servicesSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   infoSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: normalize(12),
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: normalize(8),
   },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: normalize(8),
   },
   serviceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '50%',
-    marginBottom: 8,
+    width: isTablet ? '33%' : '50%',
+    marginBottom: normalize(8),
+    minWidth: isSmallScreen ? wp(45) : wp(40),
   },
   serviceItemText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: normalize(8),
+    fontSize: normalize(isTablet ? 15 : 14),
+    flex: 1,
   },
   detailActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: normalize(12),
     alignItems: 'stretch',
   },
   contactButton: {
@@ -962,27 +1026,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(isTablet ? 14 : 12),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
+    minHeight: normalize(isTablet ? 48 : 44),
   },
   contactButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginLeft: normalize(8),
   },
   bookButton: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(isTablet ? 14 : 12),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: normalize(isTablet ? 48 : 44),
   },
   bookButtonText: {
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
+  },
+  unavailableContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  unavailableText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: normalize(isTablet ? 14 : 12),
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
 });
