@@ -5,7 +5,6 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { useState } from 'react';
 import {
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -14,7 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { auth } from '../../firebaseConfig';
@@ -89,11 +88,8 @@ export default function ForgotPasswordScreen() {
           <View style={styles.content}>
             {/* Header Section */}
             <View style={styles.header}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('../../../assets/images/logo.png')}
-                  style={styles.logo}
-                />
+              <View style={styles.iconContainer}>
+                <Ionicons name="lock-closed" size={48} color="white" />
               </View>
               <Text style={styles.title}>Reset Password</Text>
               <Text style={styles.subtitle}>Enter your email to receive reset instructions</Text>
@@ -205,6 +201,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginBottom: 40,
     paddingTop: 20,
+  },
+  iconContainer: {
+    marginBottom: 20,
   },
   logoContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

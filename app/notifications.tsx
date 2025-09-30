@@ -3,19 +3,20 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 
@@ -110,7 +111,7 @@ export default function NotificationsScreen() {
           .map(reservation => ({
             id: `reservation_${reservation.id}`,
             type: 'reservation' as const,
-            title: getReservationTitle(reservation.status),
+            title: getReservationTitle(reservation.status, reservation.serviceType),
             message: getReservationMessage(reservation),
             timestamp: new Date(reservation.updatedAt).getTime(),
             isRead: false, // Will be updated based on last seen
@@ -150,13 +151,24 @@ export default function NotificationsScreen() {
     };
   }, [loadNotifications]);
 
-  const getReservationTitle = (status: string): string => {
+  const getReservationTitle = (status: string, serviceType?: string): string => {
+    const getServiceTypeName = (type?: string): string => {
+      switch (type) {
+        case 'apartment': return 'Apartment Rentals';
+        case 'laundry': return 'Laundry Services';
+        case 'auto': return 'Car and Motor Parts';
+        default: return 'Service';
+      }
+    };
+
+    const serviceName = getServiceTypeName(serviceType);
+    
     switch (status) {
-      case 'pending': return 'Reservation Pending';
-      case 'confirmed': return 'Reservation Confirmed';
-      case 'declined': return 'Reservation Declined';
-      case 'cancelled': return 'Reservation Cancelled';
-      default: return 'Reservation Update';
+      case 'pending': return `${serviceName} Pending`;
+      case 'confirmed': return `${serviceName} Confirmed`;
+      case 'declined': return `${serviceName} Declined`;
+      case 'cancelled': return `${serviceName} Cancelled`;
+      default: return `${serviceName} Update`;
     }
   };
 
@@ -318,9 +330,60 @@ export default function NotificationsScreen() {
     loadNotifications();
   };
 
-  const handleNotificationLongPress = (notification: Notification) => {
-    // Delete immediately without confirmation
-    handleDeleteNotification(notification.id);
+  const handleNotificationLongPress = async (notification: Notification) => {
+    // Add haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'Delete Notification',
+      `Are you sure you want to delete this notification? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteNotification(notification),
+        },
+      ]
+    );
+  };
+
+  const deleteNotification = async (notification: Notification) => {
+    try {
+      // Add haptic feedback for deletion
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Get existing deleted notifications
+      const deletedKey = `user:deletedNotifications:${user.uid}`;
+      const existingDeleted = await AsyncStorage.getItem(deletedKey);
+      const deletedIds = existingDeleted ? JSON.parse(existingDeleted) : [];
+      
+      // Add this notification ID to deleted list
+      if (!deletedIds.includes(notification.id)) {
+        deletedIds.push(notification.id);
+        await AsyncStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+      }
+
+      // Remove from current notifications list
+      const updatedNotifications = notifications.filter(n => n.id !== notification.id);
+      setNotifications(updatedNotifications);
+      
+      // Update unread count
+      const newUnreadCount = updatedNotifications.filter(n => !n.isRead).length;
+      setUnreadCount(newUnreadCount);
+
+      console.log('✅ Notification deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification. Please try again.');
+    }
   };
 
   const getTimeAgo = (timestamp: number): string => {
@@ -359,6 +422,7 @@ export default function NotificationsScreen() {
         <Pressable
           style={styles.notificationPressable}
           onPress={() => handleNotificationPress(item)}
+          onLongPress={() => handleNotificationLongPress(item)}
           android_ripple={{ color: colors.primary + '20' }}
         >
           <View style={styles.notificationContent}>
@@ -366,7 +430,7 @@ export default function NotificationsScreen() {
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
               <MaterialIcons 
                 name={getStatusIcon(item.title)} 
-                size={16} 
+                size={18} 
                 color="#FFFFFF" 
               />
             </View>
@@ -394,8 +458,12 @@ export default function NotificationsScreen() {
                   </ThemedText>
                 </View>
                 
-                <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-                  <ThemedText style={[styles.statusText, { color: statusColor }]}>
+                <View style={[styles.statusBadge, { 
+                  backgroundColor: isDark ? statusColor + '20' : '#FFFFFF', 
+                  borderColor: statusColor, 
+                  borderWidth: 0.5 
+                }]}>
+                  <ThemedText style={[styles.statusText, { color: statusColor, fontWeight: '700' }]}>
                     {getStatusText(item.title)}
                   </ThemedText>
                 </View>
@@ -418,26 +486,26 @@ export default function NotificationsScreen() {
   };
 
   const getStatusColor = (title: string): string => {
-    if (title.includes('pending') || title.includes('New')) return colors.warning;
-    if (title.includes('confirmed')) return colors.success;
-    if (title.includes('declined')) return colors.error;
-    if (title.includes('cancelled')) return colors.info;
+    if (title.includes('pending') || title.includes('Pending')) return '#FF9500'; // Orange for pending
+    if (title.includes('confirmed') || title.includes('Confirmed')) return '#34C759'; // Green for confirmed
+    if (title.includes('declined') || title.includes('Declined')) return '#FF3B30'; // Red for declined
+    if (title.includes('cancelled') || title.includes('Cancelled')) return '#8E8E93'; // Gray for cancelled
     return colors.primary;
   };
 
-  const getStatusIcon = (title: string): string => {
-    if (title.includes('pending') || title.includes('New')) return 'schedule';
-    if (title.includes('confirmed')) return 'check-circle';
-    if (title.includes('declined')) return 'cancel';
-    if (title.includes('cancelled')) return 'block';
-    return 'notifications';
+  const getStatusIcon = (title: string) => {
+    if (title.includes('pending') || title.includes('Pending')) return 'access-time' as const; // Clock icon for pending
+    if (title.includes('confirmed') || title.includes('Confirmed')) return 'check-circle' as const;
+    if (title.includes('declined') || title.includes('Declined')) return 'cancel' as const;
+    if (title.includes('cancelled') || title.includes('Cancelled')) return 'block' as const;
+    return 'notifications' as const;
   };
 
   const getStatusText = (title: string): string => {
-    if (title.includes('pending') || title.includes('New')) return 'Pending';
-    if (title.includes('confirmed')) return 'Confirmed';
-    if (title.includes('declined')) return 'Declined';
-    if (title.includes('cancelled')) return 'Cancelled';
+    if (title.includes('pending') || title.includes('Pending')) return 'Pending';
+    if (title.includes('confirmed') || title.includes('Confirmed')) return 'Confirmed';
+    if (title.includes('declined') || title.includes('Declined')) return 'Declined';
+    if (title.includes('cancelled') || title.includes('Cancelled')) return 'Cancelled';
     return 'Update';
   };
 
@@ -783,15 +851,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   
   // Arrow

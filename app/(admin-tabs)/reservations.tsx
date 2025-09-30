@@ -160,46 +160,36 @@ export default function ReservationsScreen() {
   const handleDeleteReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, serviceTitle: string) => {
     const performDelete = async () => {
       try {
-        // Delete admin reservation
+        // Only delete admin reservation, leave user reservation intact
         await removeAdminReservation(reservationId);
+        console.log('✅ Admin reservation deleted successfully');
         
-        // Update corresponding user's reservation regardless of current auth context
-        try {
-          const userReservations = await getUserReservations(userId);
-          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
-          if (target) {
-            await updateUserReservationStatus(userId, target.id, 'cancelled');
-          }
-        } catch (e) {
-          console.warn('Failed updating user reservation status:', e);
-        }
-        
-        // Update service status to available
+        // Update service status to pending (available for new reservations)
         try {
           if (serviceType === 'apartment') {
-            await updateApartmentStatus(serviceId, 'available');
+            await updateApartmentStatus(serviceId, 'pending');
           } else if (serviceType === 'laundry') {
-            await updateLaundryStatus(serviceId, 'available');
+            await updateLaundryStatus(serviceId, 'pending');
           } else if (serviceType === 'auto') {
-            await updateAutoStatus(serviceId, 'available');
+            await updateAutoStatus(serviceId, 'pending');
           }
         } catch (e) {
           console.warn('Failed updating service status:', e);
         }
         
-        // Notify user
+        // Notify user about the admin action (optional)
         try {
           await notifyUser(
             userId,
-            'Reservation Deleted',
-            `Your reservation for ${serviceTitle} has been deleted by admin.`,
-            { serviceType, serviceId, action: 'deleted' }
+            'Admin Action Notice',
+            `Admin has processed your ${serviceTitle} reservation.`,
+            { serviceType, serviceId, action: 'admin_processed' }
           );
         } catch {}
         
-        Alert.alert('Success', 'Reservation has been deleted successfully!');
+        Alert.alert('Success', 'Reservation has been removed from admin panel!');
       } catch (error) {
-        console.error('Error deleting reservation:', error);
+        console.error('Error deleting admin reservation:', error);
         Alert.alert('Error', 'Failed to delete reservation. Please try again.');
       }
     };
@@ -210,11 +200,11 @@ export default function ReservationsScreen() {
     }
 
     Alert.alert(
-      'Delete Reservation',
-      `Are you sure you want to delete this reservation for "${serviceTitle}"? This action cannot be undone.`,
+      'Remove from Admin Panel',
+      `Are you sure you want to remove this reservation for "${serviceTitle}" from the admin panel? The user's reservation will remain intact.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: performDelete }
+        { text: 'Remove', style: 'destructive', onPress: performDelete }
       ]
     );
   };

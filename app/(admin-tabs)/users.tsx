@@ -3,10 +3,14 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { get, onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
 import { autoUpdateUserStatus, deleteUser, formatLastActive, listenToUsers, UserData } from '../../utils/userUtils';
+import { useAuthContext } from '../contexts/AuthContext';
+import { db } from '../firebaseConfig';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -25,6 +29,8 @@ export default function UsersScreen() {
   const { colorScheme } = useColorScheme();
   const { width } = Dimensions.get('window');
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
+  const { user } = useAuthContext();
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -39,6 +45,7 @@ export default function UsersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [userProfilePictures, setUserProfilePictures] = useState<{[key: string]: string}>({});
 
   // Fetch users from Firebase on component mount
   useEffect(() => {
@@ -65,6 +72,9 @@ export default function UsersScreen() {
           setUsers(fetchedUsers);
           setLoading(false);
           setError(null);
+          
+          // Fetch profile pictures for all users immediately
+          fetchUserProfilePictures(fetchedUsers);
         });
 
         return unsubscribe;
@@ -97,6 +107,63 @@ export default function UsersScreen() {
 
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Set up real-time listener for immediate user data changes
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const userRef = ref(db, `users/${user.uid}`);
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        // Update the current user's data immediately in the users list
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.id === user.uid 
+              ? { ...u, ...userData, id: user.uid }
+              : u
+          )
+        );
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Fetch user profile pictures from Firebase Database
+  const fetchUserProfilePictures = async (usersList: UserData[]) => {
+    try {
+      const profilePictures: {[key: string]: string} = {};
+      
+      // Fetch profile pictures for each user with immediate updates
+      const promises = usersList.map(async (user) => {
+        try {
+          const imageRef = ref(db, `userProfileImages/${user.id}/url`);
+          const snapshot = await get(imageRef);
+          
+          if (snapshot.exists()) {
+            const imageUrl = snapshot.val();
+            if (imageUrl) {
+              profilePictures[user.id] = imageUrl;
+              // Update immediately for each user as we fetch them
+              setUserProfilePictures(prev => ({
+                ...prev,
+                [user.id]: imageUrl
+              }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching profile picture for user ${user.id}:`, error);
+        }
+      });
+      
+      await Promise.all(promises);
+      // Final update with all collected pictures
+      setUserProfilePictures(profilePictures);
+    } catch (error) {
+      console.error('Error fetching profile pictures:', error);
+    }
+  };
 
   // Handle user deletion
   const handleDeleteUser = async (userId: string, userName: string, userRole: string) => {
@@ -136,10 +203,100 @@ export default function UsersScreen() {
     );
   };
 
+  // Handle chat with user
+  const handleChatWithUser = async (userData: UserData) => {
+    // Provide haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    if (!user?.email) {
+      Alert.alert('Error', 'You must be logged in to start a chat.');
+      return;
+    }
+
+    try {
+      // Check if conversation already exists
+      const messagesRef = query(ref(db, 'messages'), orderByChild('chatId'));
+      const snapshot = await get(messagesRef);
+      
+      let existingChatId = null;
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Look for existing conversation between admin and user
+        for (const messageId in data) {
+          const message = data[messageId];
+          const chatId = message.chatId;
+          
+          // Check if this chat involves both admin and user
+          if (chatId && (
+            (message.senderEmail === user.email && message.recipientEmail === userData.email) ||
+            (message.senderEmail === userData.email && message.recipientEmail === user.email)
+          )) {
+            existingChatId = chatId;
+            break;
+          }
+        }
+      }
+      
+      if (existingChatId) {
+        // Navigate to existing conversation
+        router.push({
+          pathname: '/chat/[id]',
+          params: {
+            id: existingChatId,
+            chatId: existingChatId,
+            recipientName: userData.name || 'User',
+            recipientEmail: userData.email || '',
+            currentUserEmail: user.email,
+          }
+        });
+      } else {
+        // Generate new chat ID and navigate to chat screen
+        const chatId = `${user.email}_${userData.email}`;
+        
+        router.push({
+          pathname: '/chat/[id]',
+          params: {
+            id: chatId,
+            chatId: chatId,
+            recipientName: userData.name || 'User',
+            recipientEmail: userData.email || '',
+            currentUserEmail: user.email,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error checking for existing conversation:', error);
+      // Fallback to creating new chat
+      const chatId = `${user.email}_${userData.email}`;
+      
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: chatId,
+          chatId: chatId,
+          recipientName: userData.name || 'User',
+          recipientEmail: userData.email || '',
+          currentUserEmail: user.email,
+        }
+      });
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const safeName = (user.name || '').toLowerCase();
     const safeEmail = (user.email || '').toLowerCase();
     const searchText = (search || '').toLowerCase();
+    
+    // Exclude specific admin users
+    const isExcludedAdmin = 
+      safeName.includes('alfredo sayson jr') || 
+      safeName.includes('jeibii');
+    
+    if (isExcludedAdmin) {
+      return false;
+    }
+    
     const matchesSearch =
       safeName.includes(searchText) ||
       safeEmail.includes(searchText);
@@ -276,7 +433,7 @@ export default function UsersScreen() {
 
         {/* User List Header */}
         <View style={[styles.listHeader, { borderBottomColor: borderColor }]}>
-          {/* User first, Status next */}
+          {/* User first, Status next, Actions last */}
           <ThemedText type="default" style={[styles.headerText1, { color: subtitleColor, flex: 3 }]}>
             User
           </ThemedText>
@@ -285,7 +442,11 @@ export default function UsersScreen() {
               Status
             </ThemedText>
           </View>
-          <View style={{ flex: 1 }} />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <ThemedText type="default" style={[styles.headerText, { color: subtitleColor, textAlign: 'center' }]}>
+              Actions
+            </ThemedText>
+          </View>
         </View>
 
         {/* User List */}
@@ -297,28 +458,36 @@ export default function UsersScreen() {
             </ThemedText>
           </View>
         ) : (
-          filteredUsers.map((user) => (
+          filteredUsers.map((userData) => (
             <Pressable 
-              key={user.id} 
+              key={userData.id} 
               style={[styles.userCard, { backgroundColor: cardBgColor, borderColor }]}
-              onLongPress={() => handleDeleteUser(user.id, user.name || 'Unknown User', user.role)}
+              onLongPress={() => handleDeleteUser(userData.id, userData.name || 'Unknown User', userData.role)}
             >
               {/* User first */}
               <View style={[styles.userInfo, { flex: 3 }]}>
                 <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
-                  <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
-                    {user.avatar}
-                  </ThemedText>
+                  {userProfilePictures[userData.id] ? (
+                    <Image
+                      source={{ uri: userProfilePictures[userData.id] }}
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <ThemedText style={{ color: colorPalette.darkest, fontWeight: 'bold' }}>
+                      {userData.avatar}
+                    </ThemedText>
+                  )}
                 </View>
                 <View style={styles.userDetails}>
                   <ThemedText type="subtitle" style={[styles.userName, { color: textColor }]}> 
-                    {user.name || 'Unnamed User'}
+                    {userData.name || 'Unnamed User'}
                   </ThemedText>
                   <ThemedText style={[styles.userEmail, { color: subtitleColor }]}>
-                    {user.email || 'no-email'}
+                    {userData.email || 'no-email'}
                   </ThemedText>
                   <ThemedText style={[styles.userRole, { color: subtitleColor }]}>
-                    {(user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown')}
+                    {(userData.role ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1) : 'Unknown')}
                   </ThemedText>
                 </View>
               </View>
@@ -328,31 +497,52 @@ export default function UsersScreen() {
                   style={[
                     styles.statusBadge,
                     {
-                      backgroundColor: user.status === 'active' ? '#10B98120' : user.status === 'inactive' ? '#EF444420' : '#9CA3AF20',
+                      backgroundColor: userData.status === 'active' ? '#10B98120' : userData.status === 'inactive' ? '#EF444420' : '#9CA3AF20',
                     }
                   ]}
                 >
                   <View style={[
                     styles.statusDot,
-                    { backgroundColor: user.status === 'active' ? '#10B981' : user.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
+                    { backgroundColor: userData.status === 'active' ? '#10B981' : userData.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
                   ]} />
                   <ThemedText style={[
                     styles.statusText,
-                    { color: user.status === 'active' ? '#10B981' : user.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
+                    { color: userData.status === 'active' ? '#10B981' : userData.status === 'inactive' ? '#EF4444' : '#9CA3AF' }
                   ]}>
-                    {(user.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : 'Unknown')}
+                    {(userData.status ? userData.status.charAt(0).toUpperCase() + userData.status.slice(1) : 'Unknown')}
                   </ThemedText>
                 </View>
                 <ThemedText style={[styles.lastActiveText, { color: subtitleColor }]}>
-                  {formatLastActive(user.lastActive)}
+                  {formatLastActive(userData.lastActive)}
                 </ThemedText>
-                {user.status === 'active' && (
+                {userData.status === 'active' && (
                   <View style={styles.liveIndicator}>
                     <View style={[styles.liveDot, { backgroundColor: '#10B981' }]} />
                     <ThemedText style={[styles.liveText, { color: '#10B981' }]}>
                       Live
                     </ThemedText>
                   </View>
+                )}
+              </View>
+              {/* Actions last */}
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                {user?.email !== userData.email && (
+                  <TouchableOpacity
+                    style={[styles.chatButton, { 
+                      backgroundColor: isDark ? 'transparent' : '#fff',
+                      borderColor: colorPalette.primary,
+                      borderWidth: 1,
+                      shadowColor: isDark ? 'transparent' : colorPalette.primary,
+                    }]}
+                    onPress={() => handleChatWithUser(userData)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons 
+                      name="chatbubble-outline" 
+                      size={15} 
+                      color={colorPalette.primary} 
+                    />
+                  </TouchableOpacity>
                 )}
               </View>
             </Pressable>
@@ -475,6 +665,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   userDetails: {
     justifyContent: 'center',
@@ -617,5 +813,19 @@ const styles = StyleSheet.create({
   statusIndicatorText: {
     fontSize: 12,
     marginLeft: 8,
+  },
+  chatButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });

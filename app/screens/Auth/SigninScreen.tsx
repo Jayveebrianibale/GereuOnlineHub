@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
+import { isAdminEmail } from '../../config/adminConfig';
 import { auth } from '../../firebaseConfig';
 
 const { height, width } = Dimensions.get('window');
@@ -177,7 +178,7 @@ export default function SigninScreen() {
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
       setTimeout(() => {
-        if (user.email && (user.email.toLowerCase() === 'alfredosayson@gmail.com' || user.email.toLowerCase() === 'jayveebriani@gmail.com')) {
+        if (user.email && isAdminEmail(user.email)) {
           router.replace('/(admin-tabs)');
         } else {
           router.replace('/(user-tabs)');

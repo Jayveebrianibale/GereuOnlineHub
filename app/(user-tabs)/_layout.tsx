@@ -3,6 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMessageContext } from '../contexts/MessageContext';
+import { isSmallScreen, isTablet, responsiveValues } from '../utils/responsiveUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -30,27 +31,32 @@ export default function UserTabLayout() {
           backgroundColor: isDark ? '#000' : '#fff',
           borderTopWidth: 1,
           borderTopColor: isDark ? '#222' : '#e5e7eb',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: responsiveValues.tabBar.height,
+          paddingBottom: responsiveValues.tabBar.paddingVertical,
+          paddingTop: responsiveValues.tabBar.paddingVertical,
+          paddingHorizontal: responsiveValues.tabBar.paddingHorizontal,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: responsiveValues.tabBar.fontSize,
           fontWeight: '500',
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
+        },
+        tabBarIconStyle: {
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: 'Reservations',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -60,10 +66,10 @@ export default function UserTabLayout() {
               title: 'Messages',
               tabBarIcon: ({ color, size }) => (
                 <View style={styles.iconContainer}>
-                  <MaterialIcons name="message" size={size} color={color} />
+                  <MaterialIcons name="message" size={responsiveValues.tabBar.iconSize} color={color} />
                   {unreadCount > 0 && (
                     <View style={[styles.badge, { backgroundColor: '#FF4444' }]}>
-                      <Text style={styles.badgeText}>
+                      <Text style={[styles.badgeText, { fontSize: responsiveValues.tabBar.badgeFontSize }]}>
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </Text>
                     </View>
@@ -76,7 +82,7 @@ export default function UserTabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="person" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
     </Tabs>
@@ -86,21 +92,31 @@ export default function UserTabLayout() {
 const styles = StyleSheet.create({
   iconContainer: {
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: responsiveValues.tabBar.iconSize + 8,
+    height: responsiveValues.tabBar.iconSize + 8,
   },
   badge: {
     position: 'absolute',
     top: -6,
     right: -8,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: responsiveValues.tabBar.badgeSize / 2,
+    minWidth: responsiveValues.tabBar.badgeSize,
+    height: responsiveValues.tabBar.badgeSize,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: responsiveValues.tabBar.badgeFontSize,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 }); 

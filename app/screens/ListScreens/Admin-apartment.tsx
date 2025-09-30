@@ -240,8 +240,8 @@ const colorPalette = {
             errors.title = 'Title must be at least 3 characters';
         }
         
-        if (currentApartment.price && !currentApartment.price.match(/^[Pp]?\d+[\/\-]?\w*$/)) {
-            errors.price = 'Please enter a valid price (e.g., P1200, 1200/mo)';
+        if (currentApartment.price && !currentApartment.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
+            errors.price = 'Please enter a valid price (e.g., P1,200, 20,000/mo)';
         }
         
         if (currentApartment.bedrooms < 0) {
@@ -347,7 +347,7 @@ const colorPalette = {
     };
 
     const handleAmenityChange = (text: string, index: number) => {
-        const updatedAmenities = [...currentApartment.amenities];
+        const updatedAmenities = [...(currentApartment.amenities || [])];
         updatedAmenities[index] = text;
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
     };
@@ -355,12 +355,12 @@ const colorPalette = {
     const addAmenity = () => {
         setCurrentApartment({ 
         ...currentApartment, 
-        amenities: [...currentApartment.amenities, ''] 
+        amenities: [...(currentApartment.amenities || []), ''] 
         });
     };
 
     const removeAmenity = (index: number) => {
-        const updatedAmenities = [...currentApartment.amenities];
+        const updatedAmenities = [...(currentApartment.amenities || [])];
         updatedAmenities.splice(index, 1);
         setCurrentApartment({ ...currentApartment, amenities: updatedAmenities });
     };

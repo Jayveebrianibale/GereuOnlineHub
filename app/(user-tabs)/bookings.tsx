@@ -367,7 +367,7 @@ export default function Bookings() {
                  </ThemedText>
                </View>
                <View style={styles.detailRow}>
-                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
                    {formatPHP((apt as any).servicePrice ?? (apt as any).price ?? 0)}
                  </ThemedText>
@@ -464,7 +464,7 @@ export default function Bookings() {
                  </View>
                )}
                <View style={styles.detailRow}>
-                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
@@ -561,7 +561,7 @@ export default function Bookings() {
                  </View>
                )}
                <View style={styles.detailRow}>
-                 <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
@@ -617,98 +617,173 @@ export default function Bookings() {
       </ScrollView>
       ) : (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Bills Header */}
-        <View style={styles.header}>
-          <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
-            Billing Summary
-          </ThemedText>
-          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}> 
-            Accepted services and totals
-          </ThemedText>
+        {/* Professional Bills Header */}
+        <View style={styles.professionalHeader}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <MaterialIcons name="receipt-long" size={28} color={colorPalette.primary} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <ThemedText type="title" style={[styles.professionalTitle, { color: textColor }]}> 
+                Billing Summary
+              </ThemedText>
+              <ThemedText type="default" style={[styles.professionalSubtitle, { color: subtitleColor }]}> 
+                Review your accepted services and payment details
+              </ThemedText>
+            </View>
+          </View>
         </View>
 
-        {/* Grand Total */}
-        <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
-          <View style={styles.cardBody}>
-            <ThemedText style={[styles.serviceName, { color: textColor }]}>Total Amount</ThemedText>
-            <ThemedText type="subtitle" style={{ color: colorPalette.primary, fontSize: 22, fontWeight: '700' }}>
-              {formatPHP(totals.grand)}
+        {/* Professional Grand Total Card */}
+        <View style={[styles.totalCard, { backgroundColor: cardBgColor, borderColor }]}> 
+          <View style={styles.totalCardHeader}>
+            <View style={styles.totalIconContainer}>
+              <MaterialIcons name="account-balance-wallet" size={24} color="#fff" />
+            </View>
+            <View style={styles.totalTextContainer}>
+              <ThemedText style={[styles.totalLabel, { color: textColor }]}>Total Amount Due</ThemedText>
+              <ThemedText style={[styles.totalAmount, { color: colorPalette.primary }]}>
+                {formatPHP(totals.grand)}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.totalCardFooter}>
+            <MaterialIcons name="info-outline" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.totalNote, { color: subtitleColor }]}>
+              Payment due upon service completion
             </ThemedText>
           </View>
         </View>
 
-        {/* Apartments */}
+        {/* Professional Apartments Section */}
         {accepted.apartments.length > 0 && (
-          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
-            <View style={styles.cardBody}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <ThemedText style={[styles.serviceName, { color: textColor }]}>Apartment Rental</ThemedText>
-                <ThemedText style={{ color: subtitleColor }}>{accepted.apartments.length} item(s)</ThemedText>
+          <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.serviceCardHeader}>
+              <View style={styles.serviceIconContainer}>
+                <MaterialIcons name="apartment" size={20} color="#fff" />
               </View>
-              {accepted.apartments.map((i) => (
-                <View key={i.id} style={styles.billRow}>
-                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Apartment'}</ThemedText>
-                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+              <View style={styles.serviceHeaderText}>
+                <ThemedText style={[styles.serviceCategoryName, { color: textColor }]}>Apartment Rental</ThemedText>
+                <ThemedText style={[styles.serviceItemCount, { color: subtitleColor }]}>
+                  {accepted.apartments.length} {accepted.apartments.length === 1 ? 'unit' : 'units'}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.serviceCardBody}>
+              {accepted.apartments.map((i, index) => (
+                <View key={i.id} style={[styles.professionalBillRow, index === accepted.apartments.length - 1 && styles.lastBillRow]}>
+                  <View style={styles.billItemInfo}>
+                    <ThemedText style={[styles.professionalBillTitle, { color: textColor }]} numberOfLines={1}>
+                      {i.title || 'Apartment Unit'}
+                    </ThemedText>
+                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Monthly rental</ThemedText>
+                  </View>
+                  <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
+                    {formatPHP(i.amount)}
+                  </ThemedText>
                 </View>
               ))}
-              <View style={styles.billDivider} />
-              <View style={styles.billRow}>
-                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
-                <ThemedText style={styles.billAmount}>{formatPHP(totals.apartments)}</ThemedText>
+              <View style={styles.professionalBillDivider} />
+              <View style={styles.professionalBillRow}>
+                <ThemedText style={[styles.billSubtotalLabel, { color: textColor }]}>Subtotal</ThemedText>
+                <ThemedText style={[styles.billSubtotalAmount, { color: colorPalette.primary }]}>
+                  {formatPHP(totals.apartments)}
+                </ThemedText>
               </View>
             </View>
           </View>
         )}
 
-        {/* Laundry */}
+        {/* Professional Laundry Section */}
         {accepted.laundry.length > 0 && (
-          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
-            <View style={styles.cardBody}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <ThemedText style={[styles.serviceName, { color: textColor }]}>Laundry Service</ThemedText>
-                <ThemedText style={{ color: subtitleColor }}>{accepted.laundry.length} item(s)</ThemedText>
+          <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.serviceCardHeader}>
+              <View style={[styles.serviceIconContainer, { backgroundColor: '#4CAF50' }]}>
+                <MaterialIcons name="local-laundry-service" size={20} color="#fff" />
               </View>
-              {accepted.laundry.map((i) => (
-                <View key={i.id} style={styles.billRow}>
-                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Laundry'}</ThemedText>
-                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+              <View style={styles.serviceHeaderText}>
+                <ThemedText style={[styles.serviceCategoryName, { color: textColor }]}>Laundry Service</ThemedText>
+                <ThemedText style={[styles.serviceItemCount, { color: subtitleColor }]}>
+                  {accepted.laundry.length} {accepted.laundry.length === 1 ? 'service' : 'services'}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.serviceCardBody}>
+              {accepted.laundry.map((i, index) => (
+                <View key={i.id} style={[styles.professionalBillRow, index === accepted.laundry.length - 1 && styles.lastBillRow]}>
+                  <View style={styles.billItemInfo}>
+                    <ThemedText style={[styles.professionalBillTitle, { color: textColor }]} numberOfLines={1}>
+                      {i.title || 'Laundry Service'}
+                    </ThemedText>
+                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Wash & fold service</ThemedText>
+                  </View>
+                  <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
+                    {formatPHP(i.amount)}
+                  </ThemedText>
                 </View>
               ))}
-              <View style={styles.billDivider} />
-              <View style={styles.billRow}>
-                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
-                <ThemedText style={styles.billAmount}>{formatPHP(totals.laundry)}</ThemedText>
+              <View style={styles.professionalBillDivider} />
+              <View style={styles.professionalBillRow}>
+                <ThemedText style={[styles.billSubtotalLabel, { color: textColor }]}>Subtotal</ThemedText>
+                <ThemedText style={[styles.billSubtotalAmount, { color: colorPalette.primary }]}>
+                  {formatPHP(totals.laundry)}
+                </ThemedText>
               </View>
             </View>
           </View>
         )}
 
-        {/* Auto */}
+        {/* Professional Auto Section */}
         {accepted.auto.length > 0 && (
-          <View style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}> 
-            <View style={styles.cardBody}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <ThemedText style={[styles.serviceName, { color: textColor }]}>Car & Motor Parts</ThemedText>
-                <ThemedText style={{ color: subtitleColor }}>{accepted.auto.length} item(s)</ThemedText>
+          <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}> 
+            <View style={styles.serviceCardHeader}>
+              <View style={[styles.serviceIconContainer, { backgroundColor: '#FF9800' }]}>
+                <MaterialIcons name="directions-car" size={20} color="#fff" />
               </View>
-              {accepted.auto.map((i) => (
-                <View key={i.id} style={styles.billRow}>
-                  <ThemedText style={[styles.billTitle, { color: textColor }]} numberOfLines={1}>{i.title || 'Auto'}</ThemedText>
-                  <ThemedText style={styles.billAmount}>{formatPHP(i.amount)}</ThemedText>
+              <View style={styles.serviceHeaderText}>
+                <ThemedText style={[styles.serviceCategoryName, { color: textColor }]}>Car & Motor Parts</ThemedText>
+                <ThemedText style={[styles.serviceItemCount, { color: subtitleColor }]}>
+                  {accepted.auto.length} {accepted.auto.length === 1 ? 'item' : 'items'}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.serviceCardBody}>
+              {accepted.auto.map((i, index) => (
+                <View key={i.id} style={[styles.professionalBillRow, index === accepted.auto.length - 1 && styles.lastBillRow]}>
+                  <View style={styles.billItemInfo}>
+                    <ThemedText style={[styles.professionalBillTitle, { color: textColor }]} numberOfLines={1}>
+                      {i.title || 'Auto Service'}
+                    </ThemedText>
+                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Parts & service</ThemedText>
+                  </View>
+                  <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
+                    {formatPHP(i.amount)}
+                  </ThemedText>
                 </View>
               ))}
-              <View style={styles.billDivider} />
-              <View style={styles.billRow}>
-                <ThemedText style={[styles.billSubtitle, { color: subtitleColor }]}>Subtotal</ThemedText>
-                <ThemedText style={styles.billAmount}>{formatPHP(totals.auto)}</ThemedText>
+              <View style={styles.professionalBillDivider} />
+              <View style={styles.professionalBillRow}>
+                <ThemedText style={[styles.billSubtotalLabel, { color: textColor }]}>Subtotal</ThemedText>
+                <ThemedText style={[styles.billSubtotalAmount, { color: colorPalette.primary }]}>
+                  {formatPHP(totals.auto)}
+                </ThemedText>
               </View>
             </View>
           </View>
         )}
 
+        {/* Professional Empty State */}
         {accepted.apartments.length === 0 && accepted.laundry.length === 0 && accepted.auto.length === 0 && (
-          <View style={{ alignItems: 'center', marginTop: 250 }}>
-            <ThemedText style={{ color: subtitleColor }}>No accepted services yet.</ThemedText>
+          <View style={styles.emptyStateContainer}>
+            <View style={styles.emptyStateIconContainer}>
+              <MaterialIcons name="receipt-long" size={64} color={subtitleColor} style={{ opacity: 0.5 }} />
+            </View>
+            <ThemedText style={[styles.emptyStateTitle, { color: textColor }]}>
+              No Bills Yet
+            </ThemedText>
+            <ThemedText style={[styles.emptyStateMessage, { color: subtitleColor }]}>
+              Your billing summary will appear here once you have accepted services.
+            </ThemedText>
           </View>
         )}
       </ScrollView>
@@ -899,5 +974,193 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#eee',
     marginVertical: 8,
+  },
+  // Professional Bills Styles
+  professionalHeader: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  professionalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  professionalSubtitle: {
+    fontSize: 16,
+    opacity: 0.8,
+    lineHeight: 22,
+  },
+  totalCard: {
+    borderRadius: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    overflow: 'hidden',
+  },
+  totalCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+  },
+  totalIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colorPalette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  totalTextContainer: {
+    flex: 1,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  totalAmount: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  totalCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0, 178, 255, 0.02)',
+  },
+  totalNote: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontStyle: 'italic',
+  },
+  serviceCard: {
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  serviceCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  serviceIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colorPalette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  serviceHeaderText: {
+    flex: 1,
+  },
+  serviceCategoryName: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  serviceItemCount: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  serviceCardBody: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  professionalBillRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  lastBillRow: {
+    paddingBottom: 8,
+  },
+  billItemInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  professionalBillTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  billItemType: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  professionalBillAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  professionalBillDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    marginVertical: 8,
+  },
+  billSubtotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  billSubtotalAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateIconContainer: {
+    marginBottom: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyStateMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
+  },
+  phpSymbol: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 4,
   },
 }); 

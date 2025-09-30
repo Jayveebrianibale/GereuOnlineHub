@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     Dimensions,
     Image,
+    Platform,
     SafeAreaView,
     ScrollView,
     StatusBar,
@@ -13,7 +14,17 @@ import {
     View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
+
+// Responsive dimensions
 const { width, height } = Dimensions.get('window');
+const isTablet = width >= 768;
+const isSmallDevice = height < 700;
+const isLargeDevice = height > 900;
+
+// Responsive scaling functions
+const scale = (size: number) => (width / 375) * size;
+const verticalScale = (size: number) => (height / 812) * size;
+const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
 const onboardingData = [
   {
     id: 1,
@@ -197,20 +208,27 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1,
+  },
   skipButton: {
     position: 'absolute',
-    top: 60,
-    right: 20,
+    top: Platform.OS === 'ios' ? (isSmallDevice ? 40 : 60) : 20,
+    right: scale(20),
     zIndex: 10,
-    padding: 10,
+    padding: scale(10),
   },
   skipText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
   },
-  scrollView: { flex: 1 },
-  slide: { width, height },
+  scrollView: { 
+    flex: 1,
+  },
+  slide: { 
+    width, 
+    height,
+  },
   gradientBackground: {
     flex: 1,
     justifyContent: 'center',
@@ -220,33 +238,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingHorizontal: isTablet ? scale(60) : scale(40),
+    paddingTop: isSmallDevice ? scale(40) : scale(60),
+    paddingBottom: isSmallDevice ? scale(20) : scale(40),
   },
   illustration: {
-    width: 220,
-    height: 220,
-    marginBottom: 32,
+    width: isTablet ? scale(280) : isSmallDevice ? scale(180) : scale(220),
+    height: isTablet ? scale(280) : isSmallDevice ? scale(180) : scale(220),
+    marginBottom: isSmallDevice ? scale(20) : scale(32),
   },
   textContainer: {
     alignItems: 'center',
-    maxWidth: 320,
+    maxWidth: isTablet ? scale(500) : scale(320),
+    paddingHorizontal: scale(10),
   },
   title: {
-    fontSize: 28,
+    fontSize: isTablet ? moderateScale(32) : isSmallDevice ? moderateScale(24) : moderateScale(28),
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 36,
+    marginBottom: isSmallDevice ? scale(15) : scale(20),
+    lineHeight: isTablet ? moderateScale(40) : isSmallDevice ? moderateScale(30) : moderateScale(36),
     color: 'white',
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
   description: {
-    fontSize: 16,
+    fontSize: isTablet ? moderateScale(18) : isSmallDevice ? moderateScale(14) : moderateScale(16),
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: isTablet ? moderateScale(28) : isSmallDevice ? moderateScale(20) : moderateScale(24),
     opacity: 0.9,
     color: 'white',
     textShadowColor: 'rgba(0,0,0,0.10)',
@@ -258,49 +278,53 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 50,
-    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? (isSmallDevice ? scale(30) : scale(50)) : scale(30),
+    paddingHorizontal: scale(20),
   },
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 30,
+    marginBottom: isSmallDevice ? scale(20) : scale(30),
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    marginHorizontal: scale(4),
   },
-  buttonContainer: { alignItems: 'center' },
+  buttonContainer: { 
+    alignItems: 'center',
+  },
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
+    paddingHorizontal: isTablet ? scale(40) : scale(30),
+    paddingVertical: isTablet ? scale(18) : scale(15),
+    borderRadius: scale(25),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+    minWidth: scale(120),
   },
   nextButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: isTablet ? moderateScale(18) : moderateScale(16),
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: scale(8),
   },
   getStartedButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 30,
+    paddingHorizontal: isTablet ? scale(50) : scale(40),
+    paddingVertical: isTablet ? scale(20) : scale(18),
+    borderRadius: scale(30),
+    minWidth: scale(150),
   },
   getStartedButtonText: {
     color: '#007BE5',
-    fontSize: 18,
+    fontSize: isTablet ? moderateScale(20) : moderateScale(18),
     fontWeight: 'bold',
-    marginRight: 8,
+    marginRight: scale(8),
   },
 });

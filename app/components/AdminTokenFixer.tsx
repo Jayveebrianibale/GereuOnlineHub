@@ -7,7 +7,7 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { getAdminPushTokens, getUserPushToken } from '../services/notificationService';
 
 export default function AdminTokenFixer() {
-  const { user } = useAuthContext();
+  const { user, role } = useAuthContext();
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +54,7 @@ export default function AdminTokenFixer() {
     setLoading(true);
     try {
       addResult(`🔍 Checking current user: ${user.email}`);
-      addResult(`👤 User role: ${user.role || 'Not set'}`);
+      addResult(`👤 User role: ${role || 'Not set'}`);
       
       const token = await getUserPushToken(user.uid);
       if (token) {
@@ -82,7 +82,7 @@ export default function AdminTokenFixer() {
       addResult('🧪 Testing notification flow...');
       
       // Check if current user is admin
-      const isAdmin = user.role === 'admin';
+      const isAdmin = role === 'admin';
       addResult(`👤 Current user is admin: ${isAdmin ? 'Yes' : 'No'}`);
       
       if (isAdmin) {

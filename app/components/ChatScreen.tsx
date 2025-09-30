@@ -6,18 +6,18 @@ import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -49,13 +49,21 @@ interface Message {
   senderName?: string;
   imageUrl?: string;
   image?: string; // For apartment inquiry images
-  messageType?: 'text' | 'image' | 'apartment_inquiry';
+  messageType?: 'text' | 'image' | 'apartment_inquiry' | 'laundry_inquiry' | 'auto_inquiry';
   deletedFor?: string[]; // Array of user emails who have deleted this message
   readBy?: string[]; // Array of user emails who have read this message
   // Apartment inquiry fields
   apartmentTitle?: string;
   apartmentPrice?: number;
   apartmentLocation?: string;
+  // Laundry inquiry fields
+  laundryTitle?: string;
+  laundryPrice?: number;
+  laundryTurnaround?: string;
+  // Auto inquiry fields
+  autoTitle?: string;
+  autoPrice?: number;
+  autoDuration?: string;
   category?: string;
   serviceId?: string;
 }
@@ -63,6 +71,13 @@ interface Message {
 interface ChatScreenProps {
   route: any;
   navigation?: any;
+}
+
+interface RecipientProfile {
+  name: string;
+  email: string;
+  profileImageUrl?: string;
+  isOnline?: boolean;
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
@@ -84,6 +99,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [recipientProfile, setRecipientProfile] = useState<RecipientProfile | null>(null);
   
   // Refs for stability
   const textInputRef = useRef<TextInput>(null);
@@ -99,7 +115,56 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
   const bubbleBgColor = isDark ? '#2A2A2A' : '#e6e6e6';
   const adminBubbleBgColor = isDark ? '#004d40' : '#b2dfdb';
-  const userBubbleBgColor = isDark ? '#1e3a8a' : '#3b82f6';
+  const userBubbleBgColor = isDark ? '#1b5e20' : '#81c784';
+
+  // Function to fetch recipient profile data
+  const fetchRecipientProfile = useCallback(async (email: string) => {
+    if (!email) return;
+    
+    try {
+      // Find user ID by email
+      const usersRef = ref(db, 'users');
+      const usersSnapshot = await get(usersRef);
+      
+      if (usersSnapshot.exists()) {
+        const usersData = usersSnapshot.val();
+        for (const userId in usersData) {
+          if (usersData[userId].email === email) {
+            const userData = usersData[userId];
+            
+            // Get profile image
+            let profileImageUrl = null;
+            try {
+              const imageRef = ref(db, `userProfileImages/${userId}/url`);
+              const imageSnapshot = await get(imageRef);
+              if (imageSnapshot.exists()) {
+                profileImageUrl = imageSnapshot.val();
+              }
+            } catch (imageError) {
+              console.log('No profile image found for user:', email);
+            }
+            
+            setRecipientProfile({
+              name: userData.name || userData.displayName || email.split('@')[0],
+              email: email,
+              profileImageUrl: profileImageUrl,
+              isOnline: userData.status === 'active'
+            });
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching recipient profile:', error);
+      // Set fallback profile data
+      setRecipientProfile({
+        name: recipientName || email.split('@')[0],
+        email: email,
+        profileImageUrl: undefined,
+        isOnline: false
+      });
+    }
+  }, [recipientName]);
 
   // Function to mark messages as read
   const markMessagesAsRead = async (messagesList: Message[], userEmail: string) => {
@@ -170,6 +235,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     return () => unsubscribe();
   }, [chatId]);
 
+  // Fetch recipient profile when component mounts
+  useEffect(() => {
+    if (recipientEmail) {
+      fetchRecipientProfile(recipientEmail);
+    }
+  }, [recipientEmail, fetchRecipientProfile]);
+
   // Keyboard event listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -226,7 +298,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             chatId: chatId,
             senderEmail: currentUserEmail,
             senderName: isAdmin ? 'Admin' : currentUserEmail.split('@')[0],
-            messageId: messageData.id || 'unknown'
+            messageId: (messageData as any).id || 'unknown'
           };
 
           console.log('📱 Sending text message notification:', {
@@ -308,7 +380,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             chatId: chatId,
             senderEmail: currentUserEmail,
             senderName: senderName,
-            messageId: messageData.id || 'unknown',
+            messageId: (messageData as any).id || 'unknown',
             messageType: 'image'
           };
 
@@ -548,23 +620,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     );
   };
 
-  const handleReportUser = () => {
-    Alert.alert(
-      'Report User',
-      `Are you sure you want to report ${recipientName || 'this user'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Success', 'User reported successfully!');
-            setShowMenu(false);
-          }
-        }
-      ]
-    );
-  };
 
   const handleBlockUser = () => {
     Alert.alert(
@@ -643,6 +698,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const isMessageFromAdmin = item.isAdmin;
     const isImageMessage = item.messageType === 'image' && item.imageUrl;
     const isApartmentInquiry = item.messageType === 'apartment_inquiry' && (item.image || item.imageUrl);
+    const isLaundryInquiry = item.messageType === 'laundry_inquiry' && (item.image || item.imageUrl);
+    const isAutoInquiry = item.messageType === 'auto_inquiry' && (item.image || item.imageUrl);
     
     return (
       <View style={[
@@ -654,6 +711,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             styles.messageBubble,
             isImageMessage ? styles.imageMessageBubble : {},
             isApartmentInquiry ? styles.apartmentInquiryBubble : {},
+            isLaundryInquiry ? styles.laundryInquiryBubble : {},
+            isAutoInquiry ? styles.autoInquiryBubble : {},
             {
               backgroundColor: isCurrentUser 
                 ? (isMessageFromAdmin ? adminBubbleBgColor : userBubbleBgColor)
@@ -727,6 +786,100 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 {item.text}
               </ThemedText>
             </View>
+          ) : isLaundryInquiry ? (
+            <View style={styles.laundryInquiryContainer}>
+              <View style={styles.laundryInquiryHeader}>
+                <ThemedText style={[styles.laundryInquiryTitle, { color: textColor }]}>
+                  🧺 Laundry Inquiry
+                </ThemedText>
+              </View>
+              
+              {(item.image || item.imageUrl) && (
+                <TouchableOpacity
+                  onPress={() => handleImagePress(item.image || item.imageUrl!)}
+                  activeOpacity={0.8}
+                  style={styles.laundryImageContainer}
+                >
+                  <Image
+                    source={{ uri: item.image || item.imageUrl }}
+                    style={styles.laundryInquiryImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.laundryInquiryDetails}>
+                <ThemedText style={[styles.laundryInquiryName, { color: textColor }]}>
+                  {item.laundryTitle || 'Laundry Service'}
+                </ThemedText>
+                
+                {item.laundryPrice && (
+                  <ThemedText style={[styles.laundryInquiryPrice, { color: colorPalette.primary }]}>
+                    {formatPHP(item.laundryPrice)}
+                  </ThemedText>
+                )}
+                
+                {item.laundryTurnaround && (
+                  <View style={styles.laundryTurnaroundRow}>
+                    <MaterialIcons name="schedule" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
+                    <ThemedText style={[styles.laundryTurnaroundText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
+                      {item.laundryTurnaround}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8, fontStyle: 'italic' }]}>
+                {item.text}
+              </ThemedText>
+            </View>
+          ) : isAutoInquiry ? (
+            <View style={styles.autoInquiryContainer}>
+              <View style={styles.autoInquiryHeader}>
+                <ThemedText style={[styles.autoInquiryTitle, { color: textColor }]}>
+                  🚗 Car and Motor Parts Inquiry
+                </ThemedText>
+              </View>
+              
+              {(item.image || item.imageUrl) && (
+                <TouchableOpacity
+                  onPress={() => handleImagePress(item.image || item.imageUrl!)}
+                  activeOpacity={0.8}
+                  style={styles.autoImageContainer}
+                >
+                  <Image
+                    source={{ uri: item.image || item.imageUrl }}
+                    style={styles.autoInquiryImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.autoInquiryDetails}>
+                <ThemedText style={[styles.autoInquiryName, { color: textColor }]}>
+                  {item.autoTitle || 'Car and Motor Parts Service'}
+                </ThemedText>
+                
+                {item.autoPrice && (
+                  <ThemedText style={[styles.autoInquiryPrice, { color: colorPalette.primary }]}>
+                    {formatPHP(item.autoPrice)}
+                  </ThemedText>
+                )}
+                
+                {item.autoDuration && (
+                  <View style={styles.autoDurationRow}>
+                    <MaterialIcons name="schedule" size={14} color={isDark ? subtitleColor : colorPalette.dark} />
+                    <ThemedText style={[styles.autoDurationText, { color: isDark ? subtitleColor : colorPalette.dark }]}>
+                      {item.autoDuration}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8, fontStyle: 'italic' }]}>
+                {item.text}
+              </ThemedText>
+            </View>
           ) : (
             <ThemedText style={[styles.messageText, { color: textColor }]}>
               {item.text}
@@ -769,14 +922,38 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           >
             <Ionicons name="arrow-back" size={24} color={textColor} />
           </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <ThemedText style={[styles.headerTitle, { color: textColor }]}>
-              {recipientName || 'Chat'}
-            </ThemedText>
-            <ThemedText style={[styles.headerSubtitle, { color: textColor, opacity: 0.6 }]}>
-              {isAdmin ? 'Admin Chat' : 'User Chat'}
-            </ThemedText>
-          </View>
+          
+          {/* Profile Section */}
+          <TouchableOpacity style={styles.profileSection} activeOpacity={0.7}>
+            <View style={styles.profileImageContainer}>
+              {recipientProfile?.profileImageUrl ? (
+                <Image
+                  source={{ uri: recipientProfile.profileImageUrl }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: colorPalette.primary }]}>
+                  <ThemedText style={styles.profileImageText}>
+                    {(recipientProfile?.name || recipientName || 'U').charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+              )}
+              {recipientProfile?.isOnline && (
+                <View style={[styles.onlineIndicator, { backgroundColor: '#4CAF50' }]} />
+              )}
+            </View>
+            
+            <View style={styles.headerInfo}>
+              <ThemedText style={[styles.headerTitle, { color: textColor }]}>
+                {recipientProfile?.name || recipientName || 'Chat'}
+              </ThemedText>
+              <ThemedText style={[styles.headerSubtitle, { color: textColor, opacity: 0.6 }]}>
+                {recipientProfile?.isOnline ? 'Online' : (isAdmin ? 'Admin Chat' : 'User Chat')}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
+          
           <TouchableOpacity 
             style={styles.moreButton}
             onPress={() => setShowMenu(true)}
@@ -804,20 +981,21 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           }
         />
         
-        {/* Input Container */}
+        {/* Enhanced Input Container */}
         <View style={[
           styles.inputContainer, 
           { 
-            backgroundColor: bgColor, 
-            borderTopColor: isDark ? '#333' : '#e0e0e0',
-            shadowColor: '#000',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+            borderTopColor: isDark ? '#2A2A2A' : '#E0E0E0',
+            borderTopWidth: 1,
+            shadowColor: isDark ? '#000' : '#000',
             shadowOffset: {
               width: 0,
               height: -2,
             },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 5,
+            shadowOpacity: isDark ? 0.2 : 0.08,
+            shadowRadius: isDark ? 6 : 8,
+            elevation: isDark ? 6 : 8,
           }
         ]}>
           <View style={styles.inputWrapper}>
@@ -825,8 +1003,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.imageButton,
                 {
-                  backgroundColor: inputBgColor,
-                  borderColor: isDark ? '#444' : '#ddd',
+                  backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
+                  borderColor: isDark ? '#444' : '#E1E5E9',
+                  shadowColor: isDark ? '#000' : '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: isDark ? 0.2 : 0.1,
+                  shadowRadius: isDark ? 4 : 6,
+                  elevation: isDark ? 4 : 6,
                 }
               ]}
               onPress={pickImage}
@@ -834,8 +1020,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             >
               <Ionicons 
                 name="camera" 
-                size={20} 
-                color={textColor} 
+                size={22} 
+                color={isDark ? '#FFFFFF' : '#007AFF'} 
               />
             </TouchableOpacity>
             
@@ -844,15 +1030,26 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.textInput,
                 {
-                  backgroundColor: inputBgColor,
+                  backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
                   color: textColor,
-                  borderColor: isInputFocused ? '#007AFF' : (isDark ? '#444' : '#ddd'),
+                  borderColor: isInputFocused 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#444' : '#E1E5E9'),
+                  borderWidth: isInputFocused ? 2 : 1,
+                  shadowColor: isDark ? '#000' : '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: isDark ? 0.2 : 0.08,
+                  shadowRadius: isDark ? 4 : 8,
+                  elevation: isDark ? 4 : 8,
                 }
               ]}
               value={inputText}
               onChangeText={setInputText}
               placeholder={`Message ${recipientName || 'user'}...`}
-              placeholderTextColor={isDark ? '#aaa' : '#666'}
+              placeholderTextColor={isDark ? '#AAA' : '#8E8E93'}
               multiline
               maxLength={1000}
               returnKeyType="send"
@@ -879,8 +1076,26 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               style={[
                 styles.sendButton,
                 {
-                  backgroundColor: inputText.trim() && !isLoading ? '#007AFF' : '#ccc',
-                  opacity: isLoading ? 0.5 : 1,
+                  backgroundColor: inputText.trim() && !isLoading 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#444' : '#C7C7CC'),
+                  shadowColor: inputText.trim() && !isLoading 
+                    ? (isDark ? '#007AFF' : '#007AFF') 
+                    : (isDark ? '#000' : '#000'),
+                  shadowOffset: {
+                    width: 0,
+                    height: 3,
+                  },
+                  shadowOpacity: inputText.trim() && !isLoading 
+                    ? (isDark ? 0.4 : 0.3) 
+                    : (isDark ? 0.2 : 0.1),
+                  shadowRadius: inputText.trim() && !isLoading 
+                    ? (isDark ? 6 : 8) 
+                    : (isDark ? 4 : 6),
+                  elevation: inputText.trim() && !isLoading 
+                    ? (isDark ? 6 : 8) 
+                    : (isDark ? 4 : 6),
+                  opacity: isLoading ? 0.6 : 1,
                 }
               ]}
               onPress={sendMessage}
@@ -891,7 +1106,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
               ) : (
                 <Ionicons 
                   name="send" 
-                  size={20} 
+                  size={22} 
                   color="#fff" 
                 />
               )}
@@ -928,13 +1143,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 <ThemedText style={[styles.menuText, { color: '#F44336' }]}>Clear Chat</ThemedText>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={handleReportUser}
-              >
-                <Ionicons name="flag" size={20} color="#FF9800" />
-                <ThemedText style={[styles.menuText, { color: '#FF9800' }]}>Report User</ThemedText>
-              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.menuItem}
@@ -1056,9 +1264,46 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
   },
+  profileSection: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  profileImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   headerInfo: {
     flex: 1,
-    paddingTop: 24,
   },
   headerTitle: {
     fontSize: 18,
@@ -1138,11 +1383,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   inputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 2 : 1,
-    minHeight: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 12,
+    minHeight: 80,
     backgroundColor: 'transparent',
     position: 'relative',
     zIndex: 1000,
@@ -1150,60 +1394,34 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: 12,
   },
   imageButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
   },
   textInput: {
     flex: 1,
-    borderWidth: 2,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
-    maxHeight: 100,
-    minHeight: 44,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    maxHeight: 120,
+    minHeight: 48,
     fontSize: 16,
     textAlignVertical: 'top',
     includeFontPadding: false,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    fontWeight: '400',
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   menuOverlay: {
     flex: 1,
@@ -1390,6 +1608,114 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   apartmentLocationText: {
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  // Laundry inquiry message styles
+  laundryInquiryBubble: {
+    maxWidth: '85%',
+    padding: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  laundryInquiryContainer: {
+    padding: 12,
+  },
+  laundryInquiryHeader: {
+    marginBottom: 8,
+  },
+  laundryInquiryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B2FF',
+  },
+  laundryImageContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  laundryInquiryImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  laundryInquiryDetails: {
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  laundryInquiryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  laundryInquiryPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  laundryTurnaroundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  laundryTurnaroundText: {
+    fontSize: 13,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  // Auto inquiry message styles
+  autoInquiryBubble: {
+    maxWidth: '85%',
+    padding: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  autoInquiryContainer: {
+    padding: 12,
+  },
+  autoInquiryHeader: {
+    marginBottom: 8,
+  },
+  autoInquiryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00B2FF',
+  },
+  autoImageContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  autoInquiryImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  autoInquiryDetails: {
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  autoInquiryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  autoInquiryPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  autoDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  autoDurationText: {
     fontSize: 13,
     marginLeft: 4,
     fontWeight: '500',

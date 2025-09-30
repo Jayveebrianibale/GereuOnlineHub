@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
+import { AUTO_ADMIN } from '../../config/adminConfig';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
@@ -23,6 +24,7 @@ import {
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
+import { isSmallScreen, isTablet, normalize, wp } from '../../utils/responsiveUtils';
 
 const colorPalette = {
   lightest: '#C3F5FF',
@@ -67,12 +69,12 @@ export default function AutoListScreen() {
   const handleMessageAdmin = async (service: any) => {
     try {
       if (!user?.email) return;
-      const ADMIN_EMAIL = 'jayveebriani@gmail.com';
-      const ADMIN_NAME = 'Jayvee Briani';
+      const ADMIN_EMAIL = AUTO_ADMIN.email;
+      const ADMIN_NAME = AUTO_ADMIN.name;
       const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
 
       const priceText = typeof service?.price !== 'undefined' ? `Price: ${formatPHP(service.price)}` : '';
-      const messageText = `I'm interested in Auto Service: ${service?.title || 'Auto Service'}\n${priceText}\nDuration: ${service?.duration || 'N/A'}`;
+      const messageText = `I'm interested in Car and Motor Parts Service: ${service?.title || 'Auto Service'}\n${priceText}\nDuration: ${service?.duration || 'N/A'}`;
 
       const newMsgRef = push(ref(db, 'messages'));
       await set(newMsgRef, {
@@ -80,6 +82,7 @@ export default function AutoListScreen() {
         chatId,
         text: messageText,
         image: service?.image || null,
+        imageUrl: service?.image || null, // Add imageUrl for consistency
         category: 'auto',
         serviceId: service?.id || null,
         senderEmail: user.email,
@@ -88,6 +91,10 @@ export default function AutoListScreen() {
         recipientName: ADMIN_NAME,
         timestamp: Date.now(),
         time: Date.now(),
+        messageType: 'auto_inquiry', // Add message type
+        autoTitle: service?.title || 'Car and Motor Parts Service',
+        autoPrice: service?.price || 0,
+        autoDuration: service?.duration || 'N/A',
       });
 
       setDetailModalVisible(false);
@@ -97,6 +104,16 @@ export default function AutoListScreen() {
     }
   };
   const handleAutoReservation = async (service: any) => {
+    // Check if service is available
+    if (!service.available) {
+      Alert.alert(
+        'Service Unavailable',
+        'This auto service is currently unavailable for reservation. Please try again later or contact the admin.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
@@ -272,6 +289,21 @@ export default function AutoListScreen() {
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
           {item.description}
         </ThemedText>
+        
+        {/* Availability Status */}
+        <View style={styles.availabilityRow}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={16} 
+            color={item.available ? "#4CAF50" : "#F44336"} 
+          />
+          <ThemedText style={[
+            styles.availabilityText, 
+            { color: item.available ? "#4CAF50" : "#F44336" }
+          ]}>
+            {item.available ? "Available" : "Unavailable"}
+          </ThemedText>
+        </View>
         
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
@@ -580,51 +612,70 @@ export default function AutoListScreen() {
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
-                       <TouchableOpacity
-                         style={[
-                           styles.bookButton,
-                           {
-                             borderColor: colorPalette.primary,
-                             backgroundColor: (() => {
-                               const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                               const status = (match as any)?.status;
-                               const active = status === 'pending' || status === 'confirmed';
-                               return active ? colorPalette.primary : 'transparent';
-                             })(),
-                           }
-                         ]}
-                         onPress={() => handleAutoReservation(selectedAutoService)}
-                       >
-                         {(() => {
-                           const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                           const status = (match as any)?.status;
-                           const active = status === 'pending' || status === 'confirmed';
-                           return (
-                             <MaterialIcons
-                               name={active ? 'check-circle' : 'bookmark-border'}
-                               size={20}
-                               color={active ? '#fff' : colorPalette.primary}
-                             />
-                           );
-                         })()}
-                         <ThemedText
-                           style={[
-                             styles.bookButtonText,
-                             (() => {
-                               const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                               const status = (match as any)?.status;
-                               const active = status === 'pending' || status === 'confirmed';
-                               return { color: active ? '#fff' : colorPalette.primary };
-                             })()
-                           ]}
-                         >
-                           {(() => {
-                             const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                             const status = (match as any)?.status;
-                             const active = status === 'pending' || status === 'confirmed';
-                             return active ? 'Reserved' : 'Reserve';
-                           })()}
-                         </ThemedText>
+                        <TouchableOpacity 
+                        style={[
+                          styles.bookButton,
+                          {
+                            borderColor: selectedAutoService.available ? colorPalette.primary : '#ccc',
+                            backgroundColor: (() => {
+                              if (!selectedAutoService.available) return '#f5f5f5';
+                              const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return active ? colorPalette.primary : 'transparent';
+                            })(),
+                            opacity: selectedAutoService.available ? 1 : 0.6,
+                          }
+                        ]}
+                        onPress={() => selectedAutoService.available ? handleAutoReservation(selectedAutoService) : null}
+                        disabled={!selectedAutoService.available}
+                      >
+                        {(() => {
+                          if (!selectedAutoService.available) {
+                            return (
+                              <MaterialIcons
+                                name="cancel"
+                                size={20}
+                                color="#999"
+                              />
+                            );
+                          }
+                          const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                          const status = (match as any)?.status;
+                          const active = status === 'pending' || status === 'confirmed';
+                          return (
+                            <MaterialIcons
+                              name={active ? 'check-circle' : 'bookmark-border'}
+                              size={20}
+                              color={active ? '#fff' : colorPalette.primary}
+                            />
+                          );
+                        })()}
+                        {!selectedAutoService.available ? (
+                          <View style={styles.unavailableContainer}>
+                            <MaterialIcons name="block" size={16} color="#fff" />
+                            <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                          </View>
+                        ) : (
+                          <ThemedText
+                            style={[
+                              styles.bookButtonText,
+                              (() => {
+                                const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                                const status = (match as any)?.status;
+                                const active = status === 'pending' || status === 'confirmed';
+                                return { color: active ? '#fff' : colorPalette.primary };
+                              })()
+                            ]}
+                          >
+                            {(() => {
+                              const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                              const status = (match as any)?.status;
+                              const active = status === 'pending' || status === 'confirmed';
+                              return active ? 'Reserved' : 'Reserve';
+                            })()}
+                          </ThemedText>
+                        )}
                        </TouchableOpacity>
                      </View>
                    </View>
@@ -751,6 +802,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  availabilityText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   detailsRow: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -758,11 +819,14 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: normalize(16),
+    marginBottom: normalize(8),
+    flex: isTablet ? 1 : 0,
   },
   detailText: {
-    marginLeft: 4,
-    fontSize: 14,
+    marginLeft: normalize(4),
+    fontSize: normalize(isTablet ? 15 : 14),
+    flex: 1,
   },
   servicesContainer: {
     flexDirection: 'row',
@@ -826,6 +890,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  unavailableContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  unavailableText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: normalize(isTablet ? 14 : 12),
+    marginLeft: 6,
+    letterSpacing: 0.5,
+  },
   viewButton: {
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -887,33 +972,34 @@ const styles = StyleSheet.create({
   },
   detailModal: {
     width: '100%',
-    borderRadius: 16,
+    borderRadius: normalize(isTablet ? 20 : 16),
     maxHeight: '90%',
     overflow: 'hidden',
+    maxWidth: isTablet ? wp(80) : wp(95),
   },
   detailScrollView: {
     // flex: 1, // Removed to fix modal content visibility
   },
   detailScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: normalize(20),
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   detailTitle: {
-    fontSize: 18,
+    fontSize: normalize(isTablet ? 20 : 18),
     fontWeight: '600',
     flex: 1,
-    marginRight: 12,
+    marginRight: normalize(12),
   },
   detailImage: {
     width: '100%',
-    height: 250,
+    height: normalize(isTablet ? 300 : 250),
   },
   imageOverlay: {
     position: 'absolute',
@@ -927,75 +1013,81 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   detailContent: {
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
   },
   detailRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: normalize(16),
   },
   detailPrice: {
-    fontSize: 20,
+    fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
   },
   detailDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
+    fontSize: normalize(isTablet ? 18 : 16),
+    lineHeight: normalize(isTablet ? 28 : 24),
+    marginBottom: normalize(20),
   },
   detailSpecs: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+    flexDirection: isTablet ? 'row' : 'column',
+    justifyContent: isTablet ? 'space-between' : 'flex-start',
+    marginBottom: normalize(24),
+    gap: normalize(12),
   },
   servicesSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   includesSection: {
-    marginBottom: 24,
+    marginBottom: normalize(24),
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: normalize(12),
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: normalize(8),
   },
   includesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: normalize(8),
   },
   serviceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '50%',
-    marginBottom: 8,
+    width: isTablet ? '33%' : '50%',
+    marginBottom: normalize(8),
+    minWidth: isSmallScreen ? wp(45) : wp(40),
   },
   serviceItemText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: normalize(8),
+    fontSize: normalize(isTablet ? 15 : 14),
+    flex: 1,
   },
   detailActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: normalize(12),
   },
   contactButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(isTablet ? 14 : 12),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
+    minHeight: normalize(isTablet ? 48 : 44),
   },
   contactButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginLeft: normalize(8),
   },
 });

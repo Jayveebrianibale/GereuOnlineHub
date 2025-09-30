@@ -198,10 +198,23 @@ export const listenToUserReservations = (userId: string, callback: (reservations
 
 export const removeUserReservation = async (userId: string, reservationId: string): Promise<void> => {
   try {
+    console.log('🗑️ Removing user reservation:', { userId, reservationId });
     const reservationRef = ref(db, `userReservations/${userId}/${reservationId}`);
     await remove(reservationRef);
+    
+    // Wait a moment for Firebase to propagate the change
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify the deletion by checking if the reservation still exists
+    const checkRef = ref(db, `userReservations/${userId}/${reservationId}`);
+    const checkSnapshot = await get(checkRef);
+    if (checkSnapshot.exists()) {
+      console.warn('⚠️ Reservation still exists after deletion attempt');
+    } else {
+      console.log('✅ Successfully removed user reservation from Firebase');
+    }
   } catch (error) {
-    console.error('Error removing user reservation:', error);
+    console.error('❌ Error removing user reservation:', error);
     throw error;
   }
 };
@@ -212,6 +225,38 @@ export const removeAdminReservation = async (reservationId: string): Promise<voi
     await remove(reservationRef);
   } catch (error) {
     console.error('Error removing admin reservation:', error);
+    throw error;
+  }
+};
+
+// Comprehensive function to remove both admin and user reservations
+export const removeReservationCompletely = async (
+  adminReservationId: string,
+  userId: string,
+  serviceType: 'apartment' | 'laundry' | 'auto',
+  serviceId: string
+): Promise<void> => {
+  try {
+    console.log('🧹 Starting complete reservation removal:', { adminReservationId, userId, serviceType, serviceId });
+    
+    // Step 1: Remove admin reservation
+    await removeAdminReservation(adminReservationId);
+    console.log('✅ Admin reservation removed');
+    
+    // Step 2: Find and remove user reservation
+    const userReservations = await getUserReservations(userId);
+    const userReservation = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+    
+    if (userReservation) {
+      await removeUserReservation(userId, userReservation.id);
+      console.log('✅ User reservation removed:', userReservation.id);
+    } else {
+      console.log('⚠️ No matching user reservation found for removal');
+    }
+    
+    console.log('🎉 Complete reservation removal successful');
+  } catch (error) {
+    console.error('❌ Error in complete reservation removal:', error);
     throw error;
   }
 };

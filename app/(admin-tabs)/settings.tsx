@@ -43,6 +43,12 @@ export default function SettingsScreen() {
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<{strength: string, color: string}>({strength: '', color: ''});
+  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+  const [personalInfo, setPersonalInfo] = useState({
+    fullName: user?.displayName || '',
+    email: user?.email || '',
+  });
+  const [isSavingPersonalInfo, setIsSavingPersonalInfo] = useState(false);
 
   // Load admin profile photo from database
   useEffect(() => {
@@ -377,9 +383,74 @@ export default function SettingsScreen() {
     );
   };
 
+  // Personal Information Functions
+  const handleEditPersonalInfo = () => {
+    setPersonalInfo({
+      fullName: user?.displayName || '',
+      email: user?.email || '',
+    });
+    setPersonalInfoModalVisible(true);
+  };
+
+  const savePersonalInfo = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Not signed in', 'Please sign in to update your personal information.');
+        return;
+      }
+
+      setIsSavingPersonalInfo(true);
+
+      // Update Firebase Auth profile
+      await updateProfile(currentUser, { 
+        displayName: personalInfo.fullName.trim() 
+      });
+
+      // Save to Realtime Database
+      await set(dbRef(db, `users/${currentUser.uid}/name`), personalInfo.fullName.trim());
+      await set(dbRef(db, `users/${currentUser.uid}/updatedAt`), new Date().toISOString());
+
+      setPersonalInfoModalVisible(false);
+      Alert.alert('Success', 'Personal information updated successfully!');
+    } catch (error) {
+      console.error('Error saving personal information:', error);
+      Alert.alert('Error', 'Failed to save personal information. Please try again.');
+    } finally {
+      setIsSavingPersonalInfo(false);
+    }
+  };
+
+  const handlePersonalInfoChange = (field: string, value: string) => {
+    setPersonalInfo(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCancelPersonalInfo = () => {
+    setPersonalInfoModalVisible(false);
+    setPersonalInfo({
+      fullName: user?.displayName || '',
+      email: user?.email || '',
+    });
+  };
+
   // removed email notifications preference logic
 
   const settingsSections = [
+    {
+      title: "Personal Information",
+      icon: "person",
+      items: [
+        {
+          title: "Edit Profile",
+          icon: "edit",
+          action: <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />,
+        },
+      ],
+    },
     {
       title: "Appearance",
       icon: "palette",
@@ -518,6 +589,8 @@ export default function SettingsScreen() {
                       handleHelpSupport();
                     } else if (item.title === 'Change Password') {
                       handleChangePassword();
+                    } else if (item.title === 'Edit Profile') {
+                      handleEditPersonalInfo();
                     }
                   }}
                 >
@@ -603,41 +676,31 @@ export default function SettingsScreen() {
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="security" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I change admin roles?</ThemedText>
-                  </View>
-                  <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Go to Users in Admin Panel, select a user, then update their role to Admin or Staff.
-                  </ThemedText>
-                </View>
-
-                <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
-                  <View style={styles.faqHeader}>
                     <MaterialIcons name="rate-review" size={18} color={colorPalette.primary} />
                     <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I approve or decline reservations?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Open Reservations, tap a pending booking, then choose Approve or Decline to update status.
+                    Go to Reservations tab, tap on a pending booking, then choose Approve or Decline to update the status.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="campaign" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I send notifications to users?</ThemedText>
+                    <MaterialIcons name="message" size={18} color={colorPalette.primary} />
+                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I chat with users?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Use the Messages tab to reach out to users or integrate push notifications in Settings.
+                    Use the Messages tab to start conversations with users. You can reply to their messages and provide support.
                   </ThemedText>
                 </View>
 
                 <View style={[styles.faqItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.faqHeader}>
-                    <MaterialIcons name="build" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>Where can I manage services (apartment, auto, laundry)?</ThemedText>
+                    <MaterialIcons name="notifications" size={18} color={colorPalette.primary} />
+                    <ThemedText style={[styles.faqQuestion, { color: textColor }]}>How do I manage notifications?</ThemedText>
                   </View>
                   <ThemedText style={[styles.faqAnswer, { color: subtitleColor }]}>
-                    Go to the respective Admin management screens to add, edit, or remove service listings.
+                    Check the Notifications tab for new reservation requests and user messages. You can also delete notifications by long pressing them.
                   </ThemedText>
                 </View>
               </View>
@@ -872,6 +935,94 @@ export default function SettingsScreen() {
                 </ThemedText>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Personal Information Modal */}
+      <Modal
+        visible={personalInfoModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCancelPersonalInfo}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.personalInfoModal, { backgroundColor: cardBgColor }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="person" size={20} color={textColor} style={{ marginRight: 8 }} />
+                <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+                  Edit Personal Information
+                </ThemedText>
+              </View>
+              <TouchableOpacity onPress={handleCancelPersonalInfo}>
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.personalInfoContent}>
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>
+                  Full Name
+                </ThemedText>
+                <View style={[styles.inputContainer, { borderColor }]}>
+                  <MaterialIcons name="person-outline" size={20} color={subtitleColor} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: textColor }]}
+                    value={personalInfo.fullName}
+                    onChangeText={(value) => handlePersonalInfoChange('fullName', value)}
+                    placeholder="Enter your full name"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>
+                  Email Address
+                </ThemedText>
+                <View style={[styles.inputContainer, { borderColor, backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
+                  <MaterialIcons name="mail-outline" size={20} color={subtitleColor} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: subtitleColor }]}
+                    value={personalInfo.email}
+                    editable={false}
+                    placeholder="Email address"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+                <ThemedText style={[styles.helpText, { color: subtitleColor }]}>
+                  Email address cannot be changed
+                </ThemedText>
+              </View>
+            </ScrollView>
+
+            <View style={styles.actionFooter}>
+              <View style={styles.personalInfoActions}>
+                <TouchableOpacity 
+                  style={[styles.cancelButton, { borderColor }]}
+                  onPress={handleCancelPersonalInfo}
+                  disabled={isSavingPersonalInfo}
+                >
+                  <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                    Cancel
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    styles.saveButton, 
+                    { backgroundColor: isSavingPersonalInfo ? subtitleColor : colorPalette.primary }
+                  ]}
+                  onPress={savePersonalInfo}
+                  disabled={isSavingPersonalInfo}
+                >
+                  <MaterialIcons name="save" size={20} color="#fff" />
+                  <ThemedText style={styles.saveButtonText}>
+                    {isSavingPersonalInfo ? 'Saving...' : 'Save Changes'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1290,5 +1441,40 @@ const styles = StyleSheet.create({
      fontSize: 12,
      fontWeight: '600',
      textTransform: 'capitalize',
+  },
+  // Personal Information Modal Styles
+  personalInfoModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  personalInfoContent: {
+    padding: 20,
+  },
+  personalInfoActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+  saveButton: {
+    flex: 1,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  helpText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

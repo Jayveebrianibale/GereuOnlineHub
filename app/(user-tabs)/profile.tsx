@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
 // Storage upload removed; we will store data URL directly in Realtime Database
 import { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 
 const colorPalette = {
@@ -85,6 +85,7 @@ export default function Profile() {
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+  const [adminSelectionModalVisible, setAdminSelectionModalVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     services: false,
     mission: false,
@@ -98,15 +99,13 @@ export default function Profile() {
     reservationUpdates: true,
     serviceAvailability: true,
     adminMessages: true,
-    marketingUpdates: false,
     soundEnabled: true,
     vibrationEnabled: true,
   });
 
   // Personal information state
   const [personalInfo, setPersonalInfo] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     email: '',
     phone: '',
     address: '',
@@ -190,8 +189,7 @@ export default function Profile() {
             // Initialize with user data if no personal info exists
             setPersonalInfo(prev => ({
               ...prev,
-              firstName: user.displayName?.split(' ')[0] || '',
-              lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+              fullName: user.displayName || '',
               email: user.email || '',
             }));
           }
@@ -352,19 +350,30 @@ export default function Profile() {
 
       // Update Firebase Auth profile
       await updateProfile(user, { 
-        displayName: `${personalInfo.firstName} ${personalInfo.lastName}`.trim() 
+        displayName: personalInfo.fullName.trim() 
       });
 
-      // Save to Realtime Database
-      await set(dbRef(db, `users/${user.uid}/personalInfo`), {
-        ...personalInfo,
-        updatedAt: new Date().toISOString(),
-      });
+      // Save to Realtime Database - update both personalInfo and main user data
+      const updateData = {
+        [`users/${user.uid}/personalInfo`]: {
+          ...personalInfo,
+          updatedAt: new Date().toISOString(),
+        },
+        [`users/${user.uid}/name`]: personalInfo.fullName.trim(),
+        [`users/${user.uid}/updatedAt`]: new Date().toISOString()
+      };
+      
+      // Use a single transaction for faster updates
+      await Promise.all(
+        Object.entries(updateData).map(([path, data]) => 
+          set(dbRef(db, path), data)
+        )
+      );
 
       // Update local user data
       setUserData(prev => ({
         ...prev,
-        name: `${personalInfo.firstName} ${personalInfo.lastName}`.trim(),
+        name: personalInfo.fullName.trim(),
         email: personalInfo.email,
       }));
 
@@ -382,7 +391,7 @@ export default function Profile() {
       setPersonalInfo(prev => ({
         ...prev,
         [parent]: {
-          ...prev[parent as keyof typeof prev],
+          ...(prev[parent as keyof typeof prev] as object || {}),
           [child]: value,
         }
       }));
@@ -414,6 +423,67 @@ export default function Profile() {
       default:
         break;
     }
+  };
+
+  const handleLiveChat = () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      Alert.alert('Not signed in', 'Please sign in to start a chat.');
+      return;
+    }
+
+    // Generate chat ID for support chat
+    const chatId = `support_${user.uid}`;
+    
+    router.push({
+      pathname: '/chat/[id]',
+      params: {
+        id: chatId,
+        chatId: chatId,
+        recipientName: 'Support Team',
+        recipientEmail: 'support@gereuonlinehub.com',
+        currentUserEmail: user.email || '',
+      }
+    });
+  };
+
+  const handleCallUs = () => {
+    setAdminSelectionModalVisible(true);
+  };
+
+  const handleCallAdmin = (adminName: string, phone: string) => {
+    setAdminSelectionModalVisible(false);
+    const phoneUrl = `tel:${phone}`;
+    Linking.openURL(phoneUrl).catch(() => {
+      Alert.alert('Error', 'Unable to open phone dialer');
+    });
+  };
+
+  const handleEmailUs = () => {
+    const admins = [
+      { name: 'Jayvee Briani', email: 'jayveebriani@gmail.com' },
+      { name: 'Alfredo Sayson', email: 'alfredosayson@gmail.com' },
+      { name: 'Sayson Admin', email: 'sayson5@gmail.com' }
+    ];
+
+    Alert.alert(
+      'Email Support',
+      'Choose an admin to email:',
+      [
+        ...admins.map(admin => ({
+          text: admin.name,
+          onPress: () => {
+            const emailUrl = `mailto:${admin.email}?subject=Support Request - Gereu Online Hub`;
+            Linking.openURL(emailUrl).catch(() => {
+              Alert.alert('Error', 'Unable to open email client');
+            });
+          }
+        })),
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const handleNotificationToggle = (setting: string) => {
@@ -602,28 +672,15 @@ export default function Profile() {
                     </ThemedText>
                   </View>
                   
-                  <View style={styles.formRow}>
-                    <View style={styles.formField}>
-                      <ThemedText style={[styles.fieldLabel, { color: textColor }]}>First Name</ThemedText>
-                      <TextInput
-                        style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
-                        value={personalInfo.firstName}
-                        onChangeText={(value) => handlePersonalInfoChange('firstName', value)}
-                        placeholder="Enter your first name"
-                        placeholderTextColor={subtitleColor}
-                      />
-                    </View>
-                    
-                    <View style={styles.formField}>
-                      <ThemedText style={[styles.fieldLabel, { color: textColor }]}>Last Name</ThemedText>
-                      <TextInput
-                        style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
-                        value={personalInfo.lastName}
-                        onChangeText={(value) => handlePersonalInfoChange('lastName', value)}
-                        placeholder="Enter your last name"
-                        placeholderTextColor={subtitleColor}
-                      />
-                    </View>
+                  <View style={styles.formField}>
+                    <ThemedText style={[styles.fieldLabel, { color: textColor }]}>Full Name</ThemedText>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
+                      value={personalInfo.fullName}
+                      onChangeText={(value) => handlePersonalInfoChange('fullName', value)}
+                      placeholder="Enter your full name"
+                      placeholderTextColor={subtitleColor}
+                    />
                   </View>
                   
                   <View style={styles.formField}>
@@ -703,9 +760,8 @@ export default function Profile() {
                     </ThemedText>
                   </View>
                   <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                    Gereu Online Hub is a comprehensive digital platform designed to streamline and modernize community services. 
-                    Our mission is to provide residents with convenient, reliable, and efficient access to essential services 
-                    through innovative technology solutions.
+                    Gereu Online Hub is your one-stop platform for apartment rentals, Car and Motor parts, and laundry facilities. 
+                    We provide convenient access to essential community services through our mobile app.
                   </ThemedText>
                 </View>
 
@@ -746,7 +802,7 @@ export default function Profile() {
                         <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
                         <View style={styles.serviceContent}>
                           <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
-                            Auto Services
+                            Car and Motor parts
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
                             Professional automotive maintenance, repairs, and services with certified technicians and quality parts.
@@ -802,9 +858,8 @@ export default function Profile() {
                   
                   {expandedSections.mission && (
                     <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                      To create a connected community where residents can easily access all essential services through a single, 
-                      user-friendly platform. We believe in leveraging technology to improve quality of life and build stronger 
-                      community relationships.
+                      To provide easy access to apartment rentals, Car and Motor parts, and laundry facilities through our mobile app, 
+                      making community services more convenient and accessible for everyone.
                     </ThemedText>
                   )}
                 </View>
@@ -833,21 +888,21 @@ export default function Profile() {
                       <View style={styles.contactRow}>
                         <MaterialIcons name="email" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                          support@gereuonline.com
+                          support@gereuonlinehub.com
                         </ThemedText>
                       </View>
                       
                       <View style={styles.contactRow}>
                         <MaterialIcons name="phone" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                          +1 (555) 123-4567
+                          +63 (2) 8XXX-XXXX
                         </ThemedText>
                       </View>
                       
                       <View style={styles.contactRow}>
                         <MaterialIcons name="location-on" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                          Gereu Community Center, Main Office
+                          Gereu Online Hub, Philippines
                         </ThemedText>
                       </View>
                       
@@ -894,12 +949,12 @@ export default function Profile() {
                       
                       <View style={styles.detailRow}>
                         <ThemedText style={[styles.detailLabel, { color: textColor }]}>Last Updated:</ThemedText>
-                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>December 2025</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>January 2025</ThemedText>
                       </View>
                       
                       <View style={styles.detailRow}>
                         <ThemedText style={[styles.detailLabel, { color: textColor }]}>Developer:</ThemedText>
-                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Online Hub Team</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Online Hub</ThemedText>
                       </View>
                     </View>
                   )}
@@ -911,7 +966,7 @@ export default function Profile() {
                     © 2025 Gereu Online Hub. All rights reserved.
                   </ThemedText>
                   <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
-                    Built with ❤️ for our community
+                    Your trusted platform for apartment rentals, auto services, and laundry facilities
                   </ThemedText>
                 </View>
               </ScrollView>
@@ -971,7 +1026,10 @@ export default function Profile() {
 
                 {/* Quick Actions Grid */}
                 <View style={styles.quickActionsGrid}>
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                  <TouchableOpacity 
+                    style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={handleLiveChat}
+                  >
                     <View style={[styles.quickActionIcon, { backgroundColor: '#4CAF50' }]}>
                       <MaterialIcons name="chat" size={24} color="#fff" />
                     </View>
@@ -983,7 +1041,10 @@ export default function Profile() {
                     </ThemedText>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                  <TouchableOpacity 
+                    style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={handleCallUs}
+                  >
                     <View style={[styles.quickActionIcon, { backgroundColor: '#2196F3' }]}>
                       <MaterialIcons name="phone" size={24} color="#fff" />
                     </View>
@@ -995,7 +1056,10 @@ export default function Profile() {
                     </ThemedText>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                  <TouchableOpacity 
+                    style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={handleEmailUs}
+                  >
                     <View style={[styles.quickActionIcon, { backgroundColor: '#FF9800' }]}>
                       <MaterialIcons name="email" size={24} color="#fff" />
                     </View>
@@ -1047,7 +1111,7 @@ export default function Profile() {
                         <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
                         <View style={styles.topicText}>
                           <ThemedText style={[styles.topicTitle, { color: textColor }]}>
-                            Auto Services
+                            Car and Motor Parts
                           </ThemedText>
                           <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
                             Schedule maintenance and repairs for your vehicle
@@ -1102,7 +1166,7 @@ export default function Profile() {
                         Email
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
-                        support@gereuonline.com
+                        support@gereuonlinehub.com
                       </ThemedText>
                     </View>
 
@@ -1112,7 +1176,7 @@ export default function Profile() {
                         Phone
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
-                        +1 (555) 123-4567
+                        +63 (2) 8XXX-XXXX
                       </ThemedText>
                     </View>
 
@@ -1132,7 +1196,7 @@ export default function Profile() {
                         Location
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
-                        Gereu Community Center
+                        Gereu Online Hub, Philippines
                       </ThemedText>
                     </View>
                   </View>
@@ -1278,10 +1342,10 @@ export default function Profile() {
                       </View>
                       <View style={styles.notificationItemInfo}>
                         <ThemedText style={[styles.notificationItemTitle, { color: textColor }]}>
-                          Auto Services
+                          Car and Motor Parts
                         </ThemedText>
                         <ThemedText style={[styles.notificationItemDescription, { color: subtitleColor }]}>
-                          Updates on your vehicle maintenance and repair status
+                          Get notified when your car and motor parts orders are ready
                         </ThemedText>
                       </View>
                     </View>
@@ -1309,7 +1373,7 @@ export default function Profile() {
                         Service Availability
                       </ThemedText>
                       <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                        Get notified when new apartments or services become available
+                        Get notified when new apartments, car parts, or laundry services become available
                       </ThemedText>
                     </View>
                     <TouchableOpacity 
@@ -1336,7 +1400,7 @@ export default function Profile() {
                         Admin Messages
                       </ThemedText>
                       <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                        Receive important messages from building administrators
+                        Receive important messages from Gereu Online Hub administrators
                       </ThemedText>
                     </View>
                     <TouchableOpacity 
@@ -1352,32 +1416,6 @@ export default function Profile() {
                   </View>
                 </View>
 
-                {/* Marketing Updates */}
-                <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
-                  <View style={styles.infoHeader}>
-                    <View style={[styles.notificationIconContainer, { backgroundColor: colorPalette.primaryLight + '20' }]}>
-                      <MaterialIcons name="campaign" size={24} color={colorPalette.primary} />
-                    </View>
-                    <View style={styles.notificationToggleContainer}>
-                      <ThemedText type="subtitle" style={[styles.infoTitle, { color: textColor }]}>
-                        Marketing Updates
-                      </ThemedText>
-                      <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                        Promotional offers and special deals
-                      </ThemedText>
-                    </View>
-                    <TouchableOpacity 
-                      style={[styles.toggleSwitch, { backgroundColor: notificationSettings.marketingUpdates ? colorPalette.primary : '#ccc' }]}
-                      onPress={() => handleNotificationToggle('marketingUpdates')}
-                    >
-                      <MaterialIcons 
-                        name={notificationSettings.marketingUpdates ? 'check' : 'close'} 
-                        size={16} 
-                        color="#fff" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
 
                 {/* Notification Preferences */}
                 <View style={[styles.infoSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
@@ -1440,7 +1478,14 @@ export default function Profile() {
 
                 {/* Save Button */}
                 <TouchableOpacity 
-                  style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                  style={[styles.saveButton, { 
+                    backgroundColor: colorPalette.primary,
+                    shadowColor: colorPalette.primary,
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 6,
+                  }]}
                   onPress={saveNotificationSettings}
                 >
                   <MaterialIcons name="save" size={20} color="#fff" />
@@ -1448,6 +1493,115 @@ export default function Profile() {
                     Save Settings
                   </ThemedText>
                 </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Admin Selection Modal */}
+        <Modal
+          visible={adminSelectionModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setAdminSelectionModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.adminSelectionModal, { backgroundColor: cardBgColor }]}>
+              {/* Header */}
+              <View style={[styles.adminModalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
+                <View style={styles.headerContent}>
+                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="phone" size={24} color="#fff" />
+                  </View>
+                  
+                  <View style={styles.appInfoContainer}>
+                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
+                      Call Support
+                    </ThemedText>
+                    <View style={[styles.versionBadge, { backgroundColor: '#4CAF50' }]}>
+                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
+                        Choose Admin
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
+                  onPress={() => setAdminSelectionModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.adminModalContent} showsVerticalScrollIndicator={false}>
+                <ThemedText style={[styles.adminSelectionTitle, { color: textColor }]}>
+                  Select an admin to call:
+                </ThemedText>
+                
+                {/* Admin List */}
+                <View style={styles.adminList}>
+                  <TouchableOpacity 
+                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={() => handleCallAdmin('Jayvee Briani', '+639100870754')}
+                  >
+                    <View style={[styles.adminAvatar, { backgroundColor: colorPalette.primary }]}>
+                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>JB</ThemedText>
+                    </View>
+                    <View style={styles.adminInfo}>
+                      <ThemedText style={[styles.adminName, { color: textColor }]}>
+                        Jayvee Briani
+                      </ThemedText>
+                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
+                        jayveebriani@gmail.com
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={() => handleCallAdmin('Alfredo Sayson', '+639100870754')}
+                  >
+                    <View style={[styles.adminAvatar, { backgroundColor: '#FF9800' }]}>
+                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>AS</ThemedText>
+                    </View>
+                    <View style={styles.adminInfo}>
+                      <ThemedText style={[styles.adminName, { color: textColor }]}>
+                        Alfredo Sayson
+                      </ThemedText>
+                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
+                        alfredosayson@gmail.com
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                    onPress={() => handleCallAdmin('Sayson Admin', '+639100870754')}
+                  >
+                    <View style={[styles.adminAvatar, { backgroundColor: '#9C27B0' }]}>
+                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>SA</ThemedText>
+                    </View>
+                    <View style={styles.adminInfo}>
+                      <ThemedText style={[styles.adminName, { color: textColor }]}>
+                        Sayson Admin
+                      </ThemedText>
+                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
+                        sayson5@gmail.com
+                      </ThemedText>
+                    </View>
+                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Footer */}
+                <View style={styles.adminModalFooter}>
+                  <ThemedText style={[styles.adminFooterText, { color: subtitleColor }]}>
+                    Available Mon-Fri: 8AM-6PM
+                  </ThemedText>
+                </View>
               </ScrollView>
             </View>
           </View>
@@ -1856,6 +2010,7 @@ const styles = StyleSheet.create({
   },
   serviceList: {
     gap: 16,
+    marginTop: 16,
   },
   serviceItem: {
     flexDirection: 'row',
@@ -2123,22 +2278,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginTop: 20,
+    marginBottom: 20,
+    marginHorizontal: 16,
   },
   saveButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-    letterSpacing: 0.3,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
   // Personal Information Form Styles
   formRow: {
@@ -2167,5 +2318,83 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  // Admin Selection Modal Styles
+  adminSelectionModal: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 20,
+    maxHeight: '80%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  adminModalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+    position: 'relative',
+  },
+  adminModalContent: {
+    padding: 20,
+    paddingBottom: 10,
+  },
+  adminSelectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  adminList: {
+    gap: 12,
+  },
+  adminItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  adminAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  adminInitials: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adminInfo: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  adminEmail: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  adminModalFooter: {
+    alignItems: 'center',
+    paddingTop: 16,
+    marginTop: 8,
+  },
+  adminFooterText: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: 'center',
   },
 });

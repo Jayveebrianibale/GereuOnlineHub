@@ -1,11 +1,11 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { notifyAdmins } from '../services/notificationService';
 import {
-  getUserReservations,
-  listenToUserReservations,
-  removeUserReservation,
-  saveUserReservation,
-  updateUserReservationStatus
+    getUserReservations,
+    listenToUserReservations,
+    removeUserReservation,
+    saveUserReservation,
+    updateUserReservationStatus
 } from '../services/reservationService';
 import { mapServiceToReservation } from '../utils/reservationUtils';
 import { useAuthContext } from './AuthContext';
@@ -94,6 +94,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         setError(null);
         const reservations = await getUserReservations(user.uid);
+        console.log('🔄 Loaded user reservations:', reservations.length, 'reservations');
         
         // Separate reservations by type
         const apartments = reservations.filter(r => r.serviceType === 'apartment') as Apartment[];
@@ -115,6 +116,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
 
     // Set up real-time listener
     const unsubscribe = listenToUserReservations(user.uid, (reservations) => {
+      console.log('📡 Real-time user reservation update:', reservations.length, 'reservations');
       const apartments = reservations.filter(r => r.serviceType === 'apartment') as Apartment[];
       const laundry = reservations.filter(r => r.serviceType === 'laundry') as LaundryService[];
       const auto = reservations.filter(r => r.serviceType === 'auto') as AutoService[];

@@ -57,7 +57,7 @@ export default function Toast({ visible, message, type, onHide }: ToastProps) {
 
   if (!visible) return null;
 
-  const backgroundColor = type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : '#2196F3';
+  const backgroundColor = type === 'success' ? '#00B2FF' : type === 'error' ? '#F44336' : '#2196F3';
   const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'error' : 'info';
 
   return (
