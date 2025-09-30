@@ -50,6 +50,15 @@ const initialModules = [
     icon: 'directions-car',
     color: colorPalette.dark,
   },
+  {
+    key: 'payments',
+    title: 'Payment Tracking',
+    image: require('@/assets/images/apartment1.webp'), // Using existing image as placeholder
+    description: 'Monitor payments, transactions, and GCash payments',
+    stats: '0 Payments',
+    icon: 'payment',
+    color: '#10B981',
+  },
 ];
 
 export default function AdminDashboard() {
@@ -330,6 +339,9 @@ export default function AdminDashboard() {
         break;
       case 'car':
         router.push('/admin-auto');
+        break;
+      case 'payments':
+        router.push('/admin-payments');
         break;
       default:
         break;

@@ -1,9 +1,5 @@
 import { get, ref, set } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import {
-    initializeFirebaseAdmin,
-    sendPushNotification
-} from './firebaseAdminService';
 
 type ExpoPushMessage = {
   to: string | string[];
@@ -15,6 +11,7 @@ type ExpoPushMessage = {
 };
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
+const SERVER_API_BASE = 'http://localhost:3001/api'; // Update this to your server URL
 
 // Simplified notification service - Expo Push only
 // This eliminates all server connection issues
@@ -143,133 +140,135 @@ export async function getAdminFcmTokens(): Promise<string[]> {
   }
 }
 
-// Initialize Firebase Admin SDK on first use
-let adminInitialized = false;
+// Server API helper functions
+async function sendNotificationViaServer(tokens: string[], title: string, body: string, data?: Record<string, string>) {
+  try {
+    const response = await fetch(`${SERVER_API_BASE}/send-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tokens,
+        title,
+        body,
+        data: data || {}
+      }),
+    });
 
-async function ensureAdminInitialized() {
-  if (!adminInitialized) {
-    try {
-      initializeFirebaseAdmin();
-      adminInitialized = true;
-    } catch (error) {
-      console.error('Failed to initialize Firebase Admin SDK:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`Server API error: ${response.status}`);
     }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to send notification via server:', error);
+    throw error;
   }
 }
 
 export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void> {
   try {
-    await ensureAdminInitialized();
-    
     const to = message.to;
     
     console.log('📤 Sending push notification to:', Array.isArray(to) ? `${to.length} tokens` : 'single token');
     console.log('📤 Message:', { title: message.title, body: message.body, data: message.data });
-    console.log('Sending push notification to:', Array.isArray(to) ? `${to.length} tokens` : 'single token');
-    console.log('Message:', { title: message.title, body: message.body, data: message.data });
     
     if (!to || (Array.isArray(to) && to.length === 0)) {
       console.warn('❌ No valid tokens provided for push notification');
       return;
     }
 
-    const messages = Array.isArray(to)
-      ? to
-          .filter((token) => {
-            const isValid = typeof token === 'string' && token.length > 0;
-            const isExpoToken = isValid && (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['));
-            if (!isValid) {
-              console.warn('⚠️ Invalid token filtered out:', token?.substring(0, 20) + '...');
-            } else if (!isExpoToken) {
-              console.warn('⚠️ Non-Expo token filtered out (FCM token detected):', token?.substring(0, 20) + '...');
-            }
-            return isValid && isExpoToken;
-          })
-          .map((token) => ({ 
-            ...message, 
-            to: token,
-            // Add Android-specific channel based on notification type
-            channelId: message.data?.type === 'message' ? 'messages' : 
-                      message.data?.type === 'reservation' ? 'reservations' : 'default'
-          }))
-      : [{
-          ...message,
-          // Add Android-specific channel based on notification type
-          channelId: message.data?.type === 'message' ? 'messages' : 
-                    message.data?.type === 'reservation' ? 'reservations' : 'default'
-        }];
-    // Convert tokens to array and filter valid ones
+    // Separate Expo tokens and FCM tokens
     const tokens = Array.isArray(to) ? to : [to];
-    const validTokens = tokens.filter(token => 
-      token && typeof token === 'string' && token.length > 0
+    const expoTokens = tokens.filter(token => 
+      token && typeof token === 'string' && token.length > 0 && 
+      (token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['))
+    );
+    const fcmTokens = tokens.filter(token => 
+      token && typeof token === 'string' && token.length > 0 && 
+      !token.startsWith('ExponentPushToken[') && !token.startsWith('ExpoPushToken[')
     );
 
-    if (messages.length === 0) {
-      console.warn('❌ No valid messages after filtering tokens');
-    if (validTokens.length === 0) {
-      console.warn('No valid tokens after filtering');
-      return;
-    }
+    console.log(`📤 Found ${expoTokens.length} Expo tokens and ${fcmTokens.length} FCM tokens`);
 
-    console.log(`📤 Sending ${messages.length} push messages to Expo API`);
+    // Send Expo push notifications
+    if (expoTokens.length > 0) {
+      const expoMessages = expoTokens.map((token) => ({ 
+        ...message, 
+        to: token,
+        // Add Android-specific channel based on notification type
+        channelId: message.data?.type === 'message' ? 'messages' : 
+                  message.data?.type === 'reservation' ? 'reservations' : 'default'
+      }));
 
-    const response = await fetch(EXPO_PUSH_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
+      console.log(`📤 Sending ${expoMessages.length} push messages to Expo API`);
 
-    console.log('📤 Expo push response status:', response.status);
-    // Convert data to string format (FCM requires string values)
-    const data = message.data ? 
-      Object.fromEntries(
-        Object.entries(message.data).map(([key, value]) => [key, String(value)])
-      ) : {};
+      const response = await fetch(EXPO_PUSH_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(expoMessages),
+      });
 
-    // Inspect Expo push API response for errors
-    const json: any = await (response as any).json().catch(() => null);
-    if (!response.ok) {
-      console.error('❌ Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
-      throw new Error(`Expo push failed with status ${response.status}`);
-    }
-
-    const data = (json && json.data) || [];
-    const errors = (Array.isArray(data) ? data : [data]).filter((item: any) => item?.status !== 'ok');
-    if (errors.length > 0) {
-      console.warn('⚠️ Expo push returned errors:', errors);
-      throw new Error(`Expo push errors: ${JSON.stringify(errors)}`);
-    // Send using Firebase Admin SDK
-    const result = await sendPushNotification(
-      validTokens,
-      message.title || 'Notification',
-      message.body || '',
-      data
-    );
-
-    if (result.success) {
-      console.log(`✅ Push notification sent successfully to ${result.successCount} tokens`);
-      if (result.failureCount > 0) {
-        console.warn(`⚠️ ${result.failureCount} tokens failed to receive the notification`);
+      console.log('📤 Expo push response status:', response.status);
+      
+      // Inspect Expo push API response for errors
+      const json: any = await (response as any).json().catch(() => null);
+      if (!response.ok) {
+        console.error('❌ Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
+        throw new Error(`Expo push failed with status ${response.status}`);
       }
-    } else {
-      console.log('✅ Push notification sent successfully');
-      console.error('❌ Failed to send push notification:', result.error);
+
+      const responseData = (json && json.data) || [];
+      const errors = (Array.isArray(responseData) ? responseData : [responseData]).filter((item: any) => item?.status !== 'ok');
+      if (errors.length > 0) {
+        console.warn('⚠️ Expo push returned errors:', errors);
+        throw new Error(`Expo push errors: ${JSON.stringify(errors)}`);
+      }
+      
+      console.log('✅ Expo push notifications sent successfully');
+    }
+
+    // Send FCM notifications via server
+    if (fcmTokens.length > 0) {
+      console.log(`📤 Sending ${fcmTokens.length} FCM notifications via server`);
+      
+      // Convert data to string format (FCM requires string values)
+      const data = message.data ? 
+        Object.fromEntries(
+          Object.entries(message.data).map(([key, value]) => [key, String(value)])
+        ) : {};
+
+      const result = await sendNotificationViaServer(
+        fcmTokens,
+        message.title || 'Notification',
+        message.body || '',
+        data
+      );
+
+      if (result.success) {
+        console.log(`✅ FCM notifications sent successfully to ${result.successCount} tokens`);
+        if (result.failureCount > 0) {
+          console.warn(`⚠️ ${result.failureCount} FCM tokens failed to receive the notification`);
+        }
+      } else {
+        console.error('❌ Failed to send FCM notifications:', result.error);
+      }
     }
   } catch (error) {
-    console.error('❌ Failed to send Expo push:', error);
+    console.error('❌ Failed to send push notifications:', error);
     throw error;
-    console.error('Failed to send push notification:', error);
   }
 }
 
 // Simplified notification functions - Expo Push only
 export async function notifyAdmins(title: string, body: string, data?: Record<string, any>): Promise<void> {
-  console.log('📱 Notifying admins via Expo Push:', { title, body, data });
+  console.log('📱 Notifying admins:', { title, body, data });
   
   try {
     // Check if running in Expo Go BEFORE any imports
@@ -284,22 +283,26 @@ export async function notifyAdmins(title: string, body: string, data?: Record<st
     // Clean up any invalid tokens first
     await cleanupInvalidTokens();
     
-    const tokens = await getAdminPushTokens();
-    if (!Array.isArray(tokens) || tokens.length === 0) {
+    // Get both Expo and FCM tokens
+    const expoTokens = await getAdminPushTokens();
+    const fcmTokens = await getAdminFcmTokens();
+    const allTokens = [...expoTokens, ...fcmTokens];
+    
+    if (allTokens.length === 0) {
       console.warn('No admin tokens found, skipping notification');
       return;
     }
     
-    console.log(`📱 Sending notification to ${tokens.length} admin tokens`);
+    console.log(`📱 Sending notification to ${allTokens.length} admin tokens (${expoTokens.length} Expo, ${fcmTokens.length} FCM)`);
     await sendExpoPushAsync({ 
-      to: tokens, 
+      to: allTokens, 
       sound: 'default', 
       title, 
       body, 
       data: { ...data, type: 'admin' }, 
       priority: 'high' 
     });
-    console.log('✅ Admin notification sent successfully via Expo Push');
+    console.log('✅ Admin notification sent successfully');
   } catch (error) {
     console.error('❌ Admin notification failed:', error);
     // Don't throw the error to prevent app crashes
@@ -309,7 +312,7 @@ export async function notifyAdmins(title: string, body: string, data?: Record<st
 }
 
 export async function notifyUser(userId: string, title: string, body: string, data?: Record<string, any>): Promise<void> {
-  console.log('📱 Notifying user via Expo Push:', { userId, title, body, data });
+  console.log('📱 Notifying user:', { userId, title, body, data });
   
   try {
     // Check if running in Expo Go BEFORE any imports
@@ -321,63 +324,31 @@ export async function notifyUser(userId: string, title: string, body: string, da
       return;
     }
 
+    // Get both Expo and FCM tokens for the user
     const expoToken = await getUserPushToken(userId);
+    const fcmToken = await getUserFcmToken(userId);
+    const tokens = [expoToken, fcmToken].filter(token => token); // Remove null/undefined tokens
     
-    if (!expoToken) {
-      console.warn(`No push token found for user ${userId}, skipping notification`);
+    if (tokens.length === 0) {
+      console.warn(`No push tokens found for user ${userId}, skipping notification`);
       return;
     }
     
-    console.log('📱 Sending notification to user');
+    console.log(`📱 Sending notification to user with ${tokens.length} tokens`);
     await sendExpoPushAsync({ 
-      to: expoToken, 
+      to: tokens, 
       sound: 'default', 
       title, 
       body, 
       data: { ...data, type: 'user' }, 
       priority: 'high' 
     });
-    console.log('✅ User notification sent successfully via Expo Push');
+    console.log('✅ User notification sent successfully');
   } catch (error) {
     console.error('❌ User notification failed:', error);
     // Don't throw the error to prevent app crashes
     // Just log it and continue
     console.warn('⚠️ Continuing without notification due to error');
-  }
-  // Try to get both Expo and FCM tokens
-  const [expoToken, fcmToken] = await Promise.all([
-    getUserPushToken(userId),
-    getUserFcmToken(userId)
-  ]);
-  
-  console.log('User tokens found:', { 
-    hasExpoToken: !!expoToken, 
-    hasFcmToken: !!fcmToken,
-    expoToken: expoToken ? expoToken.substring(0, 20) + '...' : 'none',
-    fcmToken: fcmToken ? fcmToken.substring(0, 20) + '...' : 'none'
-  });
-  
-  if (!expoToken && !fcmToken) {
-    console.warn(`No push tokens found for user ${userId}, skipping notification`);
-    return;
-  }
-  
-  // Prefer FCM token, fallback to Expo token
-  const tokenToUse = fcmToken || expoToken;
-  
-  try {
-    console.log('Sending via Firebase Admin SDK...');
-    await sendExpoPushAsync({ 
-      to: tokenToUse, 
-      sound: 'default', 
-      title, 
-      body, 
-      data: { ...data, type: 'user' }, 
-      priority: 'high' 
-    });
-    console.log('Push notification sent successfully');
-  } catch (error) {
-    console.error('Push notification failed:', error);
   }
 }
 

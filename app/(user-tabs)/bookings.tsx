@@ -12,6 +12,7 @@ import { getApartments } from "../services/apartmentService";
 import { getAutoServices } from "../services/autoService";
 import { getLaundryServices } from "../services/laundryService";
 import { notifyAdmins } from "../services/notificationService";
+import { calculateDownPayment, isPaymentRequired } from "../services/paymentService";
 import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
 
@@ -372,6 +373,14 @@ export default function Bookings() {
                    {formatPHP((apt as any).servicePrice ?? (apt as any).price ?? 0)}
                  </ThemedText>
                </View>
+               {isPaymentRequired('apartment') && (
+                 <View style={styles.detailRow}>
+                   <MaterialIcons name="payment" size={16} color={subtitleColor} />
+                   <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                     Down Payment: {formatPHP(calculateDownPayment((apt as any).servicePrice ?? (apt as any).price ?? 0, 'apartment'))}
+                   </ThemedText>
+                 </View>
+               )}
              </View>
 
              {/* Booking Actions */}

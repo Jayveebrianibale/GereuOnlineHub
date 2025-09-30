@@ -2,12 +2,15 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { AdminPaymentSettingsModal } from '../components/AdminPaymentSettings';
 import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
+import { AdminPaymentSettings as AdminPaymentSettingsType, getAdminPaymentSettings } from '../services/adminPaymentService';
 import { notifyUser } from '../services/notificationService';
+import { calculateDownPayment, isPaymentRequired } from '../services/paymentService';
 import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
@@ -44,6 +47,8 @@ export default function ReservationsScreen() {
   const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
   const [filterVisible, setFilterVisible] = useState(false);
+  const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState<AdminPaymentSettingsType | null>(null);
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';
@@ -51,6 +56,20 @@ export default function ReservationsScreen() {
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
+
+  // Load payment settings
+  useEffect(() => {
+    loadPaymentSettings();
+  }, []);
+
+  const loadPaymentSettings = async () => {
+    try {
+      const settings = await getAdminPaymentSettings();
+      setPaymentSettings(settings);
+    } catch (error) {
+      console.error('Error loading payment settings:', error);
+    }
+  };
 
   // Responsive sizing
   const titleSize = width < 400 ? 20 : 24;
@@ -243,15 +262,26 @@ export default function ReservationsScreen() {
               Manage all customer reservations
             </ThemedText>
           </View>
-          <TouchableOpacity style={[
-            styles.dateFilter, 
-            { marginTop: isPortrait ? 25 : 12 }
-          ]} onPress={() => setFilterVisible(true)}>
-            <ThemedText style={{ color: colorPalette.primary, fontSize: subtitleSize }}>
-              Filter
-            </ThemedText>
-            <MaterialIcons name="filter-list" size={20} color={colorPalette.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={[
+              styles.paymentSettingsButton, 
+              { marginTop: isPortrait ? 25 : 12, marginRight: 8 }
+            ]} onPress={() => setPaymentSettingsVisible(true)}>
+              <ThemedText style={{ color: '#10B981', fontSize: subtitleSize }}>
+                Payment
+              </ThemedText>
+              <MaterialIcons name="payment" size={20} color="#10B981" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[
+              styles.dateFilter, 
+              { marginTop: isPortrait ? 25 : 12 }
+            ]} onPress={() => setFilterVisible(true)}>
+              <ThemedText style={{ color: colorPalette.primary, fontSize: subtitleSize }}>
+                Filter
+              </ThemedText>
+              <MaterialIcons name="filter-list" size={20} color={colorPalette.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Reservations List */}
@@ -430,6 +460,40 @@ export default function ReservationsScreen() {
                       {formatPHP(reservation.servicePrice)}
                     </ThemedText>
                   </View>
+
+                  {/* Payment Information */}
+                  {isPaymentRequired(reservation.serviceType) && (
+                    <>
+                      <View style={styles.paymentSection}>
+                        <ThemedText style={[styles.paymentSectionTitle, { color: textColor }]}>
+                          Payment Information
+                        </ThemedText>
+                        
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="payment" size={16} color="#10B981" />
+                          <ThemedText style={[styles.detailText, { color: textColor }]}>
+                            Down Payment: {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
+                          </ThemedText>
+                        </View>
+                        
+                        {paymentSettings?.gcashNumber && (
+                          <View style={styles.detailRow}>
+                            <MaterialIcons name="account-balance-wallet" size={16} color="#00B2FF" />
+                            <ThemedText style={[styles.detailText, { color: textColor }]}>
+                              GCash: {paymentSettings.gcashNumber}
+                            </ThemedText>
+                          </View>
+                        )}
+                        
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="info" size={16} color="#F59E0B" />
+                          <ThemedText style={[styles.detailText, { color: '#F59E0B' }]}>
+                            Payment required to confirm reservation
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </>
+                  )}
                 </View>
                 
                   <View style={styles.reservationActions}>
@@ -497,6 +561,21 @@ export default function ReservationsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Payment Settings Modal */}
+      <Modal
+        visible={paymentSettingsVisible}
+        animationType="slide"
+        onRequestClose={() => setPaymentSettingsVisible(false)}
+      >
+        <AdminPaymentSettingsModal
+          isDark={isDark}
+          onClose={() => {
+            setPaymentSettingsVisible(false);
+            loadPaymentSettings(); // Reload settings when closing
+          }}
+        />
+      </Modal>
     </ThemedView>
   );
 }
@@ -511,6 +590,19 @@ const styles = StyleSheet.create({
   header: {
     justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#10B981',
   },
   title: {
     fontWeight: '700',
@@ -683,5 +775,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC262620',
     borderColor: '#DC2626',
     borderWidth: 1,
+  },
+  paymentSection: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+  },
+  paymentSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#10B981',
   },
 });

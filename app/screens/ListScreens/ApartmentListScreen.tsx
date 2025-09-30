@@ -7,6 +7,7 @@ import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
+import { PaymentModal } from '../../components/PaymentModal';
 import { RobustImage } from '../../components/RobustImage';
 import { APARTMENT_ADMIN } from '../../config/adminConfig';
 import { useAdminReservation } from '../../contexts/AdminReservationContext';
@@ -15,10 +16,11 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
 import {
-  cacheApartments,
-  getCachedApartments
+    cacheApartments,
+    getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
+import { PaymentData, isPaymentRequired } from '../../services/paymentService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -57,6 +59,8 @@ export default function ApartmentListScreen() {
   const [apartments, setApartments] = useState<any[]>([]);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [pendingReservation, setPendingReservation] = useState<any>(null);
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
   const { user } = useAuthContext();
@@ -185,56 +189,16 @@ export default function ApartmentListScreen() {
 
     const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
     if (!isReserved) {
-      try {
-        // Add to user reservations with pending status
-        const apartmentWithStatus = { ...apartment, status: 'pending' as const };
-        await reserveApartment(apartmentWithStatus);
-        
-        // Create admin reservation
-        if (user) {
-          const adminReservationData = mapServiceToAdminReservation(
-            apartment,
-            'apartment',
-            user.uid,
-            user.displayName || 'Unknown User',
-            user.email || 'No email'
-          );
-          await addAdminReservation(adminReservationData);
-
-          // Notify admins of new reservation
-          await notifyAdmins(
-            'New Apartment Reservation',
-            `${user.displayName || 'A user'} reserved ${apartment.title || 'an apartment'}.`,
-            {
-              serviceType: 'apartment',
-              serviceId: apartment.id,
-              userId: user.uid,
-              action: 'reserved',
-            }
-          );
-        }
-        
+      // Check if payment is required for apartment reservations
+      if (isPaymentRequired('apartment')) {
+        // Store the apartment data for payment flow
+        setPendingReservation(apartment);
+        setPaymentModalVisible(true);
         setDetailModalVisible(false);
         setSelectedApartment(null);
-        
-        // Show success message and redirect to bookings
-        Alert.alert(
-          'Reservation Successful!',
-          `You have successfully reserved ${apartment.title}. You can view your reservations in the Bookings tab.`,
-          [
-            {
-              text: 'View Bookings',
-              onPress: () => router.push('/(user-tabs)/bookings')
-            }
-          ]
-        );
-      } catch (error) {
-        console.error('Error reserving apartment:', error);
-        Alert.alert(
-          'Reservation Failed',
-          'Sorry, we couldn\'t process your reservation. Please try again.',
-          [{ text: 'OK' }]
-        );
+      } else {
+        // Proceed with regular reservation flow
+        await processReservation(apartment);
       }
     } else {
       try {
@@ -253,6 +217,93 @@ export default function ApartmentListScreen() {
         );
       }
     }
+  };
+
+  const processReservation = async (apartment: any) => {
+    try {
+      // Add to user reservations with pending status
+      const apartmentWithStatus = { ...apartment, status: 'pending' as const };
+      await reserveApartment(apartmentWithStatus);
+      
+      // Create admin reservation
+      if (user) {
+        const adminReservationData = mapServiceToAdminReservation(
+          apartment,
+          'apartment',
+          user.uid,
+          user.displayName || 'Unknown User',
+          user.email || 'No email'
+        );
+        await addAdminReservation(adminReservationData);
+
+        // Notify admins of new reservation
+        await notifyAdmins(
+          'New Apartment Reservation',
+          `${user.displayName || 'A user'} reserved ${apartment.title || 'an apartment'}.`,
+          {
+            serviceType: 'apartment',
+            serviceId: apartment.id,
+            userId: user.uid,
+            action: 'reserved',
+          }
+        );
+      }
+      
+      // Show success message and redirect to bookings
+      Alert.alert(
+        'Reservation Successful!',
+        `You have successfully reserved ${apartment.title}. You can view your reservations in the Bookings tab.`,
+        [
+          {
+            text: 'View Bookings',
+            onPress: () => router.push('/(user-tabs)/bookings')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error reserving apartment:', error);
+      Alert.alert(
+        'Reservation Failed',
+        'Sorry, we couldn\'t process your reservation. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handlePaymentSuccess = async (payment: PaymentData) => {
+    if (!pendingReservation || !user) return;
+
+    try {
+      // Process the reservation after successful payment
+      await processReservation(pendingReservation);
+      
+      // Reset payment modal state
+      setPaymentModalVisible(false);
+      setPendingReservation(null);
+      
+      Alert.alert(
+        'Payment & Reservation Successful!',
+        'Your payment has been confirmed and your apartment reservation has been submitted! You can view your reservations in the Bookings tab.',
+        [
+          {
+            text: 'View Bookings',
+            onPress: () => router.push('/(user-tabs)/bookings')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error processing reservation after payment:', error);
+      Alert.alert(
+        'Reservation Error',
+        'Payment was successful but there was an error processing your reservation. Please contact support.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handlePaymentClose = () => {
+    setPaymentModalVisible(false);
+    setPendingReservation(null);
   };
 
   // Handle navigation parameters - removed duplicate params declaration
@@ -706,6 +757,22 @@ export default function ApartmentListScreen() {
           onClose={() => setImageViewerVisible(false)}
           title="Apartment Image"
         />
+
+        {/* Payment Modal */}
+        {pendingReservation && user && (
+          <PaymentModal
+            visible={paymentModalVisible}
+            onClose={handlePaymentClose}
+            onPaymentSuccess={handlePaymentSuccess}
+            userId={user.uid}
+            reservationId={`reservation_${Date.now()}`}
+            serviceType="apartment"
+            serviceId={pendingReservation.id}
+            serviceTitle={pendingReservation.title}
+            fullAmount={parseFloat(pendingReservation.price) || 0}
+            isDark={isDark}
+          />
+        )}
       </ThemedView>
     );
   }
