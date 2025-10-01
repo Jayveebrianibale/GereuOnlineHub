@@ -1,3 +1,4 @@
+import { get, ref, set } from 'firebase/database';
 import { db as database } from '../firebaseConfig';
 
 export interface AdminPaymentSettings {
@@ -15,7 +16,7 @@ export const getAdminPaymentSettings = async (): Promise<AdminPaymentSettings | 
       console.error('Firebase database not initialized');
       return null;
     }
-    const snapshot = await database.ref(ADMIN_PAYMENT_SETTINGS_KEY).once('value');
+    const snapshot = await get(ref(database, ADMIN_PAYMENT_SETTINGS_KEY));
     return snapshot.val();
   } catch (error) {
     console.error('Error fetching admin payment settings:', error);
@@ -37,7 +38,7 @@ export const updateAdminPaymentSettings = async (settings: Partial<AdminPaymentS
       updatedAt: Date.now(),
     };
 
-    await database.ref(ADMIN_PAYMENT_SETTINGS_KEY).set(updatedSettings);
+    await set(ref(database, ADMIN_PAYMENT_SETTINGS_KEY), updatedSettings);
     return true;
   } catch (error) {
     console.error('Error updating admin payment settings:', error);

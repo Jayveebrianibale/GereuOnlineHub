@@ -6,18 +6,18 @@ import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -837,7 +837,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             <View style={styles.autoInquiryContainer}>
               <View style={styles.autoInquiryHeader}>
                 <ThemedText style={[styles.autoInquiryTitle, { color: textColor }]}>
-                  🚗 Car and Motor Parts Inquiry
+                  🚗 Car and Motor Services Inquiry
                 </ThemedText>
               </View>
               

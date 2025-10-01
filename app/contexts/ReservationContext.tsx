@@ -27,6 +27,10 @@ export type LaundryService = {
   price: number;
   image: any;
   status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
+  shippingInfo?: {
+    deliveryType: 'pickup' | 'dropoff';
+    address?: string;
+  };
   // Add other laundry properties as needed
   [key: string]: any;
 };

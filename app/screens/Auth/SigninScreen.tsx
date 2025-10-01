@@ -5,19 +5,19 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { isAdminEmail } from '../../config/adminConfig';
@@ -188,23 +188,42 @@ export default function SigninScreen() {
       let errorMessage = 'Sign in failed. Please try again.';
 
       if (error.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email.';
+        errorMessage = '❌ Email not found. Please check your email address.';
         setEmailError(true);
+        setPasswordError(false);
       } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Incorrect password.';
+        errorMessage = '❌ Wrong password. Please check your password.';
+        setEmailError(false);
         setPasswordError(true);
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address.';
+        errorMessage = '❌ Invalid email address format.';
         setEmailError(true);
+        setPasswordError(false);
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed attempts. Please try again later.';
+        errorMessage = '⚠️ Too many failed attempts. Please try again later.';
         setGeneralError(true);
+        setEmailError(false);
+        setPasswordError(false);
       } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your connection.';
+        errorMessage = '🌐 Network error. Please check your connection.';
         setGeneralError(true);
+        setEmailError(false);
+        setPasswordError(false);
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = '🚫 This account has been disabled.';
+        setGeneralError(true);
+        setEmailError(false);
+        setPasswordError(false);
+      } else if (error.code === 'auth/invalid-credential') {
+        // For newer Firebase versions, this could be either email or password
+        errorMessage = '❌ Wrong email or password. Please check your credentials.';
+        setEmailError(true);
+        setPasswordError(true);
       } else {
         // Fallback for any other errors
         setGeneralError(true);
+        setEmailError(false);
+        setPasswordError(false);
       }
 
       setToast({ visible: true, message: errorMessage, type: 'error' });

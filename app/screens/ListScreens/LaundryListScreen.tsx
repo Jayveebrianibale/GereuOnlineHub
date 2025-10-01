@@ -10,8 +10,8 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
-    cacheLaundryServices,
-    getCachedLaundryServices
+  cacheLaundryServices,
+  getCachedLaundryServices
 } from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
@@ -58,6 +58,9 @@ export default function LaundryListScreen() {
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'dropoff' | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -115,57 +118,9 @@ export default function LaundryListScreen() {
 
     const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
-      try {
-        // Add to user reservations with pending status
-        const serviceWithStatus = { ...service, status: 'pending' as const };
-        await reserveLaundryService(serviceWithStatus);
-        
-        // Create admin reservation
-        if (user) {
-          const adminReservationData = mapServiceToAdminReservation(
-            service,
-            'laundry',
-            user.uid,
-            user.displayName || 'Unknown User',
-            user.email || 'No email'
-          );
-          await addAdminReservation(adminReservationData);
-
-          // Notify admins of new laundry reservation
-          await notifyAdmins(
-            'New Laundry Reservation',
-            `${user.displayName || 'A user'} reserved ${service.title || 'a laundry service'}.`,
-            {
-              serviceType: 'laundry',
-              serviceId: service.id,
-              userId: user.uid,
-              action: 'reserved',
-            }
-          );
-        }
-        
-        setDetailModalVisible(false);
-        setSelectedLaundryService(null);
-        
-        // Show success message and redirect to bookings
-        Alert.alert(
-          'Reservation Successful!',
-          `You have successfully reserved ${service.title}. You can view your reservations in the Bookings tab.`,
-          [
-            {
-              text: 'View Bookings',
-              onPress: () => router.push('/(user-tabs)/bookings')
-            }
-          ]
-        );
-      } catch (error) {
-        console.error('Error reserving laundry service:', error);
-        Alert.alert(
-          'Reservation Failed',
-          'Sorry, we couldn\'t process your reservation. Please try again.',
-          [{ text: 'OK' }]
-        );
-      }
+      // Show delivery options modal
+      setSelectedLaundryService(service);
+      setDeliveryModalVisible(true);
     } else {
       try {
         await removeLaundryReservation(service.id);
@@ -182,6 +137,99 @@ export default function LaundryListScreen() {
           [{ text: 'OK' }]
         );
       }
+    }
+  };
+
+  const handleDeliverySelection = (type: 'pickup' | 'dropoff') => {
+    setDeliveryType(type);
+    if (type === 'pickup') {
+      handleConfirmReservation();
+    }
+  };
+
+  const handleConfirmReservation = async () => {
+    if (!selectedLaundryService) return;
+
+    // Validate drop-off address if selected
+    if (deliveryType === 'dropoff' && !deliveryAddress.trim()) {
+      Alert.alert(
+        'Address Required',
+        'Please enter your delivery address for drop-off service.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      // Add to user reservations with pending status and shipping info
+      const serviceWithStatus = { 
+        ...selectedLaundryService, 
+        status: 'pending' as const,
+        shippingInfo: {
+          deliveryType: deliveryType || 'pickup',
+          ...(deliveryType === 'dropoff' && deliveryAddress ? { address: deliveryAddress } : {})
+        }
+      };
+      await reserveLaundryService(serviceWithStatus);
+      
+      // Create admin reservation
+      if (user) {
+        const adminReservationData = mapServiceToAdminReservation(
+          selectedLaundryService,
+          'laundry',
+          user.uid,
+          user.displayName || 'Unknown User',
+          user.email || 'No email'
+        );
+        
+        // Add shipping info to admin reservation
+        const adminReservationWithShipping = {
+          ...adminReservationData,
+          shippingInfo: {
+            deliveryType: deliveryType || 'pickup',
+            ...(deliveryType === 'dropoff' && deliveryAddress ? { address: deliveryAddress } : {})
+          }
+        };
+        
+        await addAdminReservation(adminReservationWithShipping);
+
+        // Notify admins of new laundry reservation
+        await notifyAdmins(
+          'New Laundry Reservation',
+          `${user.displayName || 'A user'} reserved ${selectedLaundryService.title || 'a laundry service'} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}).`,
+          {
+            serviceType: 'laundry',
+            serviceId: selectedLaundryService.id,
+            userId: user.uid,
+            action: 'reserved',
+          }
+        );
+      }
+      
+      setDetailModalVisible(false);
+      setDeliveryModalVisible(false);
+      setSelectedLaundryService(null);
+      setDeliveryType(null);
+      setDeliveryAddress('');
+      
+      // Show success message and redirect to bookings
+      Alert.alert(
+        'Reservation Successful!',
+        `You have successfully reserved ${selectedLaundryService.title} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}). You can view your reservations in the Bookings tab.`,
+        [
+          {
+            text: 'View Bookings',
+            onPress: () => router.push('/(user-tabs)/bookings')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error reserving laundry service:', error);
+      Alert.alert(
+        'Reservation Failed',
+        'Sorry, we couldn\'t process your reservation. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -662,7 +710,7 @@ export default function LaundryListScreen() {
                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
                               const status = (match as any)?.status;
                               const active = status === 'pending' || status === 'confirmed';
-                              return active ? 'Reserved' : 'Reserve';
+                              return active ? 'Reserved' : 'Avail';
                             })()}
                           </ThemedText>
                         )}
@@ -676,6 +724,307 @@ export default function LaundryListScreen() {
          </View>
         </Modal>
         
+        {/* Delivery Options Modal */}
+        <Modal
+          visible={deliveryModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setDeliveryModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.deliveryModal, { backgroundColor: cardBgColor }]}>
+              {/* Header with gradient background */}
+              <View style={[styles.deliveryHeader, { 
+                backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA',
+                borderBottomWidth: 1,
+                borderBottomColor: isDark ? '#333' : '#E9ECEF'
+              }]}>
+                <View style={styles.deliveryHeaderContent}>
+                  <View style={styles.deliveryHeaderIcon}>
+                    <MaterialIcons name="local-shipping" size={28} color={colorPalette.primary} />
+                  </View>
+                  <View style={styles.deliveryHeaderText}>
+                    <ThemedText type="title" style={[styles.deliveryTitle, { color: textColor }]}>
+                      Choose Delivery Method
+                    </ThemedText>
+                    <ThemedText style={[styles.deliverySubtitle, { color: subtitleColor }]}>
+                      Select how you'd like to receive your laundry service
+                    </ThemedText>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#F1F3F4' }]}
+                  onPress={() => setDeliveryModalVisible(false)}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.deliveryContent} showsVerticalScrollIndicator={false}>
+                {/* Service Info Card */}
+                <View style={[styles.serviceInfoCard, { 
+                  backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
+                  borderColor: isDark ? '#404040' : '#E9ECEF'
+                }]}>
+                  <View style={styles.serviceInfoHeader}>
+                    <RobustImage 
+                      source={selectedLaundryService?.image} 
+                      style={styles.serviceInfoImage} 
+                      resizeMode="cover" 
+                    />
+                    <View style={styles.serviceInfoDetails}>
+                      <ThemedText style={[styles.serviceInfoTitle, { color: textColor }]}>
+                        {selectedLaundryService?.title}
+                      </ThemedText>
+                      <ThemedText style={[styles.serviceInfoPrice, { color: colorPalette.primary }]}>
+                        {formatPHP(selectedLaundryService?.price)}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Delivery Options */}
+                <View style={styles.deliveryOptionsContainer}>
+                  <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                    Delivery Options
+                  </ThemedText>
+                  
+                  {/* Pick Up Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.deliveryOptionCard,
+                      { 
+                        backgroundColor: deliveryType === 'pickup' ? colorPalette.primary : cardBgColor,
+                        borderColor: deliveryType === 'pickup' ? colorPalette.primary : borderColor,
+                        shadowColor: deliveryType === 'pickup' ? colorPalette.primary : '#000',
+                        shadowOpacity: deliveryType === 'pickup' ? 0.2 : 0.1,
+                        elevation: deliveryType === 'pickup' ? 8 : 2,
+                      }
+                    ]}
+                    onPress={() => handleDeliverySelection('pickup')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.deliveryOptionIcon}>
+                      <MaterialIcons 
+                        name="local-shipping" 
+                        size={32} 
+                        color={deliveryType === 'pickup' ? '#fff' : colorPalette.primary} 
+                      />
+                    </View>
+                    <View style={styles.deliveryOptionContent}>
+                      <ThemedText style={[
+                        styles.deliveryOptionTitle,
+                        { color: deliveryType === 'pickup' ? '#fff' : textColor }
+                      ]}>
+                        Pick Up Service
+                      </ThemedText>
+                      <ThemedText style={[
+                        styles.deliveryOptionDesc,
+                        { color: deliveryType === 'pickup' ? 'rgba(255,255,255,0.9)' : subtitleColor }
+                      ]}>
+                        We'll collect your laundry from your specified location
+                      </ThemedText>
+                      <View style={styles.deliveryOptionFeatures}>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons 
+                            name="schedule" 
+                            size={16} 
+                            color={deliveryType === 'pickup' ? 'rgba(255,255,255,0.8)' : subtitleColor} 
+                          />
+                          <ThemedText style={[
+                            styles.featureText,
+                            { color: deliveryType === 'pickup' ? 'rgba(255,255,255,0.8)' : subtitleColor }
+                          ]}>
+                            Scheduled pickup
+                          </ThemedText>
+                        </View>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons 
+                            name="location-on" 
+                            size={16} 
+                            color={deliveryType === 'pickup' ? 'rgba(255,255,255,0.8)' : subtitleColor} 
+                          />
+                          <ThemedText style={[
+                            styles.featureText,
+                            { color: deliveryType === 'pickup' ? 'rgba(255,255,255,0.8)' : subtitleColor }
+                          ]}>
+                            From your address
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                    {deliveryType === 'pickup' && (
+                      <View style={styles.selectedIndicator}>
+                        <MaterialIcons name="check-circle" size={24} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  
+                  {/* Drop Off Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.deliveryOptionCard,
+                      { 
+                        backgroundColor: deliveryType === 'dropoff' ? colorPalette.primary : cardBgColor,
+                        borderColor: deliveryType === 'dropoff' ? colorPalette.primary : borderColor,
+                        shadowColor: deliveryType === 'dropoff' ? colorPalette.primary : '#000',
+                        shadowOpacity: deliveryType === 'dropoff' ? 0.2 : 0.1,
+                        elevation: deliveryType === 'dropoff' ? 8 : 2,
+                      }
+                    ]}
+                    onPress={() => handleDeliverySelection('dropoff')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.deliveryOptionIcon}>
+                      <MaterialIcons 
+                        name="home" 
+                        size={32} 
+                        color={deliveryType === 'dropoff' ? '#fff' : colorPalette.primary} 
+                      />
+                    </View>
+                    <View style={styles.deliveryOptionContent}>
+                      <ThemedText style={[
+                        styles.deliveryOptionTitle,
+                        { color: deliveryType === 'dropoff' ? '#fff' : textColor }
+                      ]}>
+                        Drop Off Service
+                      </ThemedText>
+                      <ThemedText style={[
+                        styles.deliveryOptionDesc,
+                        { color: deliveryType === 'dropoff' ? 'rgba(255,255,255,0.9)' : subtitleColor }
+                      ]}>
+                        You'll bring your laundry to our service location
+                      </ThemedText>
+                      <View style={styles.deliveryOptionFeatures}>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons 
+                            name="access-time" 
+                            size={16} 
+                            color={deliveryType === 'dropoff' ? 'rgba(255,255,255,0.8)' : subtitleColor} 
+                          />
+                          <ThemedText style={[
+                            styles.featureText,
+                            { color: deliveryType === 'dropoff' ? 'rgba(255,255,255,0.8)' : subtitleColor }
+                          ]}>
+                            Flexible timing
+                          </ThemedText>
+                        </View>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons 
+                            name="store" 
+                            size={16} 
+                            color={deliveryType === 'dropoff' ? 'rgba(255,255,255,0.8)' : subtitleColor} 
+                          />
+                          <ThemedText style={[
+                            styles.featureText,
+                            { color: deliveryType === 'dropoff' ? 'rgba(255,255,255,0.8)' : subtitleColor }
+                          ]}>
+                            At our location
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                    {deliveryType === 'dropoff' && (
+                      <View style={styles.selectedIndicator}>
+                        <MaterialIcons name="check-circle" size={24} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Address Input for Drop Off */}
+                {deliveryType === 'dropoff' && (
+                  <View style={[styles.addressSection, { 
+                    backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
+                    borderColor: isDark ? '#404040' : '#E9ECEF'
+                  }]}>
+                    <View style={styles.addressHeader}>
+                      <MaterialIcons name="location-on" size={20} color={colorPalette.primary} />
+                      <ThemedText style={[styles.addressLabel, { color: textColor }]}>
+                        Delivery Address
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={[styles.addressSubtitle, { color: subtitleColor }]}>
+                      Please provide your complete address for pickup service
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.addressInput,
+                        { 
+                          backgroundColor: cardBgColor,
+                          borderColor: borderColor,
+                          color: textColor
+                        }
+                      ]}
+                      placeholder="Enter your complete address (street, barangay, city, province)..."
+                      placeholderTextColor={subtitleColor}
+                      value={deliveryAddress}
+                      onChangeText={setDeliveryAddress}
+                      multiline
+                      numberOfLines={5}
+                      textAlignVertical="top"
+                      returnKeyType="default"
+                      blurOnSubmit={false}
+                      scrollEnabled={true}
+                    />
+                    <View style={styles.addressNote}>
+                      <MaterialIcons name="info" size={16} color={subtitleColor} />
+                      <ThemedText style={[styles.addressNoteText, { color: subtitleColor }]}>
+                        Please ensure your address is accurate for successful pickup
+                      </ThemedText>
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+              
+              {/* Action Buttons */}
+              <View style={[styles.deliveryActions, { 
+                backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA',
+                borderTopColor: isDark ? '#333' : '#E9ECEF'
+              }]}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { 
+                    backgroundColor: isDark ? '#333' : '#F1F3F4',
+                    borderColor: borderColor 
+                  }]}
+                  onPress={() => {
+                    setDeliveryModalVisible(false);
+                    setDeliveryType(null);
+                    setDeliveryAddress('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name="close" size={20} color={textColor} />
+                  <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                    Cancel
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.confirmButton,
+                    { 
+                      backgroundColor: deliveryType ? colorPalette.primary : '#ccc',
+                      opacity: deliveryType ? 1 : 0.6,
+                      shadowColor: deliveryType ? colorPalette.primary : 'transparent',
+                      shadowOpacity: 0.3,
+                      elevation: deliveryType ? 4 : 0,
+                    }
+                  ]}
+                  onPress={handleConfirmReservation}
+                  disabled={!deliveryType}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name="check" size={20} color="#fff" />
+                  <ThemedText style={styles.confirmButtonText}>
+                    Confirm
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Full Screen Image Viewer */}
         <FullScreenImageViewer
           visible={imageViewerVisible}
@@ -871,7 +1220,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: normalize(8),
+    paddingTop: normalize(40),
+    paddingBottom: normalize(40),
   },
   searchModal: {
     width: '100%',
@@ -1071,5 +1422,242 @@ const styles = StyleSheet.create({
     fontSize: normalize(isTablet ? 14 : 12),
     marginLeft: 6,
     letterSpacing: 0.5,
+  },
+  deliveryModal: {
+    width: '98%',
+    maxWidth: 600,
+    borderRadius: 20,
+    maxHeight: '92%',
+    minHeight: '70%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+    alignSelf: 'center',
+  },
+  deliveryHeader: {
+    padding: normalize(24),
+    paddingHorizontal: normalize(20),
+    borderBottomWidth: 1,
+  },
+  deliveryHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deliveryHeaderIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  deliveryHeaderText: {
+    flex: 1,
+  },
+  deliveryTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  deliverySubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 24,
+    right: 24,
+  },
+  deliveryContent: {
+    flex: 1,
+    padding: normalize(24),
+    paddingHorizontal: normalize(20),
+  },
+  serviceInfoCard: {
+    borderRadius: 16,
+    padding: normalize(20),
+    marginBottom: normalize(20),
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  serviceInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceInfoImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 16,
+  },
+  serviceInfoDetails: {
+    flex: 1,
+  },
+  serviceInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  serviceInfoPrice: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  deliveryOptionsContainer: {
+    marginBottom: 24,
+  },
+  deliveryOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: normalize(16),
+    borderRadius: 16,
+    borderWidth: 2,
+    marginBottom: normalize(12),
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    position: 'relative',
+    minHeight: normalize(80),
+  },
+  deliveryOptionIcon: {
+    width: normalize(56),
+    height: normalize(56),
+    borderRadius: normalize(28),
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: normalize(12),
+  },
+  deliveryOptionContent: {
+    flex: 1,
+  },
+  deliveryOptionTitle: {
+    fontSize: normalize(16),
+    fontWeight: '700',
+    marginBottom: normalize(4),
+  },
+  deliveryOptionDesc: {
+    fontSize: normalize(13),
+    lineHeight: normalize(18),
+    marginBottom: normalize(8),
+  },
+  deliveryOptionFeatures: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: '45%',
+  },
+  featureText: {
+    fontSize: normalize(11),
+    marginLeft: normalize(4),
+    fontWeight: '500',
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  addressSection: {
+    borderRadius: 16,
+    padding: normalize(16),
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: normalize(8),
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: normalize(6),
+  },
+  addressLabel: {
+    fontSize: normalize(15),
+    fontWeight: '600',
+    marginLeft: normalize(6),
+  },
+  addressSubtitle: {
+    fontSize: normalize(13),
+    lineHeight: normalize(18),
+    marginBottom: normalize(12),
+  },
+  addressInput: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: normalize(12),
+    fontSize: normalize(14),
+    textAlignVertical: 'top',
+    minHeight: normalize(100),
+    maxHeight: normalize(150),
+    marginBottom: normalize(8),
+    lineHeight: normalize(20),
+  },
+  addressNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  addressNoteText: {
+    fontSize: normalize(11),
+    lineHeight: normalize(15),
+    marginLeft: normalize(6),
+    flex: 1,
+  },
+  deliveryActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: normalize(20),
+    borderTopWidth: 1,
+    gap: normalize(10),
+  },
+  cancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: normalize(14),
+    fontWeight: '600',
+    marginLeft: normalize(6),
+  },
+  confirmButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: normalize(14),
+    fontWeight: '700',
+    marginLeft: normalize(6),
   },
 });

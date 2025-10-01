@@ -16,8 +16,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
 import {
-    cacheApartments,
-    getCachedApartments
+  cacheApartments,
+  getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';

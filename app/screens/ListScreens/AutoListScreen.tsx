@@ -420,7 +420,7 @@ export default function AutoListScreen() {
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Car & Motor Parts
+          Car & Motor Services
         </ThemedText>
         <TouchableOpacity 
           style={styles.searchButton}
@@ -672,7 +672,7 @@ export default function AutoListScreen() {
                               const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                               const status = (match as any)?.status;
                               const active = status === 'pending' || status === 'confirmed';
-                              return active ? 'Reserved' : 'Reserve';
+                              return active ? 'Reserved' : 'Avail';
                             })()}
                           </ThemedText>
                         )}

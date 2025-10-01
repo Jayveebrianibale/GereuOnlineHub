@@ -3,8 +3,8 @@
 
 export const ADMIN_EMAILS: string[] = [
   'xxc49540@gmail.com',
-  'bton79538@gmail.com',
-  'ketbe800@gmail.com',
+  // 'bton79538@gmail.com', // Removed: Laundry Account support team
+  // 'ketbe800@gmail.com', // Removed: Car and Motor Part support team
 
   // Add more admin emails here as needed
   // 'admin2@example.com',
@@ -19,14 +19,14 @@ export const APARTMENT_ADMIN = {
 
 // Laundry Admin Configuration
 export const LAUNDRY_ADMIN = {
-  email: 'bton79538@gmail.com', // Change this to the correct email for 'Laundry Account'
+  email: 'xxc49540@gmail.com', // Change this to the correct email for 'Laundry Account'
   name: 'Laundry Account',
 };
 
-// Car and Motor Part Admin Configuration
+// Auto Admin Configuration
 export const AUTO_ADMIN = {
-  email: 'ketbe800@gmail.com', // Change this to the correct email for 'Car and Motor Part' account
-  name: 'Car and Motor Part',
+  email: 'xxc49540@gmail.com', // Change this to the correct email for 'Auto Account'
+  name: 'Auto Account',
 };
 
 // Contact Information Configuration

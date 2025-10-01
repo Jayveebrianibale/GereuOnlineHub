@@ -2,16 +2,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Colors } from '../../../constants/Colors';
 
@@ -51,7 +51,7 @@ export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const colors = Colors.light;
-  const autoSlideTimer = useRef<NodeJS.Timeout | null>(null);
+  const autoSlideTimer = useRef<number | null>(null);
 
   // Auto-slide functionality
   useEffect(() => {
@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: isTablet ? scale(40) : scale(30),
     paddingVertical: isTablet ? scale(18) : scale(15),
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: isTablet ? moderateScale(18) : moderateScale(16),
     fontWeight: '600',
-    marginRight: scale(8),
+    textAlign: 'center',
   },
   getStartedButton: {
     flexDirection: 'row',

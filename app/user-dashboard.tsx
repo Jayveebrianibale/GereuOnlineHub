@@ -11,9 +11,9 @@ import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, Touc
 import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 import {
-  cacheApartments,
-  cacheAutoServices,
-  cacheLaundryServices
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -747,7 +747,7 @@ export default function UserHome() {
               <View style={styles.sectionHeader}>
                 <MaterialIcons name="directions-car" size={24} color={colorPalette.primary} />
                 <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                  Car and Motor Parts
+                  Car and Motor Services
                 </ThemedText>
                 {autoServices.length > 0 && (
                   <TouchableOpacity 

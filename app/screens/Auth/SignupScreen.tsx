@@ -4,26 +4,28 @@ import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 import { storeUserData } from '../../../utils/userUtils';
+import PasswordStrengthIndicator from '../../components/PasswordStrengthIndicator';
 import { isAdminEmail } from '../../config/adminConfig';
 import { auth } from '../../firebaseConfig';
+import { PasswordStrength, validatePasswordStrength } from '../../utils/passwordStrength';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,6 +68,18 @@ export default function SignupScreen() {
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
   const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
+    score: 0,
+    feedback: [],
+    isValid: false,
+    requirements: {
+      length: false,
+      lowercase: false,
+      uppercase: false,
+      number: false,
+      specialChar: false,
+    }
+  });
   const colors = Colors.light;
   const router = useRouter();
 
@@ -143,24 +157,18 @@ export default function SignupScreen() {
     if (!password) {
       return 'Password is required';
     }
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters long';
-    }
     if (password.length > 128) {
       return 'Password must be less than 128 characters';
     }
-    if (!/(?=.*[a-z])/.test(password)) {
-      return 'Password must contain at least one lowercase letter';
+    
+    // Use the password strength validation
+    const strength = validatePasswordStrength(password);
+    setPasswordStrength(strength);
+    
+    if (!strength.isValid) {
+      return 'Password does not meet all requirements';
     }
-    if (!/(?=.*[A-Z])/.test(password)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!/(?=.*\d)/.test(password)) {
-      return 'Password must contain at least one number';
-    }
-    if (!/(?=.*[@$!%*?&])/.test(password)) {
-      return 'Password must contain at least one special character (@$!%*?&)';
-    }
+    
     return '';
   };
 
@@ -211,6 +219,11 @@ export default function SignupScreen() {
     
     const passwordError = validatePassword(password);
     if (passwordError) errors.password = passwordError;
+    
+    // Additional check for password strength
+    if (password && !passwordStrength.isValid) {
+      errors.password = 'Password does not meet all security requirements';
+    }
     
     const confirmPasswordError = validateConfirmPassword(confirmPassword, password);
     if (confirmPasswordError) errors.confirmPassword = confirmPasswordError;
@@ -491,6 +504,10 @@ export default function SignupScreen() {
                       value={password}
                       onChangeText={(text) => {
                         setPassword(text);
+                        // Always update password strength in real-time
+                        const strength = validatePasswordStrength(text);
+                        setPasswordStrength(strength);
+                        
                         if (touchedFields.password) {
                           validateField('password', text);
                         }
@@ -517,6 +534,15 @@ export default function SignupScreen() {
                       />
                     </TouchableOpacity>
                   </View>
+                  
+                  {/* Password Strength Indicator */}
+                  {password.length > 0 && (
+                    <PasswordStrengthIndicator 
+                      strength={passwordStrength} 
+                      showFeedback={touchedFields.password || password.length > 0}
+                    />
+                  )}
+                  
                   {fieldErrors.password && (
                     <Text style={styles.errorText}>{fieldErrors.password}</Text>
                   )}
@@ -616,14 +642,14 @@ export default function SignupScreen() {
                 <TouchableOpacity 
                   style={[
                     styles.signUpButton, 
-                    (!acceptedTerms || isLoading) && styles.disabledButton
+                    (!acceptedTerms || isLoading || !passwordStrength.isValid) && styles.disabledButton
                   ]} 
                   onPress={handleSignUp} 
                   activeOpacity={0.9}
-                  disabled={!acceptedTerms || isLoading}
+                  disabled={!acceptedTerms || isLoading || !passwordStrength.isValid}
                 >
                   <LinearGradient
-                    colors={acceptedTerms ? ['#00B2FF', '#007BE5', '#002F87'] : ['#ccc', '#999']}
+                    colors={acceptedTerms && passwordStrength.isValid ? ['#00B2FF', '#007BE5', '#002F87'] : ['#ccc', '#999']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.buttonGradient, { height: responsiveValues.buttonHeight }]}
@@ -633,7 +659,7 @@ export default function SignupScreen() {
                         <View style={styles.loadingSpinner} />
                         <Text style={[styles.signUpButtonText, { 
                           fontSize: responsiveValues.buttonTextSize,
-                          color: acceptedTerms ? 'white' : '#666' 
+                          color: acceptedTerms && passwordStrength.isValid ? 'white' : '#666' 
                         }]}>Creating Account...</Text>
                       </View>
                     ) : (
@@ -641,14 +667,14 @@ export default function SignupScreen() {
                         <Ionicons 
                           name="arrow-forward" 
                           size={20} 
-                          color={acceptedTerms ? "white" : "#666"} 
+                          color={acceptedTerms && passwordStrength.isValid ? "white" : "#666"} 
                           style={styles.buttonIcon} 
                         />
                         <Text style={[
                           styles.signUpButtonText,
                           { 
                             fontSize: responsiveValues.buttonTextSize,
-                            color: acceptedTerms ? 'white' : '#666' 
+                            color: acceptedTerms && passwordStrength.isValid ? 'white' : '#666' 
                           }
                         ]}>
                           Create Account

@@ -16,6 +16,10 @@ export type FirebaseAdminReservation = {
   reservationDate: string;
   createdAt: string;
   updatedAt: string;
+  shippingInfo?: {
+    deliveryType: 'pickup' | 'dropoff';
+    address?: string;
+  };
 };
 
 export type FirebaseUserReservation = {
@@ -30,6 +34,10 @@ export type FirebaseUserReservation = {
   reservationDate: string;
   createdAt: string;
   updatedAt: string;
+  shippingInfo?: {
+    deliveryType: 'pickup' | 'dropoff';
+    address?: string;
+  };
 };
 
 // Admin Reservation Functions

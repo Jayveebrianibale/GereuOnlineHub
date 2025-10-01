@@ -802,7 +802,7 @@ export default function Profile() {
                         <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
                         <View style={styles.serviceContent}>
                           <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
-                            Car and Motor parts
+                            Car and Motor Services
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
                             Professional automotive maintenance, repairs, and services with certified technicians and quality parts.

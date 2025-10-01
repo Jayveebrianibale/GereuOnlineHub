@@ -24,6 +24,10 @@ export type AdminReservation = {
   reservationDate: string;
   createdAt: string;
   updatedAt: string;
+  shippingInfo?: {
+    deliveryType: 'pickup' | 'dropoff';
+    address?: string;
+  };
 };
 
 interface AdminReservationContextType {

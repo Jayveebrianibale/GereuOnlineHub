@@ -441,6 +441,36 @@ export default function ReservationsScreen() {
                     </View>
                   )}
                   
+                  {/* Shipping Information for Laundry Services */}
+                  {reservation.serviceType === 'laundry' && (reservation as any).shippingInfo && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <MaterialIcons 
+                          name={(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
+                          size={16} 
+                          color={subtitleColor} 
+                        />
+                        <ThemedText style={[
+                          styles.detailText, 
+                          { color: textColor }
+                        ]}>
+                          Delivery: {(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                        </ThemedText>
+                      </View>
+                      {(reservation as any).shippingInfo.deliveryType === 'dropoff' && (reservation as any).shippingInfo.address && (
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                          <ThemedText style={[
+                            styles.detailText, 
+                            { color: textColor }
+                          ]}>
+                            Address: {(reservation as any).shippingInfo.address}
+                          </ThemedText>
+                        </View>
+                      )}
+                    </>
+                  )}
+                  
                   <View style={styles.detailRow}>
                     <MaterialIcons name="calendar-today" size={16} color={subtitleColor} />
                     <ThemedText style={[

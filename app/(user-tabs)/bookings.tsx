@@ -478,6 +478,29 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
+               {/* Shipping Information */}
+               {(svc as any).shippingInfo && (
+                 <>
+                   <View style={styles.detailRow}>
+                     <MaterialIcons 
+                       name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
+                       size={16} 
+                       color={subtitleColor} 
+                     />
+                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                       Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                     </ThemedText>
+                   </View>
+                   {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Address: {(svc as any).shippingInfo.address}
+                       </ThemedText>
+                     </View>
+                   )}
+                 </>
+               )}
              </View>
 
              {/* Booking Actions */}
@@ -750,7 +773,7 @@ export default function Bookings() {
                 <MaterialIcons name="directions-car" size={20} color="#fff" />
               </View>
               <View style={styles.serviceHeaderText}>
-                <ThemedText style={[styles.serviceCategoryName, { color: textColor }]}>Car & Motor Parts</ThemedText>
+                <ThemedText style={[styles.serviceCategoryName, { color: textColor }]}>Car & Motor Services</ThemedText>
                 <ThemedText style={[styles.serviceItemCount, { color: subtitleColor }]}>
                   {accepted.auto.length} {accepted.auto.length === 1 ? 'item' : 'items'}
                 </ThemedText>

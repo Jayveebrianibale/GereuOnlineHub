@@ -608,7 +608,7 @@ export default function MessagesScreen() {
         <View style={styles.adminSection}>
           <View style={styles.sectionHeader}>
             <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-              Support Team
+              Admin Support
             </ThemedText>
             <View style={[styles.sectionUnderline, { backgroundColor: colorPalette.light }]} />
           </View>
