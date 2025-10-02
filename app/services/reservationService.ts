@@ -268,3 +268,90 @@ export const removeReservationCompletely = async (
     throw error;
   }
 };
+
+// Apartment Availability Functions
+export const isApartmentReserved = async (apartmentId: string): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking if apartment is reserved:', apartmentId);
+    
+    // Check admin reservations for this apartment
+    const adminReservations = await getAdminReservations();
+    const activeAdminReservation = adminReservations.find(
+      reservation => 
+        reservation.serviceId === apartmentId && 
+        reservation.serviceType === 'apartment' &&
+        (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    
+    if (activeAdminReservation) {
+      console.log('✅ Apartment is reserved (admin reservation found)');
+      return true;
+    }
+    
+    console.log('ℹ️ Apartment is not reserved');
+    return false;
+  } catch (error) {
+    console.error('❌ Error checking apartment reservation status:', error);
+    // In case of error, assume it's not reserved to avoid blocking legitimate reservations
+    return false;
+  }
+};
+
+export const getApartmentReservationInfo = async (apartmentId: string): Promise<{
+  isReserved: boolean;
+  reservedBy?: string;
+  reservationDate?: string;
+  status?: string;
+} | null> => {
+  try {
+    console.log('🔍 Getting apartment reservation info:', apartmentId);
+    
+    // Check admin reservations for this apartment
+    const adminReservations = await getAdminReservations();
+    const activeAdminReservation = adminReservations.find(
+      reservation => 
+        reservation.serviceId === apartmentId && 
+        reservation.serviceType === 'apartment' &&
+        (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    
+    if (activeAdminReservation) {
+      console.log('✅ Apartment reservation info found');
+      return {
+        isReserved: true,
+        reservedBy: activeAdminReservation.userName,
+        reservationDate: activeAdminReservation.reservationDate,
+        status: activeAdminReservation.status
+      };
+    }
+    
+    console.log('ℹ️ No active reservation found for apartment');
+    return {
+      isReserved: false
+    };
+  } catch (error) {
+    console.error('❌ Error getting apartment reservation info:', error);
+    return null;
+  }
+};
+
+// Function to get all reserved apartment IDs
+export const getReservedApartmentIds = async (): Promise<string[]> => {
+  try {
+    console.log('🔍 Getting all reserved apartment IDs...');
+    
+    const adminReservations = await getAdminReservations();
+    const reservedApartmentIds = adminReservations
+      .filter(reservation => 
+        reservation.serviceType === 'apartment' &&
+        (reservation.status === 'pending' || reservation.status === 'confirmed')
+      )
+      .map(reservation => reservation.serviceId);
+    
+    console.log('✅ Found reserved apartment IDs:', reservedApartmentIds);
+    return reservedApartmentIds;
+  } catch (error) {
+    console.error('❌ Error getting reserved apartment IDs:', error);
+    return [];
+  }
+};
