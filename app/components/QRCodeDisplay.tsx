@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Alert, Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 interface QRCodeDisplayProps {
   qrCode: string;
@@ -9,8 +9,7 @@ interface QRCodeDisplayProps {
   referenceNumber: string;
   gcashNumber: string;
   dueDate: string;
-  onCopyReference?: () => void;
-  onOpenGCash?: () => void;
+  adminQRCode?: string; // Admin's uploaded QR code (base64)
 }
 
 export function QRCodeDisplay({ 
@@ -19,56 +18,37 @@ export function QRCodeDisplay({
   referenceNumber, 
   gcashNumber, 
   dueDate,
-  onCopyReference,
-  onOpenGCash
+  adminQRCode
 }: QRCodeDisplayProps) {
-  const handleOpenGCash = async () => {
-    try {
-      // Try to open GCash app with the payment data
-      const gcashUrl = `gcash://pay?amount=${amount}&reference=${referenceNumber}`;
-      const canOpen = await Linking.canOpenURL(gcashUrl);
-      
-      if (canOpen) {
-        await Linking.openURL(gcashUrl);
-        onOpenGCash?.();
-      } else {
-        // Fallback to GCash web or show instructions
-        Alert.alert(
-          'Open GCash',
-          'Please open your GCash app and scan the QR code or use the reference number to make payment.',
-          [
-            { text: 'Copy Reference', onPress: onCopyReference },
-            { text: 'OK' }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Failed to open GCash:', error);
-      Alert.alert('Error', 'Unable to open GCash app. Please scan the QR code manually.');
-    }
-  };
 
-  const handleCopyReference = () => {
-    // In a real app, you would use Clipboard API here
-    Alert.alert(
-      'Reference Number',
-      `Reference: ${referenceNumber}\n\nAmount: ₱${amount.toLocaleString()}\n\nPlease use this reference when paying via GCash.`,
-      [{ text: 'OK' }]
-    );
-    onCopyReference?.();
-  };
 
   return (
     <ThemedView style={styles.container}>
-      {/* QR Code Placeholder - In a real app, you would use a QR code library */}
+      {/* QR Code Display */}
       <View style={styles.qrCodeContainer}>
-        <View style={styles.qrCodePlaceholder}>
-          <MaterialIcons name="qr-code" size={120} color="#00B2FF" />
-          <ThemedText style={styles.qrCodeText}>QR Code</ThemedText>
-          <ThemedText style={styles.qrCodeSubtext}>
-            Scan with GCash app
-          </ThemedText>
-        </View>
+        {adminQRCode ? (
+          <View style={styles.qrCodeImageContainer}>
+            <Image 
+              source={{ uri: `data:image/jpeg;base64,${adminQRCode}` }}
+              style={styles.qrCodeImage}
+              resizeMode="contain"
+            />
+          </View>
+        ) : (
+          <View style={styles.qrCodePlaceholder}>
+            <MaterialIcons name="qr-code" size={160} color="#00B2FF" />
+          </View>
+        )}
+      </View>
+
+      {/* QR Code Labels */}
+      <View style={styles.qrCodeLabels}>
+        <ThemedText style={styles.qrCodeText}>
+          {adminQRCode ? 'Scan to Pay' : 'QR Code'}
+        </ThemedText>
+        <ThemedText style={styles.qrCodeSubtext}>
+          {adminQRCode ? 'Use GCash app to scan' : 'Scan with GCash app'}
+        </ThemedText>
       </View>
 
       {/* Payment Details */}
@@ -78,15 +58,6 @@ export function QRCodeDisplay({
           <ThemedText style={styles.amountValue}>₱{amount.toLocaleString()}</ThemedText>
         </View>
         
-        <View style={styles.referenceRow}>
-          <ThemedText style={[styles.referenceLabel, { color: '#6c757d' }]}>Reference Number:</ThemedText>
-          <View style={styles.referenceContainer}>
-            <ThemedText style={[styles.referenceValue, { color: '#333' }]}>{referenceNumber}</ThemedText>
-            <TouchableOpacity onPress={handleCopyReference} style={styles.copyButton}>
-              <MaterialIcons name="content-copy" size={16} color="#00B2FF" />
-            </TouchableOpacity>
-          </View>
-        </View>
         
         <View style={styles.gcashRow}>
           <ThemedText style={[styles.gcashLabel, { color: '#6c757d' }]}>GCash Number:</ThemedText>
@@ -101,18 +72,6 @@ export function QRCodeDisplay({
         </View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.gcashButton} onPress={handleOpenGCash}>
-          <MaterialIcons name="payment" size={20} color="#fff" />
-          <ThemedText style={[styles.gcashButtonText, { color: '#fff' }]}>Open GCash</ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.copyButtonLarge} onPress={handleCopyReference}>
-          <MaterialIcons name="content-copy" size={20} color="#00B2FF" />
-          <ThemedText style={[styles.copyButtonText, { color: '#00B2FF' }]}>Copy Reference</ThemedText>
-        </TouchableOpacity>
-      </View>
 
       {/* Instructions */}
       <View style={styles.instructions}>
@@ -121,8 +80,7 @@ export function QRCodeDisplay({
           1. Open your GCash app{'\n'}
           2. Tap "Send Money" or scan QR code{'\n'}
           3. Enter the amount: ₱{amount.toLocaleString()}{'\n'}
-          4. Use reference: {referenceNumber}{'\n'}
-          5. Complete the payment
+          4. Complete the payment
         </ThemedText>
       </View>
     </ThemedView>
@@ -133,31 +91,72 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     alignItems: 'center',
+    width: '100%',
   },
   qrCodeContainer: {
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  qrCodeLabels: {
+    alignItems: 'center',
     marginBottom: 24,
   },
-  qrCodePlaceholder: {
-    width: 200,
-    height: 200,
+  qrCodeImageContainer: {
+    width: 280,
+    height: 280,
+    maxWidth: '95%',
     backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  qrCodeImage: {
+    width: 240,
+    height: 240,
     borderRadius: 12,
+    maxWidth: '100%',
+    maxHeight: '100%',
+  },
+  qrCodePlaceholder: {
+    width: 280,
+    height: 280,
+    maxWidth: '95%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: '#e9ecef',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   qrCodeText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: 0,
     color: '#00B2FF',
+    textAlign: 'center',
   },
   qrCodeSubtext: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6c757d',
     marginTop: 4,
+    textAlign: 'center',
   },
   paymentDetails: {
     width: '100%',
@@ -181,32 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#00B2FF',
-  },
-  referenceRow: {
-    marginBottom: 12,
-  },
-  referenceLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-    color: '#6c757d',
-  },
-  referenceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-  },
-  referenceValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  copyButton: {
-    padding: 4,
   },
   gcashRow: {
     flexDirection: 'row',
@@ -245,27 +218,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#856404',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  gcashButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00B2FF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  gcashButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   copyButtonLarge: {
     flex: 1,

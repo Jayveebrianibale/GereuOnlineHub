@@ -11,11 +11,11 @@ import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, Touc
 import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 import {
-  cacheApartments,
-  cacheAutoServices,
-  cacheLaundryServices
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices
 } from './services/dataCache';
-import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
+import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
 
 const colorPalette = {
@@ -49,6 +49,7 @@ export default function UserHome() {
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  const [globalReservations, setGlobalReservations] = useState<any[]>([]);
   
   // Search functionality
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +172,22 @@ export default function UserHome() {
     }
   };
 
+  // Load global reservations to check apartment availability
+  useEffect(() => {
+    const loadGlobalReservations = async () => {
+      try {
+        const adminReservations = await getAdminReservations();
+        setGlobalReservations(adminReservations);
+      } catch (error) {
+        console.error('Error loading global reservations:', error);
+      }
+    };
+    
+    if (apartments.length > 0) {
+      loadGlobalReservations();
+    }
+  }, [apartments]);
+
   // Real-time listeners for all services
   useEffect(() => {
     console.log('🔄 Setting up real-time listeners for services...');
@@ -259,6 +276,28 @@ export default function UserHome() {
     auto: false,
   });
 
+  // Helper function to check if apartment is reserved by any user
+  const isApartmentReserved = (apartmentId: string) => {
+    const globalReservation = globalReservations.find(reservation => 
+      reservation.serviceType === 'apartment' && 
+      reservation.serviceId === apartmentId && 
+      (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    return !!globalReservation;
+  };
+
+  // Helper function to check if apartment is available for reservation
+  const isApartmentAvailable = (apartmentId: string) => {
+    // Check if apartment is marked as unavailable
+    const apartment = apartments.find(apt => apt.id === apartmentId);
+    if (!apartment?.available) return false;
+    
+    // Check if it's reserved by any user
+    if (isApartmentReserved(apartmentId)) return false;
+    
+    return true;
+  };
+
   // Auto-slide functionality
   const slideToNext = (flatListRef: React.RefObject<FlatList>, currentIndex: number, totalItems: number) => {
     if (totalItems <= 1) return;
@@ -342,10 +381,10 @@ export default function UserHome() {
         <View style={[
           styles.availabilityBadge, 
           { 
-            backgroundColor: item.available ? '#10B981' : '#EF4444',
+            backgroundColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
             borderWidth: 1,
-            borderColor: item.available ? '#059669' : '#DC2626',
-            shadowColor: item.available ? '#10B981' : '#EF4444',
+            borderColor: isApartmentAvailable(item.id) ? '#059669' : '#DC2626',
+            shadowColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
             shadowOpacity: 0.2,
             shadowRadius: 2,
             shadowOffset: { width: 0, height: 1 },
@@ -353,7 +392,7 @@ export default function UserHome() {
           }
         ]}> 
           <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
+            name={isApartmentAvailable(item.id) ? "check-circle" : "cancel"} 
             size={14} 
             color="#fff" 
           />
@@ -364,7 +403,7 @@ export default function UserHome() {
               fontWeight: '600',
             }
           ]}>
-            {item.available ? 'Available' : 'Unavailable'}
+            {isApartmentAvailable(item.id) ? 'Available' : 'Unavailable'}
           </ThemedText>
         </View>
         <View style={styles.priceTag}> 

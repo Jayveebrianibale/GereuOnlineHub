@@ -16,8 +16,30 @@ export const getAdminPaymentSettings = async (): Promise<AdminPaymentSettings | 
       console.error('Firebase database not initialized');
       return null;
     }
-    const snapshot = await get(ref(database, ADMIN_PAYMENT_SETTINGS_KEY));
-    return snapshot.val();
+
+    // Get settings from adminPaymentSettings
+    const settingsSnapshot = await get(ref(database, ADMIN_PAYMENT_SETTINGS_KEY));
+    const settings = settingsSnapshot.val();
+
+    // Get QR code from Payment_Information
+    const qrSnapshot = await get(ref(database, 'Payment_Information/qrCode'));
+    const qrCodeUrl = qrSnapshot.val();
+
+    // Get GCash number from Payment_Information
+    const gcashSnapshot = await get(ref(database, 'Payment_Information/gcashNumber'));
+    const gcashNumber = gcashSnapshot.val();
+
+    // Combine settings with QR code and GCash number
+    if (settings) {
+      return {
+        ...settings,
+        gcashNumber: gcashNumber || settings.gcashNumber,
+        qrCodeImageUrl: qrCodeUrl || settings.qrCodeImageUrl,
+        qrCodeBase64: qrCodeUrl ? qrCodeUrl.split(',')[1] : settings.qrCodeBase64
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error('Error fetching admin payment settings:', error);
     return null;
@@ -32,13 +54,21 @@ export const updateAdminPaymentSettings = async (settings: Partial<AdminPaymentS
     }
     const currentSettings = await getAdminPaymentSettings();
     const updatedSettings: AdminPaymentSettings = {
-      gcashNumber: settings.gcashNumber || currentSettings?.gcashNumber || '09123456789',
-      qrCodeImageUrl: settings.qrCodeImageUrl || currentSettings?.qrCodeImageUrl,
-      qrCodeBase64: settings.qrCodeBase64 || currentSettings?.qrCodeBase64,
+      gcashNumber: settings.gcashNumber !== undefined ? settings.gcashNumber : (currentSettings?.gcashNumber || '09123456789'),
+      qrCodeImageUrl: settings.qrCodeImageUrl !== undefined ? settings.qrCodeImageUrl : currentSettings?.qrCodeImageUrl,
+      qrCodeBase64: settings.qrCodeBase64 !== undefined ? settings.qrCodeBase64 : currentSettings?.qrCodeBase64,
       updatedAt: Date.now(),
     };
 
+    // Update adminPaymentSettings
     await set(ref(database, ADMIN_PAYMENT_SETTINGS_KEY), updatedSettings);
+    
+    // Also update Payment_Information path for GCash number
+    if (settings.gcashNumber !== undefined) {
+      await set(ref(database, 'Payment_Information/gcashNumber'), settings.gcashNumber);
+      await set(ref(database, 'Payment_Information/gcashNumberUpdatedAt'), new Date().toISOString());
+    }
+    
     return true;
   } catch (error) {
     console.error('Error updating admin payment settings:', error);
@@ -46,14 +76,42 @@ export const updateAdminPaymentSettings = async (settings: Partial<AdminPaymentS
   }
 };
 
-export const uploadQRCodeImage = async (base64Image: string): Promise<string | null> => {
+export const uploadQRCodeImage = async (imageUri: string): Promise<{ url: string; path: string }> => {
   try {
-    // In a real app, you would upload to Firebase Storage here
-    // For now, we'll store as base64 in the database
-    const success = await updateAdminPaymentSettings({ qrCodeBase64: base64Image });
-    return success ? base64Image : null;
+    if (!database) {
+      console.error('Firebase database not initialized');
+      throw new Error('Firebase database not initialized');
+    }
+
+    // Convert image to base64 using ImageManipulator (similar to profile.tsx)
+    const { manipulateAsync } = await import('expo-image-manipulator');
+    
+    const base64Result = await manipulateAsync(
+      imageUri,
+      [{ resize: { width: 400 } }], // Resize to reasonable size
+      { 
+        compress: 0.8, 
+        format: 'jpeg' as any,
+        base64: true
+      }
+    );
+    
+    if (!base64Result.base64) {
+      throw new Error('Failed to convert image to base64');
+    }
+    
+    const dataUrl = `data:image/jpeg;base64,${base64Result.base64}`;
+    
+    // Store in Realtime Database under Payment_Information
+    await set(ref(database, 'Payment_Information/qrCode'), dataUrl);
+    await set(ref(database, 'Payment_Information/qrCodeUpdatedAt'), new Date().toISOString());
+    
+    return {
+      url: dataUrl,
+      path: 'Payment_Information/qrCode'
+    };
   } catch (error) {
     console.error('Error uploading QR code image:', error);
-    return null;
+    throw new Error('Failed to upload QR code image');
   }
 };

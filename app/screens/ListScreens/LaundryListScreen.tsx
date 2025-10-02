@@ -61,6 +61,7 @@ export default function LaundryListScreen() {
   const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'dropoff' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
   
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -122,29 +123,27 @@ export default function LaundryListScreen() {
       setSelectedLaundryService(service);
       setDeliveryModalVisible(true);
     } else {
-      try {
-        await removeLaundryReservation(service.id);
-        Alert.alert(
-          'Reservation Cancelled',
-          'Your reservation has been cancelled.',
-          [{ text: 'OK' }]
-        );
-      } catch (error) {
-        console.error('Error removing laundry reservation:', error);
-        Alert.alert(
-          'Error',
-          'Failed to cancel reservation. Please try again.',
-          [{ text: 'OK' }]
-        );
-      }
+      // Show alert asking if user wants to reserve again
+      Alert.alert(
+        'Already Reserved',
+        'You already avail this service. Do you want to avail this again?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Yes, Avail Again', 
+            onPress: () => {
+              setSelectedLaundryService(service);
+              setDeliveryModalVisible(true);
+            }
+          }
+        ]
+      );
     }
   };
 
   const handleDeliverySelection = (type: 'pickup' | 'dropoff') => {
     setDeliveryType(type);
-    if (type === 'pickup') {
-      handleConfirmReservation();
-    }
+    setIsConfirming(false); // Reset loading state when changing delivery type
   };
 
   const handleConfirmReservation = async () => {
@@ -160,6 +159,7 @@ export default function LaundryListScreen() {
       return;
     }
 
+    setIsConfirming(true);
     try {
       // Add to user reservations with pending status and shipping info
       const serviceWithStatus = { 
@@ -230,6 +230,8 @@ export default function LaundryListScreen() {
         'Sorry, we couldn\'t process your reservation. Please try again.',
         [{ text: 'OK' }]
       );
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -696,7 +698,7 @@ export default function LaundryListScreen() {
                               const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
                               const status = (match as any)?.status;
                               const active = status === 'pending' || status === 'confirmed';
-                              return active ? 'Reserved' : 'Avail';
+                              return active ? 'Availed' : 'Avail';
                             })()}
                           </ThemedText>
                         )}
@@ -715,7 +717,10 @@ export default function LaundryListScreen() {
           visible={deliveryModalVisible}
           animationType="slide"
           transparent={true}
-          onRequestClose={() => setDeliveryModalVisible(false)}
+          onRequestClose={() => {
+            setDeliveryModalVisible(false);
+            setIsConfirming(false);
+          }}
         >
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
             <View style={[styles.deliveryModal, { backgroundColor: cardBgColor }]}>
@@ -740,7 +745,10 @@ export default function LaundryListScreen() {
                 </View>
                 <TouchableOpacity 
                   style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#F1F3F4' }]}
-                  onPress={() => setDeliveryModalVisible(false)}
+                  onPress={() => {
+                    setDeliveryModalVisible(false);
+                    setIsConfirming(false);
+                  }}
                 >
                   <MaterialIcons name="close" size={20} color={textColor} />
                 </TouchableOpacity>
@@ -977,6 +985,7 @@ export default function LaundryListScreen() {
                     setDeliveryModalVisible(false);
                     setDeliveryType(null);
                     setDeliveryAddress('');
+                    setIsConfirming(false);
                   }}
                   activeOpacity={0.8}
                 >
@@ -990,20 +999,24 @@ export default function LaundryListScreen() {
                   style={[
                     styles.confirmButton,
                     { 
-                      backgroundColor: deliveryType ? colorPalette.primary : '#ccc',
-                      opacity: deliveryType ? 1 : 0.6,
-                      shadowColor: deliveryType ? colorPalette.primary : 'transparent',
+                      backgroundColor: deliveryType && !isConfirming ? colorPalette.primary : '#ccc',
+                      opacity: deliveryType && !isConfirming ? 1 : 0.6,
+                      shadowColor: deliveryType && !isConfirming ? colorPalette.primary : 'transparent',
                       shadowOpacity: 0.3,
-                      elevation: deliveryType ? 4 : 0,
+                      elevation: deliveryType && !isConfirming ? 4 : 0,
                     }
                   ]}
                   onPress={handleConfirmReservation}
-                  disabled={!deliveryType}
+                  disabled={!deliveryType || isConfirming}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcons name="check" size={20} color="#fff" />
+                  {isConfirming ? (
+                    <MaterialIcons name="refresh" size={20} color="#fff" />
+                  ) : (
+                    <MaterialIcons name="check" size={20} color="#fff" />
+                  )}
                   <ThemedText style={styles.confirmButtonText}>
-                    Confirm
+                    {isConfirming ? 'Confirming...' : 'Confirm'}
                   </ThemedText>
                 </TouchableOpacity>
               </View>

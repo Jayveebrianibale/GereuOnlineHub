@@ -2,16 +2,15 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { AdminPaymentSettingsModal } from '../components/AdminPaymentSettings';
 import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useReservation } from '../contexts/ReservationContext';
-import { AdminPaymentSettings as AdminPaymentSettingsType, getAdminPaymentSettings } from '../services/adminPaymentService';
 import { notifyUser } from '../services/notificationService';
 import { calculateDownPayment, isPaymentRequired } from '../services/paymentService';
-import { getUserReservations, updateUserReservationStatus } from '../services/reservationService';
+import { getUserReservations, updateAdminReservationPaymentStatus, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
 const colorPalette = {
@@ -48,7 +47,6 @@ export default function ReservationsScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
   const [filterVisible, setFilterVisible] = useState(false);
   const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false);
-  const [paymentSettings, setPaymentSettings] = useState<AdminPaymentSettingsType | null>(null);
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';
@@ -57,19 +55,6 @@ export default function ReservationsScreen() {
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
 
-  // Load payment settings
-  useEffect(() => {
-    loadPaymentSettings();
-  }, []);
-
-  const loadPaymentSettings = async () => {
-    try {
-      const settings = await getAdminPaymentSettings();
-      setPaymentSettings(settings);
-    } catch (error) {
-      console.error('Error loading payment settings:', error);
-    }
-  };
 
   // Responsive sizing
   const titleSize = width < 400 ? 20 : 24;
@@ -105,6 +90,9 @@ export default function ReservationsScreen() {
     const performUpdate = async () => {
       try {
         await updateReservationStatus(reservationId, 'confirmed');
+        // Update payment status to 'paid' when accepting reservation
+        await updateAdminReservationPaymentStatus(reservationId, 'paid');
+        
         // Update corresponding user's reservation regardless of current auth context
         try {
           const userReservations = await getUserReservations(userId);
@@ -117,7 +105,7 @@ export default function ReservationsScreen() {
           console.warn('Failed updating user reservation status:', e);
         }
         // Notification is handled by AdminReservationContext.updateReservationStatus
-        Alert.alert('Success', 'Reservation has been accepted successfully!');
+        Alert.alert('Success', 'Reservation has been accepted and payment status updated to paid!');
       } catch (error) {
         console.error('Error accepting reservation:', error);
         Alert.alert('Error', 'Failed to accept reservation. Please try again.');
@@ -441,8 +429,8 @@ export default function ReservationsScreen() {
                     </View>
                   )}
                   
-                  {/* Shipping Information for Laundry Services */}
-                  {reservation.serviceType === 'laundry' && (reservation as any).shippingInfo && (
+                  {/* Shipping Information for All Services */}
+                  {(reservation as any).shippingInfo && (
                     <>
                       <View style={styles.detailRow}>
                         <MaterialIcons 
@@ -506,19 +494,16 @@ export default function ReservationsScreen() {
                           </ThemedText>
                         </View>
                         
-                        {paymentSettings?.gcashNumber && (
-                          <View style={styles.detailRow}>
-                            <MaterialIcons name="account-balance-wallet" size={16} color="#00B2FF" />
-                            <ThemedText style={[styles.detailText, { color: textColor }]}>
-                              GCash: {paymentSettings.gcashNumber}
-                            </ThemedText>
-                          </View>
-                        )}
-                        
                         <View style={styles.detailRow}>
-                          <MaterialIcons name="info" size={16} color="#F59E0B" />
-                          <ThemedText style={[styles.detailText, { color: '#F59E0B' }]}>
-                            Payment required to confirm reservation
+                          <MaterialIcons 
+                            name={(reservation as any).paymentStatus === 'paid' ? 'check-circle' : 'pending'} 
+                            size={16} 
+                            color={(reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B'} 
+                          />
+                          <ThemedText style={[styles.detailText, { 
+                            color: (reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B' 
+                          }]}>
+                            Payment Status: {(reservation as any).paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
                           </ThemedText>
                         </View>
                       </View>
@@ -602,7 +587,6 @@ export default function ReservationsScreen() {
           isDark={isDark}
           onClose={() => {
             setPaymentSettingsVisible(false);
-            loadPaymentSettings(); // Reload settings when closing
           }}
         />
       </Modal>

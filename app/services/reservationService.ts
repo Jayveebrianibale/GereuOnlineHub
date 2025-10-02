@@ -13,6 +13,7 @@ export type FirebaseAdminReservation = {
   serviceLocation?: string;
   serviceImage?: any;
   status: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
+  paymentStatus: 'unpaid' | 'paid';
   reservationDate: string;
   createdAt: string;
   updatedAt: string;
@@ -31,6 +32,7 @@ export type FirebaseUserReservation = {
   serviceLocation?: string;
   serviceImage?: any;
   status: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
+  paymentStatus: 'unpaid' | 'paid';
   reservationDate: string;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +52,7 @@ export const saveAdminReservation = async (reservation: Omit<FirebaseAdminReserv
     const reservationData: FirebaseAdminReservation = {
       ...reservation,
       id: reservationId,
+      paymentStatus: reservation.paymentStatus || 'unpaid',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -71,6 +74,19 @@ export const updateAdminReservationStatus = async (reservationId: string, status
     });
   } catch (error) {
     console.error('Error updating admin reservation status:', error);
+    throw error;
+  }
+};
+
+export const updateAdminReservationPaymentStatus = async (reservationId: string, paymentStatus: FirebaseAdminReservation['paymentStatus']): Promise<void> => {
+  try {
+    const reservationRef = ref(db, `adminReservations/${reservationId}`);
+    await update(reservationRef, {
+      paymentStatus,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error updating admin reservation payment status:', error);
     throw error;
   }
 };
@@ -147,6 +163,7 @@ export const saveUserReservation = async (userId: string, reservation: Omit<Fire
     const reservationData: FirebaseUserReservation = {
       ...reservation,
       id: reservationId,
+      paymentStatus: reservation.paymentStatus || 'unpaid',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -266,5 +283,54 @@ export const removeReservationCompletely = async (
   } catch (error) {
     console.error('❌ Error in complete reservation removal:', error);
     throw error;
+  }
+};
+
+// Function to check if an apartment is globally reserved by any user
+export const isApartmentGloballyReserved = async (apartmentId: string): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking if apartment is globally reserved:', apartmentId);
+    const adminReservations = await getAdminReservations();
+    
+    // Check if there's any active reservation for this apartment
+    const activeReservation = adminReservations.find(reservation => 
+      reservation.serviceType === 'apartment' && 
+      reservation.serviceId === apartmentId && 
+      (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    
+    const isReserved = !!activeReservation;
+    console.log('📊 Apartment reservation status:', { apartmentId, isReserved, reservation: activeReservation });
+    
+    return isReserved;
+  } catch (error) {
+    console.error('❌ Error checking apartment global reservation:', error);
+    // Return false on error to allow reservation attempts
+    return false;
+  }
+};
+
+// Function to get the user who reserved an apartment
+export const getApartmentReservedBy = async (apartmentId: string): Promise<{ userName: string; userEmail: string } | null> => {
+  try {
+    const adminReservations = await getAdminReservations();
+    
+    const activeReservation = adminReservations.find(reservation => 
+      reservation.serviceType === 'apartment' && 
+      reservation.serviceId === apartmentId && 
+      (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    
+    if (activeReservation) {
+      return {
+        userName: activeReservation.userName,
+        userEmail: activeReservation.userEmail
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error getting apartment reserved by info:', error);
+    return null;
   }
 };

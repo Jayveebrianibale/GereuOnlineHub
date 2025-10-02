@@ -191,7 +191,10 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
       if (isReserved) return;
 
-      const reservationData = mapServiceToReservation(service, 'laundry');
+      const reservationData = {
+        ...mapServiceToReservation(service, 'laundry'),
+        shippingInfo: service.shippingInfo // Include shipping information
+      };
       await saveUserReservation(user.uid, reservationData);
       await notifyAdmins('New laundry reservation', `${service.title} reserved`, {
         serviceType: 'laundry', serviceId: service.id, userId: user.uid,
