@@ -10,8 +10,8 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
-  cacheLaundryServices,
-  getCachedLaundryServices
+    cacheLaundryServices,
+    getCachedLaundryServices
 } from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
@@ -368,13 +368,6 @@ export default function LaundryListScreen() {
           <ThemedText type="subtitle" style={[styles.laundryTitle, { color: textColor }]}>
             {item.title}
           </ThemedText>
-          <View style={styles.ratingContainer}>
-            <MaterialIcons name="star" size={16} color="#FFD700" />
-            <ThemedText style={styles.ratingText}>{item.rating}</ThemedText>
-            <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-              ({item.reviews})
-            </ThemedText>
-          </View>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
@@ -575,13 +568,6 @@ export default function LaundryListScreen() {
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>
-                       <View style={styles.ratingContainer}>
-                         <MaterialIcons name="star" size={16} color="#FFD700" />
-                         <ThemedText style={styles.ratingText}>{selectedLaundryService.rating}</ThemedText>
-                         <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-                           ({selectedLaundryService.reviews} reviews)
-                         </ThemedText>
-                       </View>
                        <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
                          {formatPHP(selectedLaundryService.price)}
                        </ThemedText>
@@ -1108,20 +1094,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    color: '#FFD700',
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewText: {
-    fontSize: 12,
-    marginLeft: 4,
   },
   description: {
     fontSize: 14,

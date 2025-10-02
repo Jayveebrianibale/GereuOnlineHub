@@ -291,7 +291,10 @@ export default function UsersScreen() {
     // Exclude specific admin users
     const isExcludedAdmin = 
       safeName.includes('alfredo sayson jr') || 
-      safeName.includes('jeibii');
+      safeName.includes('jeibii') ||
+      safeName.includes('car') ||
+      safeName.includes('motor part') ||
+      safeName.includes('laundry');
     
     if (isExcludedAdmin) {
       return false;

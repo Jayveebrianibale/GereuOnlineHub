@@ -16,8 +16,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartments } from '../../services/apartmentService';
 import {
-  cacheApartments,
-  getCachedApartments
+    cacheApartments,
+    getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -397,13 +397,6 @@ export default function ApartmentListScreen() {
           <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
             {item.title || 'Apartment'}
           </ThemedText>
-          <View style={styles.ratingContainer}>
-            <MaterialIcons name="star" size={16} color="#FFD700" />
-            <ThemedText style={styles.ratingText}>{item.rating || '4.5'}</ThemedText>
-            <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-              ({item.reviews || '0'})
-            </ThemedText>
-          </View>
         </View>
         
         <View style={styles.locationRow}>
@@ -608,13 +601,6 @@ export default function ApartmentListScreen() {
                   
                   <View style={styles.detailContent}>
                     <View style={styles.detailRatingRow}>
-                      <View style={styles.ratingContainer}>
-                        <MaterialIcons name="star" size={16} color="#FFD700" />
-                        <ThemedText style={styles.ratingText}>{selectedApartment.rating || '4.5'}</ThemedText>
-                        <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-                          ({selectedApartment.reviews || '0'} reviews)
-                        </ThemedText>
-                      </View>
                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
                         {formatPHP(selectedApartment.price || '0')}
                       </ThemedText>
@@ -849,20 +835,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    color: '#FFD700',
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewText: {
-    fontSize: 12,
-    marginLeft: 4,
   },
   locationRow: {
     flexDirection: 'row',

@@ -46,13 +46,6 @@ const profileMenuItems = [
     action: 'notifications',
   },
   {
-    id: '4',
-    title: 'Privacy & Security',
-    subtitle: 'Manage your privacy settings',
-    icon: 'security',
-    action: 'settings',
-  },
-  {
     id: '5',
     title: 'Help & Support',
     subtitle: 'Get help and contact support',
@@ -413,9 +406,6 @@ export default function Profile() {
         break;
       case 'notifications':
         setNotificationModalVisible(true);
-        break;
-      case 'settings':
-        Alert.alert('Coming Soon', 'Privacy & Security settings will be available soon!');
         break;
       case 'support':
         setSupportModalVisible(true);

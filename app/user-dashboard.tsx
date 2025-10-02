@@ -11,9 +11,9 @@ import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, Touc
 import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 import {
-    cacheApartments,
-    cacheAutoServices,
-    cacheLaundryServices
+  cacheApartments,
+  cacheAutoServices,
+  cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -339,9 +339,33 @@ export default function UserHome() {
         resizeMode="cover"
       />
       <View style={styles.itemOverlay}> 
-        <View style={styles.ratingBadge}> 
-          <MaterialIcons name="star" size={16} color="#FFD700" />
-          <ThemedText style={styles.ratingText}>{item.rating}</ThemedText>
+        <View style={[
+          styles.availabilityBadge, 
+          { 
+            backgroundColor: item.available ? '#10B981' : '#EF4444',
+            borderWidth: 1,
+            borderColor: item.available ? '#059669' : '#DC2626',
+            shadowColor: item.available ? '#10B981' : '#EF4444',
+            shadowOpacity: 0.2,
+            shadowRadius: 2,
+            shadowOffset: { width: 0, height: 1 },
+            elevation: 2,
+          }
+        ]}> 
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={14} 
+            color="#fff" 
+          />
+          <ThemedText style={[
+            styles.availabilityText,
+            { 
+              color: '#fff',
+              fontWeight: '600',
+            }
+          ]}>
+            {item.available ? 'Available' : 'Unavailable'}
+          </ThemedText>
         </View>
         <View style={styles.priceTag}> 
           <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
@@ -381,7 +405,7 @@ export default function UserHome() {
     <View style={[styles.serviceItem, { width: itemWidth, marginRight: itemSpacing, backgroundColor: cardBgColor }]}> 
       <RobustImage 
         source={item.image} 
-        style={[styles.serviceImage, { height: isLargeScreen ? 100 : isTablet ? 110 : 120 }]} 
+        style={[styles.serviceImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
         resizeMode="cover"
       />
       <View style={styles.serviceContent}> 
@@ -987,18 +1011,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  ratingBadge: {
+  availabilityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
+    minWidth: 80,
+    justifyContent: 'center',
   },
-  ratingText: {
+  availabilityText: {
     color: '#fff',
     marginLeft: 4,
-    fontSize: 14,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   priceTag: {
     backgroundColor: colorPalette.primary,
@@ -1063,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   serviceImage: {
     width: '100%',
-    height: 120,
+    height: 200,
   },
   serviceContent: {
     padding: 16,

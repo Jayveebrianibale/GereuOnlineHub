@@ -277,13 +277,6 @@ export default function AutoListScreen() {
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
             {item.title}
           </ThemedText>
-          <View style={styles.ratingContainer}>
-            <MaterialIcons name="star" size={16} color="#FFD700" />
-            <ThemedText style={styles.ratingText}>{item.rating}</ThemedText>
-            <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-              ({item.reviews})
-            </ThemedText>
-          </View>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
@@ -536,13 +529,6 @@ export default function AutoListScreen() {
                    
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>
-                       <View style={styles.ratingContainer}>
-                         <MaterialIcons name="star" size={16} color="#FFD700" />
-                         <ThemedText style={styles.ratingText}>{selectedAutoService.rating}</ThemedText>
-                         <ThemedText style={[styles.reviewText, { color: subtitleColor }]}>
-                           ({selectedAutoService.reviews} reviews)
-                         </ThemedText>
-                       </View>
                        <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
                          {formatPHP(selectedAutoService.price)}
                        </ThemedText>
@@ -782,20 +768,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    color: '#FFD700',
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewText: {
-    fontSize: 12,
-    marginLeft: 4,
   },
   description: {
     fontSize: 14,
