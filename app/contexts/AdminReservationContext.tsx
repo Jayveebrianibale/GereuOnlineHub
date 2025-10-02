@@ -2,6 +2,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import { useAuth } from '../hooks/useAuth';
 import { notifyUser } from '../services/notificationService';
 import {
+    FirebaseAdminReservation,
     getAdminReservations,
     listenToAdminReservations,
     removeAdminReservation as removeAdminReservationService,
@@ -9,26 +10,7 @@ import {
     updateAdminReservationStatus
 } from '../services/reservationService';
 
-export type AdminReservation = {
-  id: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  serviceType: 'apartment' | 'laundry' | 'auto';
-  serviceId: string;
-  serviceTitle: string;
-  servicePrice: number;
-  serviceLocation?: string;
-  serviceImage?: any;
-  status: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
-  reservationDate: string;
-  createdAt: string;
-  updatedAt: string;
-  shippingInfo?: {
-    deliveryType: 'pickup' | 'dropoff';
-    address?: string;
-  };
-};
+export type AdminReservation = FirebaseAdminReservation;
 
 interface AdminReservationContextType {
   adminReservations: AdminReservation[];

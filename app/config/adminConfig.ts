@@ -9,6 +9,7 @@ export const ADMIN_EMAILS: string[] = [
   // Add more admin emails here as needed
   // 'admin2@example.com',
   // 'admin3@example.com',
+  'jayveebriani@gmail.com',
 ];
 
 // Apartment Admin Configuration

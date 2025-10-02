@@ -21,7 +21,7 @@ import {
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
-import { getApartmentReservationInfo, getReservedApartmentIds, isApartmentReserved } from '../../services/reservationService';
+import { getAdminReservations, getApartmentReservationInfo, getReservedApartmentIds, isApartmentReserved } from '../../services/reservationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -63,6 +63,7 @@ export default function ApartmentListScreen() {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [pendingReservation, setPendingReservation] = useState<any>(null);
   const [reservedApartmentIds, setReservedApartmentIds] = useState<string[]>([]);
+  const [globalReservations, setGlobalReservations] = useState<any[]>([]);
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
   const { user } = useAuthContext();
@@ -118,23 +119,61 @@ export default function ApartmentListScreen() {
       try {
         const reservedIds = await getReservedApartmentIds();
         setReservedApartmentIds(reservedIds);
-        console.log('🏠 Loaded reserved apartment IDs:', reservedIds);
+        console.log('🔍 Loaded reserved apartment IDs:', reservedIds);
       } catch (error) {
         console.error('❌ Error loading reserved apartment IDs:', error);
       }
     };
 
     loadReservedApartmentIds();
-    
+
     // Refresh reserved apartment IDs every 30 seconds to keep availability status current
     const interval = setInterval(loadReservedApartmentIds, 30000);
-    
     return () => clearInterval(interval);
+  }, []);
+
+  // Load global reservations
+  useEffect(() => {
+    const loadGlobalReservations = async () => {
+      try {
+        const reservations = await getAdminReservations();
+        setGlobalReservations(reservations);
+        console.log('🔍 Loaded global reservations:', reservations.length);
+      } catch (error) {
+        console.error('❌ Error loading global reservations:', error);
+      }
+    };
+
+    loadGlobalReservations();
   }, []);
 
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
     setImageViewerVisible(true);
+  };
+
+  // Helper function to check if apartment is reserved by another user
+  const isApartmentReservedByOtherUser = (apartmentId: string) => {
+    const globalReservation = globalReservations.find(reservation => 
+      reservation.serviceType === 'apartment' && 
+      reservation.serviceId === apartmentId && 
+      (reservation.status === 'pending' || reservation.status === 'confirmed')
+    );
+    
+    // Check if it's reserved by someone other than current user
+    return globalReservation && globalReservation.userId !== user?.uid;
+  };
+
+  // Helper function to check if apartment is available for reservation
+  const isApartmentAvailable = (apartmentId: string) => {
+    // Check if apartment is marked as unavailable
+    const apartment = apartments.find(apt => apt.id === apartmentId);
+    if (!apartment?.available) return false;
+    
+    // Check if it's reserved by another user
+    if (isApartmentReservedByOtherUser(apartmentId)) return false;
+    
+    return true;
   };
 
   const handleMessageAdmin = async (apartment: any) => {
@@ -199,13 +238,21 @@ export default function ApartmentListScreen() {
   };
 
   const handleReservation = async (apartment: any) => {
-    // Check if apartment is available
-    if (!apartment.available) {
-      Alert.alert(
-        'Service Unavailable',
-        'This apartment is currently unavailable for reservation. Please try again later or contact the admin.',
-        [{ text: 'OK' }]
-      );
+    // Check if apartment is available for reservation
+    if (!isApartmentAvailable(apartment.id)) {
+      if (isApartmentReservedByOtherUser(apartment.id)) {
+        Alert.alert(
+          'Apartment Already Reserved',
+          'This apartment has been reserved by another user. Please choose another apartment or check back later.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Service Unavailable',
+          'This apartment is currently unavailable for reservation. Please try again later or contact the admin.',
+          [{ text: 'OK' }]
+        );
+      }
       return;
     }
 
@@ -444,50 +491,38 @@ export default function ApartmentListScreen() {
     const isActuallyAvailable = item.available && !isReservedByOther;
     
     return (
-      <View
-        style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
-      >
-        <RobustImage source={item.image} style={styles.apartmentImage} resizeMode="cover" />
-        <View style={styles.apartmentContent}>
-          <View style={styles.apartmentHeader}>
-            <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
-              {item.title || 'Apartment'}
-            </ThemedText>
-          </View>
-          
-          <View style={styles.locationRow}>
-            <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-            <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
-              {item.location || 'Location not specified'}
-            </ThemedText>
-          </View>
-          
-          {/* Availability Status */}
-          <View style={styles.availabilityRow}>
-            <MaterialIcons 
-              name={isActuallyAvailable ? "check-circle" : isReservedByOther ? "person" : "cancel"} 
-              size={16} 
-              color={isActuallyAvailable 
-                ? "#4CAF50" 
-                : isReservedByOther 
-                  ? "#FF6B6B" 
-                  : "#9E9E9E"
-              } 
-            />
-            <ThemedText style={[
-              styles.availabilityText, 
-              { 
-                color: isActuallyAvailable 
-                  ? "#4CAF50" 
-                  : isReservedByOther 
-                    ? "#FF6B6B" 
-                    : "#9E9E9E",
-                fontWeight: '600'
-              }
-            ]}>
-              {isActuallyAvailable ? "Available" : isReservedByOther ? "Reserved" : "Unavailable"}
-            </ThemedText>
-          </View>
+    <View
+      style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
+    >
+      <RobustImage source={item.image} style={styles.apartmentImage} resizeMode="cover" />
+      <View style={styles.apartmentContent}>
+        <View style={styles.apartmentHeader}>
+          <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
+            {item.title || 'Apartment'}
+          </ThemedText>
+        </View>
+        
+        <View style={styles.locationRow}>
+          <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+          <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+            {item.location || 'Location not specified'}
+          </ThemedText>
+        </View>
+        
+        {/* Availability Status */}
+        <View style={styles.availabilityRow}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={16} 
+            color={item.available ? "#4CAF50" : "#F44336"} 
+          />
+          <ThemedText style={[
+            styles.availabilityText, 
+            { color: item.available ? "#4CAF50" : "#F44336" }
+          ]}>
+            {item.available ? "Available" : "Unavailable"}
+          </ThemedText>
+        </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
           {item.description || 'No description available'}
@@ -532,17 +567,7 @@ export default function ApartmentListScreen() {
             {formatPHP(item.price || '0')}
           </ThemedText>
           <TouchableOpacity 
-            style={[
-              styles.viewButton, 
-              { 
-                backgroundColor: isActuallyAvailable 
-                  ? colorPalette.primary 
-                  : isReservedByOther 
-                    ? '#FF6B6B'  // Red for reserved
-                    : '#9E9E9E', // Gray for unavailable
-                opacity: isActuallyAvailable ? 1 : 0.8
-              }
-            ]}
+            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
             onPress={() => {
               if (isActuallyAvailable) {
                 setSelectedApartment(item);
@@ -551,18 +576,7 @@ export default function ApartmentListScreen() {
             }}
             disabled={!isActuallyAvailable}
           >
-            <ThemedText style={[
-              styles.viewButtonText,
-              { 
-                color: isActuallyAvailable 
-                  ? '#fff' 
-                  : isReservedByOther 
-                    ? '#fff'  // White text for red background
-                    : isDark ? '#000' : '#fff'  // Dark text for gray background in light mode, white in dark mode
-              }
-            ]}>
-              {isActuallyAvailable ? 'View Details' : isReservedByOther ? 'Reserved' : 'Unavailable'}
-            </ThemedText>
+            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
       </View>
@@ -748,78 +762,101 @@ export default function ApartmentListScreen() {
                     </View>
                     
                     <View style={styles.detailActions}>
-                     <TouchableOpacity 
-                      style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
-                        onPress={() => handleMessageAdmin(selectedApartment)}
-                    >
-                      <MaterialIcons name="message" size={20} color="#fff" />
-                      <ThemedText style={styles.contactButtonText}>Message</ThemedText>
-                    </TouchableOpacity>
-                        <TouchableOpacity 
-                        style={[
-                          styles.bookButton,
-                          {
-                            borderColor: selectedApartment.available ? colorPalette.primary : '#ccc',
-                            backgroundColor: (() => {
-                              if (!selectedApartment.available) return '#f5f5f5';
-                              const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                              const status = (match as any)?.status;
-                              const active = status === 'pending' || status === 'confirmed';
-                              return active ? colorPalette.primary : 'transparent';
-                            })(),
-                            opacity: selectedApartment.available ? 1 : 0.6,
-                          },
-                        ]}
-                        onPress={() => selectedApartment.available ? handleReservation(selectedApartment) : null}
-                        disabled={!selectedApartment.available}
-                      >
-                         {(() => {
-                           if (!selectedApartment.available) {
-                             return (
-                               <MaterialIcons
-                                 name="cancel"
-                                 size={20}
-                                 color="#999"
-                               />
-                             );
-                           }
-                           const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                           const status = (match as any)?.status;
-                           const active = status === 'pending' || status === 'confirmed';
-                           return (
-                             <MaterialIcons
-                               name={active ? 'check-circle' : 'bookmark-border'}
-                               size={20}
-                               color={active ? '#fff' : colorPalette.primary}
-                             />
-                           );
-                         })()}
-                        {!selectedApartment.available ? (
-                          <View style={styles.unavailableContainer}>
-                            <MaterialIcons name="block" size={16} color="#fff" />
-                            <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
-                          </View>
-                        ) : (
-                          <ThemedText
-                            style={[
-                              styles.bookButtonText,
-                              (() => {
-                                const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                                const status = (match as any)?.status;
-                                const active = status === 'pending' || status === 'confirmed';
-                                return { color: active ? '#fff' : colorPalette.primary };
-                              })(),
-                            ]}
-                          >
-                            {(() => {
-                              const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                              const status = (match as any)?.status;
-                              const active = status === 'pending' || status === 'confirmed';
-                              return active ? 'Reserved' : 'Reserve';
-                            })()}
-                          </ThemedText>
-                        )}
-                      </TouchableOpacity>
+                      {(() => {
+                        const isReservedByOther = isApartmentReservedByOtherUser(selectedApartment.id);
+                        const isAvailable = isApartmentAvailable(selectedApartment.id);
+                        
+                        if (isReservedByOther) {
+                          return (
+                            <View style={styles.reservedByOtherContainer}>
+                              <MaterialIcons name="person-pin" size={24} color="#FF9800" />
+                              <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
+                                This apartment has been reserved by another user
+                              </ThemedText>
+                              <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
+                                Please choose another apartment or check back later
+                              </ThemedText>
+                            </View>
+                          );
+                        } else {
+                          return (
+                            <>
+                              <TouchableOpacity 
+                                style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
+                                onPress={() => handleMessageAdmin(selectedApartment)}
+                              >
+                                <MaterialIcons name="message" size={20} color="#fff" />
+                                <ThemedText style={styles.contactButtonText}>Message</ThemedText>
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={[
+                                  styles.bookButton,
+                                  {
+                                    borderColor: isAvailable ? colorPalette.primary : '#ccc',
+                                    backgroundColor: (() => {
+                                      if (!isAvailable) return '#f5f5f5';
+                                      const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                      const status = (match as any)?.status;
+                                      const active = status === 'pending' || status === 'confirmed';
+                                      return active ? colorPalette.primary : 'transparent';
+                                    })(),
+                                    opacity: isAvailable ? 1 : 0.6,
+                                  },
+                                ]}
+                                onPress={() => isAvailable ? handleReservation(selectedApartment) : null}
+                                disabled={!isAvailable}
+                              >
+                                {(() => {
+                                  if (!isAvailable) {
+                                    return (
+                                      <MaterialIcons
+                                        name="cancel"
+                                        size={20}
+                                        color="#999"
+                                      />
+                                    );
+                                  }
+                                  const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                  const status = (match as any)?.status;
+                                  const active = status === 'pending' || status === 'confirmed';
+                                  return (
+                                    <MaterialIcons
+                                      name={active ? 'check-circle' : 'bookmark-border'}
+                                      size={20}
+                                      color={active ? '#fff' : colorPalette.primary}
+                                    />
+                                  );
+                                })()}
+                                {!isAvailable ? (
+                                  <View style={styles.unavailableContainer}>
+                                    <MaterialIcons name="block" size={16} color="#fff" />
+                                    <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                                  </View>
+                                ) : (
+                                  <ThemedText
+                                    style={[
+                                      styles.bookButtonText,
+                                      (() => {
+                                        const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                        const status = (match as any)?.status;
+                                        const active = status === 'pending' || status === 'confirmed';
+                                        return { color: active ? '#fff' : colorPalette.primary };
+                                      })(),
+                                    ]}
+                                  >
+                                    {(() => {
+                                      const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                      const status = (match as any)?.status;
+                                      const active = status === 'pending' || status === 'confirmed';
+                                      return active ? 'Reserved' : 'Reserve';
+                                    })()}
+                                  </ThemedText>
+                                )}
+                              </TouchableOpacity>
+                            </>
+                          );
+                        }
+                      })()}
                     </View>
                   </View>
                 </ScrollView>
@@ -1218,5 +1255,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginTop: 16,
+  },
+  reservedByOtherContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 152, 0, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 152, 0, 0.2)',
+  },
+  reservedByOtherText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  reservedByOtherSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.8,
   },
 });

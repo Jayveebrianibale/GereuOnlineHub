@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { getAdminPaymentSettings } from '../services/adminPaymentService';
 import { PaymentData, createPayment, verifyPayment } from '../services/paymentService';
 import { formatPHP } from '../utils/currency';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -44,6 +45,7 @@ export function PaymentModal({
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [step, setStep] = useState<'payment' | 'verification' | 'success'>('payment');
+  const [adminPaymentSettings, setAdminPaymentSettings] = useState<any>(null);
 
   const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount;
   const remainingAmount = fullAmount - downPaymentAmount;
@@ -54,6 +56,7 @@ export function PaymentModal({
 
   useEffect(() => {
     if (visible) {
+      loadAdminPaymentSettings();
       initializePayment();
     } else {
       // Reset state when modal closes
@@ -61,8 +64,18 @@ export function PaymentModal({
       setStep('payment');
       setLoading(false);
       setVerifying(false);
+      setAdminPaymentSettings(null);
     }
   }, [visible]);
+
+  const loadAdminPaymentSettings = async () => {
+    try {
+      const settings = await getAdminPaymentSettings();
+      setAdminPaymentSettings(settings);
+    } catch (error) {
+      console.error('Failed to load admin payment settings:', error);
+    }
+  };
 
   const initializePayment = async () => {
     try {
@@ -186,12 +199,7 @@ export function PaymentModal({
           referenceNumber={payment.referenceNumber || ''}
           gcashNumber={payment.gcashNumber || ''}
           dueDate={payment.dueDate}
-          onCopyReference={() => {
-            Alert.alert('Reference Copied', 'Reference number copied to clipboard');
-          }}
-          onOpenGCash={() => {
-            console.log('Opening GCash app');
-          }}
+          adminQRCode={adminPaymentSettings?.qrCodeBase64}
         />
       )}
 

@@ -1,5 +1,6 @@
 import { get, ref, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
+import { getAdminPaymentSettings } from './adminPaymentService';
 
 export interface PaymentData {
   id: string;
@@ -63,7 +64,17 @@ export async function createPayment(
   try {
     const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount;
     const referenceNumber = generateReferenceNumber();
-    const gcashNumber = '+639123456789'; // Default GCash number - should be configurable
+    
+    // Fetch admin's GCash information from payment settings
+    let gcashNumber = '+639123456789'; // Default fallback
+    try {
+      const adminSettings = await getAdminPaymentSettings();
+      if (adminSettings?.gcashNumber) {
+        gcashNumber = adminSettings.gcashNumber;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch admin payment settings, using default GCash number:', error);
+    }
     
     const paymentData: PaymentData = {
       id: `payment_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,

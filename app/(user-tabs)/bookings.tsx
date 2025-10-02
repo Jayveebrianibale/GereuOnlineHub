@@ -264,19 +264,42 @@ export default function Bookings() {
   const getPrice = (item: any) => {
     const value = item?.servicePrice ?? item?.price ?? 0;
     const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
+    if (!Number.isFinite(n)) return 0;
+    
+    // For apartments, subtract the down payment to show remaining balance
+    if (item?.serviceType === 'apartment' || item?.type === 'Apartment Rental') {
+      const downPayment = calculateDownPayment(n, 'apartment');
+      return n - downPayment; // Return remaining balance
+    }
+    
+    return n; // For laundry and auto, return full amount
   };
 
   const accepted = useMemo(() => {
     const apartments = (apartmentsSorted || [])
       .filter((i: any) => isAccepted(i?.status))
-      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Apartment Rental' as const }));
+      .map((i: any) => ({ 
+        id: i.id, 
+        title: i.serviceTitle || i.title, 
+        amount: getPrice({ ...i, serviceType: 'apartment' }), 
+        type: 'Apartment Rental' as const 
+      }));
     const laundry = (laundrySorted || [])
       .filter((i: any) => isAccepted(i?.status))
-      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Laundry Service' as const }));
+      .map((i: any) => ({ 
+        id: i.id, 
+        title: i.serviceTitle || i.title, 
+        amount: getPrice({ ...i, serviceType: 'laundry' }), 
+        type: 'Laundry Service' as const 
+      }));
     const auto = (autoSorted || [])
       .filter((i: any) => isAccepted(i?.status))
-      .map((i: any) => ({ id: i.id, title: i.serviceTitle || i.title, amount: getPrice(i), type: 'Car & Motor Parts' as const }));
+      .map((i: any) => ({ 
+        id: i.id, 
+        title: i.serviceTitle || i.title, 
+        amount: getPrice({ ...i, serviceType: 'auto' }), 
+        type: 'Car & Motor Parts' as const 
+      }));
     return { apartments, laundry, auto };
   }, [apartmentsSorted, laundrySorted, autoSorted]);
 
@@ -380,6 +403,29 @@ export default function Bookings() {
                      Down Payment: {formatPHP(calculateDownPayment((apt as any).servicePrice ?? (apt as any).price ?? 0, 'apartment'))}
                    </ThemedText>
                  </View>
+               )}
+               {/* Shipping Information */}
+               {(apt as any).shippingInfo && (
+                 <>
+                   <View style={styles.detailRow}>
+                     <MaterialIcons 
+                       name={(apt as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
+                       size={16} 
+                       color={subtitleColor} 
+                     />
+                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                       Delivery: {(apt as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                     </ThemedText>
+                   </View>
+                   {(apt as any).shippingInfo.deliveryType === 'dropoff' && (apt as any).shippingInfo.address && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Location: {(apt as any).shippingInfo.address}
+                       </ThemedText>
+                     </View>
+                   )}
+                 </>
                )}
              </View>
 
@@ -598,6 +644,29 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
+               {/* Shipping Information */}
+               {(svc as any).shippingInfo && (
+                 <>
+                   <View style={styles.detailRow}>
+                     <MaterialIcons 
+                       name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
+                       size={16} 
+                       color={subtitleColor} 
+                     />
+                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                       Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                     </ThemedText>
+                   </View>
+                   {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Location: {(svc as any).shippingInfo.address}
+                       </ThemedText>
+                     </View>
+                   )}
+                 </>
+               )}
              </View>
 
              {/* Booking Actions */}
@@ -682,7 +751,7 @@ export default function Bookings() {
           <View style={styles.totalCardFooter}>
             <MaterialIcons name="info-outline" size={16} color={subtitleColor} />
             <ThemedText style={[styles.totalNote, { color: subtitleColor }]}>
-              Payment due upon service completion
+              Apartment amounts show remaining balance after down payment
             </ThemedText>
           </View>
         </View>
@@ -708,7 +777,7 @@ export default function Bookings() {
                     <ThemedText style={[styles.professionalBillTitle, { color: textColor }]} numberOfLines={1}>
                       {i.title || 'Apartment Unit'}
                     </ThemedText>
-                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Monthly rental</ThemedText>
+                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Remaining balance (after down payment)</ThemedText>
                   </View>
                   <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
                     {formatPHP(i.amount)}
