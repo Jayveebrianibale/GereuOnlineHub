@@ -227,7 +227,7 @@ export default function ApartmentListScreen() {
       if (isApartmentReservedByOtherUser(apartment.id)) {
         Alert.alert(
           'Apartment Already Reserved',
-          'This apartment has been reserved by another user. Please choose another apartment or check back later.',
+          'This apartment has been reserved by someone else. Please choose another apartment or check back later.',
           [{ text: 'OK' }]
         );
       } else {
