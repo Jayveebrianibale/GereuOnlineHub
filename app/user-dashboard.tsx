@@ -391,42 +391,6 @@ export default function UserHome() {
     return () => clearInterval(interval);
   }, [autoServices.length, isUserInteracting.auto]);
 
-  const renderApartmentItem = ({ item }: { item: any }) => (
-    <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
-      <RobustImage 
-        source={item.image} 
-        style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
-        resizeMode="cover"
-      />
-      <View style={styles.itemOverlay}> 
-        <View style={[
-          styles.availabilityBadge, 
-          { 
-            backgroundColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
-            borderWidth: 1,
-            borderColor: isApartmentAvailable(item.id) ? '#059669' : '#DC2626',
-            shadowColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
-            shadowOpacity: 0.2,
-            shadowRadius: 2,
-            shadowOffset: { width: 0, height: 1 },
-            elevation: 2,
-          }
-        ]}> 
-          <MaterialIcons 
-            name={isApartmentAvailable(item.id) ? "check-circle" : "cancel"} 
-            size={14} 
-            color="#fff" 
-          />
-          <ThemedText style={[
-            styles.availabilityText,
-            { 
-              color: '#fff',
-              fontWeight: '600',
-            }
-          ]}>
-            {isApartmentAvailable(item.id) ? 'Available' : 'Unavailable'}
-          </ThemedText>
-        </View>
   const renderApartmentItem = ({ item }: { item: any }) => {
     // Check if apartment is reserved by any user
     const isReservedByOther = reservedApartmentIds.includes(item.id);

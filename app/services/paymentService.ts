@@ -140,9 +140,9 @@ export async function getUserPayments(userId: string): Promise<PaymentData[]> {
     }
     
     const payments = snapshot.val() || {};
-    return Object.values(payments)
-      .filter((payment: any) => payment.userId === userId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return (Object.values(payments) as PaymentData[])
+      .filter((payment) => payment.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (error) {
     console.error('❌ Failed to get user payments:', error);
     return [];
@@ -158,9 +158,9 @@ export async function getReservationPayments(reservationId: string): Promise<Pay
     }
     
     const payments = snapshot.val() || {};
-    return Object.values(payments)
-      .filter((payment: any) => payment.reservationId === reservationId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return (Object.values(payments) as PaymentData[])
+      .filter((payment) => payment.reservationId === reservationId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (error) {
     console.error('❌ Failed to get reservation payments:', error);
     return [];

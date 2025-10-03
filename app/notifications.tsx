@@ -8,15 +8,15 @@ import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    FlatList,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 

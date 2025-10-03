@@ -512,15 +512,15 @@ export default function ApartmentListScreen() {
         {/* Availability Status */}
         <View style={styles.availabilityRow}>
           <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
+            name={isActuallyAvailable ? "check-circle" : isReservedByOther ? "person" : "cancel"} 
             size={16} 
-            color={item.available ? "#4CAF50" : "#F44336"} 
+            color={isActuallyAvailable ? "#4CAF50" : isReservedByOther ? "#FF9800" : "#F44336"} 
           />
           <ThemedText style={[
             styles.availabilityText, 
-            { color: item.available ? "#4CAF50" : "#F44336" }
+            { color: isActuallyAvailable ? "#4CAF50" : isReservedByOther ? "#FF9800" : "#F44336" }
           ]}>
-            {item.available ? "Available" : "Unavailable"}
+            {isActuallyAvailable ? "Available" : isReservedByOther ? "Reserved" : "Unavailable"}
           </ThemedText>
         </View>
         
@@ -567,7 +567,17 @@ export default function ApartmentListScreen() {
             {formatPHP(item.price || '0')}
           </ThemedText>
           <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
+            style={[
+              styles.viewButton, 
+              { 
+                backgroundColor: isActuallyAvailable 
+                  ? colorPalette.primary 
+                  : isReservedByOther 
+                    ? '#FF9800'  // Orange for reserved
+                    : '#9E9E9E', // Gray for unavailable
+                opacity: isActuallyAvailable ? 1 : 0.8
+              }
+            ]}
             onPress={() => {
               if (isActuallyAvailable) {
                 setSelectedApartment(item);
@@ -576,7 +586,18 @@ export default function ApartmentListScreen() {
             }}
             disabled={!isActuallyAvailable}
           >
-            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
+            <ThemedText style={[
+              styles.viewButtonText,
+              { 
+                color: isActuallyAvailable 
+                  ? '#fff' 
+                  : isReservedByOther 
+                    ? '#fff'  // White text for orange background
+                    : isDark ? '#000' : '#fff'  // Dark text for gray background in light mode, white in dark mode
+              }
+            ]}>
+              {isActuallyAvailable ? 'View Details' : isReservedByOther ? 'Reserved' : 'Unavailable'}
+            </ThemedText>
           </TouchableOpacity>
         </View>
       </View>

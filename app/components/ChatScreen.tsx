@@ -6,18 +6,18 @@ import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -735,9 +735,6 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                   resizeMode="cover"
                 />
               </TouchableOpacity>
-              <ThemedText style={[styles.messageText, { color: textColor, marginTop: 8 }]}>
-                {item.text}
-              </ThemedText>
             </View>
           ) : isApartmentInquiry ? (
             <View style={styles.apartmentInquiryContainer}>
@@ -1370,8 +1367,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   imageMessageBubble: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    shadowOffset: { width: 0, height: 0 },
+    shadowColor: 'transparent',
   },
   imageContainer: {
     alignItems: 'center',
@@ -1379,8 +1382,8 @@ const styles = StyleSheet.create({
   messageImage: {
     width: 200,
     height: 150,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    borderWidth: 2,
+    borderColor: 'white',
   },
   inputContainer: {
     paddingHorizontal: 20,

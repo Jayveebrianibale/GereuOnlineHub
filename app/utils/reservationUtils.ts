@@ -60,6 +60,7 @@ export const mapServiceToAdminReservation = (
     servicePrice: parsePrice(service.price),
     serviceImage: service.image,
     status: 'pending' as const,
+    paymentStatus: 'unpaid' as const,
     reservationDate: new Date().toISOString(),
   };
 
