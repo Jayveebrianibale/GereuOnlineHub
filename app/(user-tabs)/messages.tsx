@@ -200,14 +200,22 @@ export default function MessagesScreen() {
               // Remove existing chat and add this one
               const filtered = acc.filter(chat => chat.chatId !== msg.chatId);
               
+              // Get consistent admin name from adminUsers array
+              const getAdminName = (email: string) => {
+                const admin = adminUsers.find(admin => admin.email === email);
+                return admin ? admin.name : 'Admin';
+              };
+
               const chatMessage = {
                 id: msg.id,
-                name: msg.senderEmail === currentUserEmail ? msg.recipientName || 'Admin' : msg.senderName || 'Admin',
+                name: msg.senderEmail === currentUserEmail ? 
+                  getAdminName(msg.recipientEmail || '') : 
+                  getAdminName(msg.senderEmail || ''),
                 lastMessage: msg.text,
                 time: messageTime,
                 avatar: msg.senderEmail === currentUserEmail ? 
-                  (msg.recipientName || 'A').charAt(0).toUpperCase() : 
-                  (msg.senderName || 'A').charAt(0).toUpperCase(),
+                  getAdminName(msg.recipientEmail || '').charAt(0).toUpperCase() : 
+                  getAdminName(msg.senderEmail || '').charAt(0).toUpperCase(),
                 unread: msg.senderEmail !== currentUserEmail, // Mark as unread if not sent by user
                 chatId: msg.chatId,
                 senderEmail: msg.senderEmail,
@@ -234,7 +242,7 @@ export default function MessagesScreen() {
     });
 
     return () => unsubscribe();
-  }, [currentUserEmail]);
+  }, [currentUserEmail, adminUsers]);
 
   // Fetch admin profile pictures from Firebase Database - independent of messages
   const fetchAdminProfilePictures = async () => {

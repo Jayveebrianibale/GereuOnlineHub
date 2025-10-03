@@ -174,12 +174,23 @@ export default function NotificationsScreen() {
 
   const getReservationMessage = (reservation: FirebaseUserReservation): string => {
     const serviceName = reservation.serviceTitle || 'Service';
+    const actionText = getActionText(reservation.serviceType);
+    
     switch (reservation.status) {
-      case 'pending': return `Your ${serviceName} reservation is pending approval`;
-      case 'confirmed': return `Your ${serviceName} reservation has been confirmed`;
-      case 'declined': return `Your ${serviceName} reservation has been declined`;
-      case 'cancelled': return `Your ${serviceName} reservation has been cancelled`;
-      default: return `Update for your ${serviceName} reservation`;
+      case 'pending': return `Your ${serviceName} ${actionText} is pending approval`;
+      case 'confirmed': return `Your ${serviceName} ${actionText} has been confirmed`;
+      case 'declined': return `Your ${serviceName} ${actionText} has been declined`;
+      case 'cancelled': return `Your ${serviceName} ${actionText} has been cancelled`;
+      default: return `Update for your ${serviceName} ${actionText}`;
+    }
+  };
+
+  const getActionText = (serviceType?: string): string => {
+    switch (serviceType) {
+      case 'laundry': return 'avail';
+      case 'auto': return 'avail';
+      case 'apartment': return 'reservation';
+      default: return 'reservation';
     }
   };
 

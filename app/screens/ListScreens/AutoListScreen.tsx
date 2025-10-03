@@ -108,7 +108,7 @@ export default function AutoListScreen() {
     if (!service.available) {
       Alert.alert(
         'Service Unavailable',
-        'This auto service is currently unavailable for reservation. Please try again later or contact the admin.',
+        'This auto service is currently unavailable for avail. Please try again later or contact the admin.',
         [{ text: 'OK' }]
       );
       return;
@@ -150,8 +150,8 @@ export default function AutoListScreen() {
         
         // Show success message and redirect to bookings
         Alert.alert(
-          'Reservation Successful!',
-          `You have successfully reserved ${service.title}. You can view your reservations in the Bookings tab.`,
+          'Avail Successful!',
+          `You have successfully availed ${service.title}. You can view your avails in the Bookings tab.`,
           [
             {
               text: 'View Bookings',
@@ -162,8 +162,8 @@ export default function AutoListScreen() {
       } catch (error) {
         console.error('Error reserving auto service:', error);
         Alert.alert(
-          'Reservation Failed',
-          'Sorry, we couldn\'t process your reservation. Please try again.',
+          'Avail Failed',
+          'Sorry, we couldn\'t process your avail. Please try again.',
           [{ text: 'OK' }]
         );
       }
@@ -171,15 +171,15 @@ export default function AutoListScreen() {
       try {
         await removeAutoReservation(service.id);
         Alert.alert(
-          'Reservation Cancelled',
-          'Your reservation has been cancelled.',
+          'Avail Cancelled',
+          'Your avail has been cancelled.',
           [{ text: 'OK' }]
         );
       } catch (error) {
         console.error('Error removing auto reservation:', error);
         Alert.alert(
           'Error',
-          'Failed to cancel reservation. Please try again.',
+          'Failed to cancel avail. Please try again.',
           [{ text: 'OK' }]
         );
       }

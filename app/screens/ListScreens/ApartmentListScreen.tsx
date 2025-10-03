@@ -21,7 +21,7 @@ import {
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
-import { getAdminReservations, getApartmentReservationInfo, getReservedApartmentIds, isApartmentReserved } from '../../services/reservationService';
+import { getAdminReservations } from '../../services/reservationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -62,7 +62,9 @@ export default function ApartmentListScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [pendingReservation, setPendingReservation] = useState<any>(null);
-  const [reservedApartmentIds, setReservedApartmentIds] = useState<string[]>([]);
+  const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'dropoff' | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [globalReservations, setGlobalReservations] = useState<any[]>([]);
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
@@ -113,39 +115,21 @@ export default function ApartmentListScreen() {
     fetchApartments();
   }, []);
 
-  // Load reserved apartment IDs
-  useEffect(() => {
-    const loadReservedApartmentIds = async () => {
-      try {
-        const reservedIds = await getReservedApartmentIds();
-        setReservedApartmentIds(reservedIds);
-        console.log('🔍 Loaded reserved apartment IDs:', reservedIds);
-      } catch (error) {
-        console.error('❌ Error loading reserved apartment IDs:', error);
-      }
-    };
-
-    loadReservedApartmentIds();
-
-    // Refresh reserved apartment IDs every 30 seconds to keep availability status current
-    const interval = setInterval(loadReservedApartmentIds, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load global reservations
+  // Load global reservations to check apartment availability
   useEffect(() => {
     const loadGlobalReservations = async () => {
       try {
-        const reservations = await getAdminReservations();
-        setGlobalReservations(reservations);
-        console.log('🔍 Loaded global reservations:', reservations.length);
+        const adminReservations = await getAdminReservations();
+        setGlobalReservations(adminReservations);
       } catch (error) {
-        console.error('❌ Error loading global reservations:', error);
+        console.error('Error loading global reservations:', error);
       }
     };
-
-    loadGlobalReservations();
-  }, []);
+    
+    if (apartments.length > 0) {
+      loadGlobalReservations();
+    }
+  }, [apartments]);
 
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -256,23 +240,6 @@ export default function ApartmentListScreen() {
       return;
     }
 
-    // Check if apartment is already reserved by another user
-    try {
-      const isReservedByOther = await isApartmentReserved(apartment.id);
-      if (isReservedByOther) {
-        const reservationInfo = await getApartmentReservationInfo(apartment.id);
-        Alert.alert(
-          'Apartment Already Reserved',
-          `This apartment has already been reserved by ${reservationInfo?.reservedBy || 'another user'}. Please choose a different apartment.`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking apartment reservation status:', error);
-      // Continue with reservation if we can't check status
-    }
-
     const isReserved = reservedApartments.some(a => (a as any).serviceId === apartment.id);
     if (!isReserved) {
       // Check if payment is required for apartment reservations
@@ -307,18 +274,6 @@ export default function ApartmentListScreen() {
 
   const processReservation = async (apartment: any) => {
     try {
-      // Final check: Ensure apartment is still available at reservation time
-      const isReservedByOther = await isApartmentReserved(apartment.id);
-      if (isReservedByOther) {
-        const reservationInfo = await getApartmentReservationInfo(apartment.id);
-        Alert.alert(
-          'Apartment No Longer Available',
-          `This apartment has been reserved by ${reservationInfo?.reservedBy || 'another user'} while you were processing your reservation. Please choose a different apartment.`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
       // Add to user reservations with pending status
       const apartmentWithStatus = { ...apartment, status: 'pending' as const };
       await reserveApartment(apartmentWithStatus);
@@ -485,12 +440,7 @@ export default function ApartmentListScreen() {
     return getImageSource(apartment.image);
   };
 
-  const renderApartmentItem = ({ item }: { item: any }) => {
-    // Check if apartment is reserved by any user
-    const isReservedByOther = reservedApartmentIds.includes(item.id);
-    const isActuallyAvailable = item.available && !isReservedByOther;
-    
-    return (
+  const renderApartmentItem = ({ item }: { item: any }) => (
     <View
       style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
     >
@@ -511,17 +461,60 @@ export default function ApartmentListScreen() {
         
         {/* Availability Status */}
         <View style={styles.availabilityRow}>
-          <MaterialIcons 
-            name={isActuallyAvailable ? "check-circle" : isReservedByOther ? "person" : "cancel"} 
-            size={16} 
-            color={isActuallyAvailable ? "#4CAF50" : isReservedByOther ? "#FF9800" : "#F44336"} 
-          />
-          <ThemedText style={[
-            styles.availabilityText, 
-            { color: isActuallyAvailable ? "#4CAF50" : isReservedByOther ? "#FF9800" : "#F44336" }
-          ]}>
-            {isActuallyAvailable ? "Available" : isReservedByOther ? "Reserved" : "Unavailable"}
-          </ThemedText>
+          {(() => {
+            const isReservedByOther = isApartmentReservedByOtherUser(item.id);
+            const isAvailable = isApartmentAvailable(item.id);
+            
+            if (isReservedByOther) {
+              return (
+                <>
+                  <MaterialIcons 
+                    name="person-pin" 
+                    size={16} 
+                    color="#FF9800" 
+                  />
+                  <ThemedText style={[
+                    styles.availabilityText, 
+                    { color: "#FF9800" }
+                  ]}>
+                    Reserved
+                  </ThemedText>
+                </>
+              );
+            } else if (isAvailable) {
+              return (
+                <>
+                  <MaterialIcons 
+                    name="check-circle" 
+                    size={16} 
+                    color="#4CAF50" 
+                  />
+                  <ThemedText style={[
+                    styles.availabilityText, 
+                    { color: "#4CAF50" }
+                  ]}>
+                    Available
+                  </ThemedText>
+                </>
+              );
+            } else {
+              return (
+                <>
+                  <MaterialIcons 
+                    name="cancel" 
+                    size={16} 
+                    color="#F44336" 
+                  />
+                  <ThemedText style={[
+                    styles.availabilityText, 
+                    { color: "#F44336" }
+                  ]}>
+                    Unavailable
+                  </ThemedText>
+                </>
+              );
+            }
+          })()}
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]}>
@@ -570,40 +563,22 @@ export default function ApartmentListScreen() {
             style={[
               styles.viewButton, 
               { 
-                backgroundColor: isActuallyAvailable 
-                  ? colorPalette.primary 
-                  : isReservedByOther 
-                    ? '#FF9800'  // Orange for reserved
-                    : '#9E9E9E', // Gray for unavailable
-                opacity: isActuallyAvailable ? 1 : 0.8
+                backgroundColor: isApartmentReservedByOtherUser(item.id) ? '#FF9800' : colorPalette.primary 
               }
             ]}
             onPress={() => {
-              if (isActuallyAvailable) {
-                setSelectedApartment(item);
-                setDetailModalVisible(true);
-              }
+              setSelectedApartment(item);
+              setDetailModalVisible(true);
             }}
-            disabled={!isActuallyAvailable}
           >
-            <ThemedText style={[
-              styles.viewButtonText,
-              { 
-                color: isActuallyAvailable 
-                  ? '#fff' 
-                  : isReservedByOther 
-                    ? '#fff'  // White text for orange background
-                    : isDark ? '#000' : '#fff'  // Dark text for gray background in light mode, white in dark mode
-              }
-            ]}>
-              {isActuallyAvailable ? 'View Details' : isReservedByOther ? 'Reserved' : 'Unavailable'}
+            <ThemedText style={styles.viewButtonText}>
+              {isApartmentReservedByOtherUser(item.id) ? 'View Info' : 'View Details'}
             </ThemedText>
           </TouchableOpacity>
         </View>
       </View>
     </View>
-    );
-  };
+  );
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
@@ -792,7 +767,7 @@ export default function ApartmentListScreen() {
                             <View style={styles.reservedByOtherContainer}>
                               <MaterialIcons name="person-pin" size={24} color="#FF9800" />
                               <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
-                                This apartment has been reserved by another user
+                                This apartment has been reserved by someone else.
                               </ThemedText>
                               <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
                                 Please choose another apartment or check back later

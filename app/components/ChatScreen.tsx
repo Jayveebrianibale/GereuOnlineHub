@@ -6,23 +6,23 @@ import { useRouter } from 'expo-router';
 import { equalTo, get, onValue, orderByChild, push, query, ref, update } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { isAdminEmail } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
-import { uploadImageToFirebaseWithRetry } from '../services/imageUploadService';
+import { convertAndStoreImageAsBase64 } from '../services/base64ImageService';
 import { notifyAdminByEmail, notifyUserByEmail } from '../services/notificationService';
 import { formatPHP } from '../utils/currency';
 
@@ -49,6 +49,7 @@ interface Message {
   senderName?: string;
   imageUrl?: string;
   image?: string; // For apartment inquiry images
+  base64Image?: string; // For base64 encoded images stored in RTDB
   messageType?: 'text' | 'image' | 'apartment_inquiry' | 'laundry_inquiry' | 'auto_inquiry';
   deletedFor?: string[]; // Array of user emails who have deleted this message
   readBy?: string[]; // Array of user emails who have read this message
@@ -342,31 +343,26 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     }
   }, [inputText, currentUserEmail, chatId, recipientEmail, recipientName, isLoading, isAdmin]);
 
-  // Send image function
+  // Send image function using base64 storage
   const sendImage = useCallback(async (imageUri: string) => {
     if (!currentUserEmail || isLoading) return;
 
     setIsLoading(true);
 
     try {
-      // Upload image to Firebase Storage
-      const uploadResult = await uploadImageToFirebaseWithRetry(imageUri, 'chat-images');
+      console.log('📸 Starting base64 image send process...');
       
-      const messageData = {
-        text: '📷 Image',
-        sender: isAdmin ? 'Admin' : 'User',
-        senderEmail: currentUserEmail,
-        timestamp: Date.now(),
-        chatId: chatId,
-        isAdmin: isAdmin,
-        recipientEmail: recipientEmail,
-        recipientName: recipientName,
-        senderName: isAdmin ? 'Admin' : currentUserEmail.split('@')[0],
-        imageUrl: uploadResult.url,
-        messageType: 'image',
-      };
-
-      await push(ref(db, 'messages'), messageData);
+      // Convert image to base64 and store in Firebase Realtime Database
+      const result = await convertAndStoreImageAsBase64(
+        imageUri,
+        chatId,
+        currentUserEmail,
+        recipientEmail,
+        '📷 Image',
+        0.8 // 80% quality
+      );
+      
+      console.log('✅ Base64 image sent successfully', { messageId: result.messageId });
       
       // Send push notification to recipient
       if (recipientEmail) {
@@ -380,7 +376,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             chatId: chatId,
             senderEmail: currentUserEmail,
             senderName: senderName,
-            messageId: (messageData as any).id || 'unknown',
+            messageId: result.messageId,
             messageType: 'image'
           };
 
@@ -412,7 +408,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       }
       
     } catch (error) {
-      console.error('Error sending image:', error);
+      console.error('Error sending base64 image:', error);
       Alert.alert('Error', 'Failed to send image. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
@@ -696,7 +692,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.senderEmail === currentUserEmail;
     const isMessageFromAdmin = item.isAdmin;
-    const isImageMessage = item.messageType === 'image' && item.imageUrl;
+    const isImageMessage = item.messageType === 'image' && (item.imageUrl || item.base64Image);
     const isApartmentInquiry = item.messageType === 'apartment_inquiry' && (item.image || item.imageUrl);
     const isLaundryInquiry = item.messageType === 'laundry_inquiry' && (item.image || item.imageUrl);
     const isAutoInquiry = item.messageType === 'auto_inquiry' && (item.image || item.imageUrl);
@@ -726,11 +722,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           {isImageMessage ? (
             <View style={styles.imageContainer}>
               <TouchableOpacity
-                onPress={() => handleImagePress(item.imageUrl!)}
+                onPress={() => handleImagePress(item.imageUrl || `data:image/jpeg;base64,${item.base64Image}`)}
                 activeOpacity={0.8}
               >
                 <Image
-                  source={{ uri: item.imageUrl }}
+                  source={{ 
+                    uri: item.imageUrl || `data:image/jpeg;base64,${item.base64Image}` 
+                  }}
                   style={styles.messageImage}
                   resizeMode="cover"
                 />

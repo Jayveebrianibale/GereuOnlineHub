@@ -11,11 +11,11 @@ import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, Touc
 import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 import {
-    cacheApartments,
-    cacheAutoServices,
-    cacheLaundryServices
+  cacheApartments,
+  cacheAutoServices,
+  cacheLaundryServices
 } from './services/dataCache';
-import { FirebaseUserReservation, getAdminReservations, getReservedApartmentIds, listenToUserReservations } from './services/reservationService';
+import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
 
 const colorPalette = {
@@ -49,7 +49,6 @@ export default function UserHome() {
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
-  const [reservedApartmentIds, setReservedApartmentIds] = useState<string[]>([]);
   const [globalReservations, setGlobalReservations] = useState<any[]>([]);
   
   // Search functionality
@@ -63,26 +62,6 @@ export default function UserHome() {
     if (user?.displayName) {
       setFirstName(user.displayName.split(' ')[0]);
     }
-  }, []);
-
-  // Load reserved apartment IDs
-  useEffect(() => {
-    const loadReservedApartmentIds = async () => {
-      try {
-        const reservedIds = await getReservedApartmentIds();
-        setReservedApartmentIds(reservedIds);
-        console.log('🏠 Loaded reserved apartment IDs:', reservedIds);
-      } catch (error) {
-        console.error('❌ Error loading reserved apartment IDs:', error);
-      }
-    };
-
-    loadReservedApartmentIds();
-    
-    // Refresh reserved apartment IDs every 30 seconds to keep availability status current
-    const interval = setInterval(loadReservedApartmentIds, 30000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   // Notifications badge listener
@@ -391,60 +370,42 @@ export default function UserHome() {
     return () => clearInterval(interval);
   }, [autoServices.length, isUserInteracting.auto]);
 
-  const renderApartmentItem = ({ item }: { item: any }) => {
-    // Check if apartment is reserved by any user
-    const isReservedByOther = reservedApartmentIds.includes(item.id);
-    const isActuallyAvailable = item.available && !isReservedByOther;
-    
-    return (
-      <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
-        <RobustImage 
-          source={item.image} 
-          style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
-          resizeMode="cover"
-        />
-        <View style={styles.itemOverlay}> 
-          <View style={[
-            styles.availabilityBadge, 
+  const renderApartmentItem = ({ item }: { item: any }) => (
+    <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+      <RobustImage 
+        source={item.image} 
+        style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
+        resizeMode="cover"
+      />
+      <View style={styles.itemOverlay}> 
+        <View style={[
+          styles.availabilityBadge, 
+          { 
+            backgroundColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
+            borderWidth: 1,
+            borderColor: isApartmentAvailable(item.id) ? '#059669' : '#DC2626',
+            shadowColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
+            shadowOpacity: 0.2,
+            shadowRadius: 2,
+            shadowOffset: { width: 0, height: 1 },
+            elevation: 2,
+          }
+        ]}> 
+          <MaterialIcons 
+            name={isApartmentAvailable(item.id) ? "check-circle" : "cancel"} 
+            size={14} 
+            color="#fff" 
+          />
+          <ThemedText style={[
+            styles.availabilityText,
             { 
-              backgroundColor: isActuallyAvailable 
-                ? '#10B981'  // Green for available
-                : isReservedByOther 
-                  ? '#FF6B6B'  // Red for reserved
-                  : '#9E9E9E', // Gray for unavailable
-              borderWidth: 1,
-              borderColor: isActuallyAvailable 
-                ? '#059669' 
-                : isReservedByOther 
-                  ? '#E53E3E' 
-                  : '#757575',
-              shadowColor: isActuallyAvailable 
-                ? '#10B981' 
-                : isReservedByOther 
-                  ? '#FF6B6B' 
-                  : '#9E9E9E',
-              shadowOpacity: 0.3,
-              shadowRadius: 3,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 3,
+              color: '#fff',
+              fontWeight: '600',
             }
-          ]}> 
-            <MaterialIcons 
-              name={isActuallyAvailable ? "check-circle" : isReservedByOther ? "person" : "cancel"} 
-              size={14} 
-              color="#fff" 
-            />
-            <ThemedText style={[
-              styles.availabilityText,
-              { 
-                color: '#fff',
-                fontWeight: '700',
-                fontSize: 11,
-              }
-            ]}>
-              {isActuallyAvailable ? 'Available' : isReservedByOther ? 'Reserved' : 'Unavailable'}
-            </ThemedText>
-          </View>
+          ]}>
+            {isApartmentAvailable(item.id) ? 'Available' : 'Unavailable'}
+          </ThemedText>
+        </View>
         <View style={styles.priceTag}> 
           <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
         </View>
@@ -467,44 +428,17 @@ export default function UserHome() {
           ))}
         </View>
         <TouchableOpacity 
-          style={[
-            styles.bookButton, 
-            { 
-              backgroundColor: isActuallyAvailable 
-                ? colorPalette.primary 
-                : isReservedByOther 
-                  ? '#FF6B6B'  // Red for reserved
-                  : '#9E9E9E', // Gray for unavailable
-              opacity: isActuallyAvailable ? 1 : 0.8
-            }
-          ]} 
-          onPress={() => {
-            if (isActuallyAvailable) {
-              router.push({
-                pathname: '/apartment-list',
-                params: { selectedApartmentId: item.id }
-              });
-            }
-          }}
-          disabled={!isActuallyAvailable}
+          style={[styles.bookButton, { backgroundColor: colorPalette.primary }]} 
+          onPress={() => router.push({
+            pathname: '/apartment-list',
+            params: { selectedApartmentId: item.id }
+          })}
         >
-          <ThemedText style={[
-            styles.bookButtonText,
-            { 
-              color: isActuallyAvailable 
-                ? '#fff' 
-                : isReservedByOther 
-                  ? '#fff'  // White text for red background
-                  : isDark ? '#000' : '#fff'  // Dark text for gray background in light mode, white in dark mode
-            }
-          ]}>
-            {isActuallyAvailable ? 'View Details' : isReservedByOther ? 'Reserved' : 'Unavailable'}
-          </ThemedText>
+          <ThemedText style={styles.bookButtonText}>View Details</ThemedText>
         </TouchableOpacity>
       </View>
     </View>
-    );
-  };
+  );
 
   const renderServiceItem = ({ item, serviceType }: { item: any, serviceType: string }) => (
     <View style={[styles.serviceItem, { width: itemWidth, marginRight: itemSpacing, backgroundColor: cardBgColor }]}> 
@@ -627,42 +561,28 @@ export default function UserHome() {
                 {searchResults.length > 0 ? (
                   <FlatList
                     data={searchResults}
-                    renderItem={({ item }) => {
-                      const isReservedByOther = item.type === 'apartment' && reservedApartmentIds.includes(item.id);
-                      const isActuallyAvailable = item.type === 'apartment' ? (item.available && !isReservedByOther) : item.available;
-                      
-                      return (
-                        <TouchableOpacity
-                          style={[
-                            styles.searchResultItem, 
-                            { 
-                              backgroundColor: cardBgColor, 
-                              borderColor,
-                              opacity: isActuallyAvailable ? 1 : 0.6
-                            }
-                          ]}
-                          onPress={() => {
-                            if (isActuallyAvailable) {
-                              if (item.type === 'apartment') {
-                                router.push({
-                                  pathname: '/apartment-list',
-                                  params: { selectedApartmentId: item.id }
-                                });
-                              } else if (item.type === 'laundry') {
-                                router.push({
-                                  pathname: '/laundry-list',
-                                  params: { selectedServiceId: item.id, serviceType: 'laundry' }
-                                });
-                              } else if (item.type === 'auto') {
-                                router.push({
-                                  pathname: '/auto-list',
-                                  params: { selectedServiceId: item.id, serviceType: 'auto' }
-                                });
-                              }
-                            }
-                          }}
-                          disabled={!isActuallyAvailable}
-                        >
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[styles.searchResultItem, { backgroundColor: cardBgColor, borderColor }]}
+                        onPress={() => {
+                          if (item.type === 'apartment') {
+                            router.push({
+                              pathname: '/apartment-list',
+                              params: { selectedApartmentId: item.id }
+                            });
+                          } else if (item.type === 'laundry') {
+                            router.push({
+                              pathname: '/laundry-list',
+                              params: { selectedServiceId: item.id, serviceType: 'laundry' }
+                            });
+                          } else if (item.type === 'auto') {
+                            router.push({
+                              pathname: '/auto-list',
+                              params: { selectedServiceId: item.id, serviceType: 'auto' }
+                            });
+                          }
+                        }}
+                      >
                         <View style={styles.searchResultContent}>
                           <MaterialIcons 
                             name={
@@ -677,16 +597,14 @@ export default function UserHome() {
                               {item.title}
                             </ThemedText>
                             <ThemedText style={[styles.searchResultSubtitle, { color: subtitleColor }]}>
-                              {item.type === 'apartment' ? 
-                                (isReservedByOther ? 'Reserved by another user' : item.location) :
+                              {item.type === 'apartment' ? item.location :
                                item.type === 'laundry' ? item.turnaround : item.duration}
                             </ThemedText>
                           </View>
                           <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />
                         </View>
                       </TouchableOpacity>
-                      );
-                    }}
+                    )}
                     keyExtractor={(item, index) => `${item.type}-${item.id}-${index}`}
                     showsVerticalScrollIndicator={false}
                     scrollEnabled={false}

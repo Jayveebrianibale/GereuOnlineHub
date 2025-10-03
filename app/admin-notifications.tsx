@@ -8,15 +8,15 @@ import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    FlatList,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { AdminReservation, useAdminReservation } from './contexts/AdminReservationContext';
 
@@ -156,18 +156,28 @@ export default function AdminNotificationsScreen() {
   const getReservationMessage = (reservation: AdminReservation): string => {
     const userName = reservation.userName || 'Unknown User';
     const serviceTitle = reservation.serviceTitle || 'Service';
+    const actionText = getActionText(reservation.serviceType);
     
     switch (reservation.status) {
       case 'pending':
-        return `${userName} has requested a reservation for ${serviceTitle}`;
+        return `${userName} has requested a ${actionText} for ${serviceTitle}`;
       case 'confirmed':
-        return `Reservation for ${serviceTitle} by ${userName} has been confirmed`;
+        return `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} for ${serviceTitle} by ${userName} has been confirmed`;
       case 'declined':
-        return `Reservation for ${serviceTitle} by ${userName} has been declined`;
+        return `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} for ${serviceTitle} by ${userName} has been declined`;
       case 'cancelled':
-        return `Reservation for ${serviceTitle} by ${userName} has been cancelled`;
+        return `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} for ${serviceTitle} by ${userName} has been cancelled`;
       default:
-        return `Reservation for ${serviceTitle} by ${userName} has been updated`;
+        return `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} for ${serviceTitle} by ${userName} has been updated`;
+    }
+  };
+
+  const getActionText = (serviceType?: string): string => {
+    switch (serviceType) {
+      case 'laundry': return 'avail';
+      case 'auto': return 'avail';
+      case 'apartment': return 'reservation';
+      default: return 'reservation';
     }
   };
 

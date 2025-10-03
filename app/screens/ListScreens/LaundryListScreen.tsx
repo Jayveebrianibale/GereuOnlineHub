@@ -111,7 +111,7 @@ export default function LaundryListScreen() {
     if (!service.available) {
       Alert.alert(
         'Service Unavailable',
-        'This laundry service is currently unavailable for reservation. Please try again later or contact the admin.',
+        'This laundry service is currently unavailable for avail. Please try again later or contact the admin.',
         [{ text: 'OK' }]
       );
       return;
@@ -214,8 +214,8 @@ export default function LaundryListScreen() {
       
       // Show success message and redirect to bookings
       Alert.alert(
-        'Reservation Successful!',
-        `You have successfully reserved ${selectedLaundryService.title} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}). You can view your reservations in the Bookings tab.`,
+        'Avail Successful!',
+        `You have successfully availed ${selectedLaundryService.title} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}). You can view your avails in the Bookings tab.`,
         [
           {
             text: 'View Bookings',
@@ -226,8 +226,8 @@ export default function LaundryListScreen() {
     } catch (error) {
       console.error('Error reserving laundry service:', error);
       Alert.alert(
-        'Reservation Failed',
-        'Sorry, we couldn\'t process your reservation. Please try again.',
+        'Avail Failed',
+        'Sorry, we couldn\'t process your avail. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {

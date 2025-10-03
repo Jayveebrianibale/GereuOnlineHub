@@ -501,7 +501,7 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="event" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   Reserved
+                   Avail
                  </ThemedText>
                </View>
                {svc.status && (
@@ -621,7 +621,7 @@ export default function Bookings() {
                <View style={styles.detailRow}>
                  <MaterialIcons name="event" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   Reserved
+                   Avail
                  </ThemedText>
                </View>
                {svc.status && (
