@@ -46,9 +46,10 @@ export const mapServiceToAdminReservation = (
   serviceType: 'apartment' | 'laundry' | 'auto',
   userId: string,
   userName: string,
-  userEmail: string
+  userEmail: string,
+  additionalData?: any
 ) => {
-  console.log('Mapping service to admin reservation:', { service, serviceType, userId, userName, userEmail });
+  console.log('Mapping service to admin reservation:', { service, serviceType, userId, userName, userEmail, additionalData });
   
   const baseReservation = {
     userId,
@@ -60,6 +61,7 @@ export const mapServiceToAdminReservation = (
     servicePrice: parsePrice(service.price),
     serviceImage: service.image,
     status: 'pending' as const,
+    paymentStatus: 'unpaid' as const,
     reservationDate: new Date().toISOString(),
   };
 
@@ -70,6 +72,16 @@ export const mapServiceToAdminReservation = (
       serviceLocation: service.location,
     };
     console.log('Mapped admin apartment reservation:', result);
+    return result;
+  }
+
+  // Add home service details if provided
+  if (additionalData) {
+    const result = {
+      ...baseReservation,
+      ...additionalData,
+    };
+    console.log('Mapped admin service reservation with additional data:', result);
     return result;
   }
 

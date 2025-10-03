@@ -21,6 +21,12 @@ export type FirebaseAdminReservation = {
     deliveryType: 'pickup' | 'dropoff';
     address?: string;
   };
+  // Additional properties for auto services
+  homeService?: boolean;
+  shopService?: boolean;
+  problemDescription?: string;
+  address?: string;
+  contactNumber?: string;
 };
 
 export type FirebaseUserReservation = {
@@ -40,6 +46,12 @@ export type FirebaseUserReservation = {
     deliveryType: 'pickup' | 'dropoff';
     address?: string;
   };
+  // Additional properties for auto services
+  homeService?: boolean;
+  shopService?: boolean;
+  problemDescription?: string;
+  address?: string;
+  contactNumber?: string;
 };
 
 // Admin Reservation Functions

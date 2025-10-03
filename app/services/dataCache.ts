@@ -1,6 +1,7 @@
 import { Apartment } from './apartmentService';
 import { AutoService } from './autoService';
 import { LaundryService } from './laundryService';
+import { MotorPart } from './motorPartsService';
 
 // Cache interface
 interface CacheData<T> {
@@ -98,7 +99,8 @@ export const dataCache = new DataCache();
 export const CACHE_KEYS = {
   APARTMENTS: 'apartments',
   AUTO_SERVICES: 'auto_services',
-  LAUNDRY_SERVICES: 'laundry_services'
+  LAUNDRY_SERVICES: 'laundry_services',
+  MOTOR_PARTS: 'motor_parts'
 } as const;
 
 // Helper functions for specific data types
@@ -126,11 +128,20 @@ export const getCachedLaundryServices = (): LaundryService[] | null => {
   return dataCache.get<LaundryService>(CACHE_KEYS.LAUNDRY_SERVICES);
 };
 
+export const cacheMotorParts = (parts: MotorPart[]): void => {
+  dataCache.set(CACHE_KEYS.MOTOR_PARTS, parts);
+};
+
+export const getCachedMotorParts = (): MotorPart[] | null => {
+  return dataCache.get<MotorPart>(CACHE_KEYS.MOTOR_PARTS);
+};
+
 // Check if we have cached data
 export const hasCachedData = (): boolean => {
   return dataCache.has(CACHE_KEYS.APARTMENTS) || 
          dataCache.has(CACHE_KEYS.AUTO_SERVICES) || 
-         dataCache.has(CACHE_KEYS.LAUNDRY_SERVICES);
+         dataCache.has(CACHE_KEYS.LAUNDRY_SERVICES) ||
+         dataCache.has(CACHE_KEYS.MOTOR_PARTS);
 };
 
 // Clear all cached data

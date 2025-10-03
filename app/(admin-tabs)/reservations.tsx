@@ -429,8 +429,8 @@ export default function ReservationsScreen() {
                     </View>
                   )}
                   
-                  {/* Shipping Information for All Services */}
-                  {(reservation as any).shippingInfo && (
+                  {/* Shipping Information for Laundry Services Only */}
+                  {reservation.serviceType === 'laundry' && (reservation as any).shippingInfo && (
                     <>
                       <View style={styles.detailRow}>
                         <MaterialIcons 
@@ -453,6 +453,58 @@ export default function ReservationsScreen() {
                             { color: textColor }
                           ]}>
                             Address: {(reservation as any).shippingInfo.address}
+                          </ThemedText>
+                        </View>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Home Service Information */}
+                  {(reservation as any).homeService && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <MaterialIcons name="home" size={16} color="#10B981" />
+                        <ThemedText style={[
+                          styles.detailText, 
+                          { color: '#10B981', fontWeight: '600' }
+                        ]}>
+                          Home Service
+                        </ThemedText>
+                      </View>
+                      {console.log('🏠 Home service reservation data:', reservation)}
+                      
+                      {(reservation as any).problemDescription && (
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="build" size={16} color={subtitleColor} />
+                          <ThemedText style={[
+                            styles.detailText, 
+                            { color: textColor }
+                          ]}>
+                            Problem: {(reservation as any).problemDescription}
+                          </ThemedText>
+                        </View>
+                      )}
+                      
+                      {(reservation as any).address && (
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="location-on" size={16} color={subtitleColor} />
+                          <ThemedText style={[
+                            styles.detailText, 
+                            { color: textColor }
+                          ]}>
+                            Service Address: {(reservation as any).address}
+                          </ThemedText>
+                        </View>
+                      )}
+                      
+                      {(reservation as any).contactNumber && (
+                        <View style={styles.detailRow}>
+                          <MaterialIcons name="phone" size={16} color={subtitleColor} />
+                          <ThemedText style={[
+                            styles.detailText, 
+                            { color: textColor }
+                          ]}>
+                            Contact: {(reservation as any).contactNumber}
                           </ThemedText>
                         </View>
                       )}

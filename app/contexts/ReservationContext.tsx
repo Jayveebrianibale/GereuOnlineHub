@@ -7,7 +7,7 @@ import {
     saveUserReservation,
     updateUserReservationStatus
 } from '../services/reservationService';
-import { mapServiceToReservation } from '../utils/reservationUtils';
+import { mapServiceToReservation, parsePrice } from '../utils/reservationUtils';
 import { useAuthContext } from './AuthContext';
 
 export type Apartment = {
@@ -99,11 +99,27 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
         setError(null);
         const reservations = await getUserReservations(user.uid);
         console.log('🔄 Loaded user reservations:', reservations.length, 'reservations');
+        console.log('🔄 All reservations details:', reservations.map(r => ({ 
+          id: r.id, 
+          serviceType: r.serviceType, 
+          serviceTitle: r.serviceTitle,
+          serviceId: r.serviceId 
+        })));
         
         // Separate reservations by type
         const apartments = reservations.filter(r => r.serviceType === 'apartment') as Apartment[];
         const laundry = reservations.filter(r => r.serviceType === 'laundry') as LaundryService[];
         const auto = reservations.filter(r => r.serviceType === 'auto') as AutoService[];
+        
+        console.log('🔄 Filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
+        console.log('🔄 Auto reservations details:', auto.map(a => ({ 
+          id: a.id, 
+          serviceTitle: a.serviceTitle, 
+          serviceType: a.serviceType,
+          serviceId: (a as any).serviceId,
+          homeService: (a as any).homeService,
+          shopService: (a as any).shopService
+        })));
         
         setReservedApartments(apartments);
         setReservedLaundryServices(laundry);
@@ -121,9 +137,25 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     // Set up real-time listener
     const unsubscribe = listenToUserReservations(user.uid, (reservations) => {
       console.log('📡 Real-time user reservation update:', reservations.length, 'reservations');
+      console.log('📡 Real-time all reservations:', reservations.map(r => ({ 
+        id: r.id, 
+        serviceType: r.serviceType, 
+        serviceTitle: r.serviceTitle,
+        serviceId: r.serviceId 
+      })));
       const apartments = reservations.filter(r => r.serviceType === 'apartment') as Apartment[];
       const laundry = reservations.filter(r => r.serviceType === 'laundry') as LaundryService[];
       const auto = reservations.filter(r => r.serviceType === 'auto') as AutoService[];
+      
+      console.log('📡 Real-time filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
+      console.log('📡 Real-time auto reservations details:', auto.map(a => ({ 
+        id: a.id, 
+        serviceTitle: a.serviceTitle, 
+        serviceType: a.serviceType,
+        serviceId: (a as any).serviceId,
+        homeService: (a as any).homeService,
+        shopService: (a as any).shopService
+      })));
       
       setReservedApartments(apartments);
       setReservedLaundryServices(laundry);
@@ -191,10 +223,20 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       const isReserved = reservedLaundryServices.some(s => (s as any).serviceId === service.id);
       if (isReserved) return;
 
+      // Use the service data directly to preserve all information
       const reservationData = {
-        ...mapServiceToReservation(service, 'laundry'),
-        shippingInfo: service.shippingInfo // Include shipping information
+        serviceType: 'laundry',
+        serviceId: service.id,
+        serviceTitle: service.title,
+        servicePrice: parsePrice(service.price),
+        serviceImage: service.image,
+        status: service.status || 'pending' as const,
+        reservationDate: new Date().toISOString(),
+        // Preserve all additional data from the service (including shipping info)
+        ...service,
       };
+      
+      console.log('🚀 Saving user laundry reservation with all data:', reservationData);
       await saveUserReservation(user.uid, reservationData);
       await notifyAdmins('New laundry reservation', `${service.title} reserved`, {
         serviceType: 'laundry', serviceId: service.id, userId: user.uid,
@@ -238,8 +280,27 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
       if (isReserved) return;
 
-      const reservationData = mapServiceToReservation(service, 'auto');
-      await saveUserReservation(user.uid, reservationData);
+      // Create reservation data with proper structure
+      const reservationData = {
+        serviceType: 'auto' as const,
+        serviceId: service.id,
+        serviceTitle: service.title,
+        servicePrice: parsePrice(service.price),
+        serviceImage: service.image,
+        status: service.status || 'pending' as const,
+        reservationDate: new Date().toISOString(),
+        // Preserve additional data as separate properties
+        homeService: service.homeService || false,
+        shopService: service.shopService || false,
+        problemDescription: service.problemDescription,
+        address: service.address,
+        contactNumber: service.contactNumber,
+      };
+      
+      console.log('🚀 Saving user auto reservation with all data:', reservationData);
+      console.log('🚀 User ID:', user.uid);
+      const reservationId = await saveUserReservation(user.uid, reservationData);
+      console.log('🚀 Auto reservation saved with ID:', reservationId);
       await notifyAdmins('New auto reservation', `${service.title} reserved`, {
         serviceType: 'auto', serviceId: service.id, userId: user.uid,
       });

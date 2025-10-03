@@ -242,6 +242,17 @@ export default function Bookings() {
   const apartmentsSorted = sortNewestFirst(reservedApartments as any[]);
   const laundrySorted = sortNewestFirst(reservedLaundryServices as any[]);
   const autoSorted = sortNewestFirst(reservedAutoServices as any[]);
+  
+  console.log('📱 Bookings screen - Reserved services:');
+  console.log('📱 Apartments:', reservedApartments.length, apartmentsSorted.length);
+  console.log('📱 Laundry:', reservedLaundryServices.length, laundrySorted.length);
+  console.log('📱 Auto:', reservedAutoServices.length, autoSorted.length);
+  console.log('📱 Auto services details:', reservedAutoServices.map(a => ({ 
+    id: a.id, 
+    serviceTitle: a.serviceTitle, 
+    serviceType: a.serviceType,
+    serviceId: (a as any).serviceId 
+  })));
 
   // Debug: Log the sorting results
   console.log('Original apartments:', reservedApartments.map(r => ({ 
@@ -404,29 +415,6 @@ export default function Bookings() {
                    </ThemedText>
                  </View>
                )}
-               {/* Shipping Information */}
-               {(apt as any).shippingInfo && (
-                 <>
-                   <View style={styles.detailRow}>
-                     <MaterialIcons 
-                       name={(apt as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                       size={16} 
-                       color={subtitleColor} 
-                     />
-                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                       Delivery: {(apt as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
-                     </ThemedText>
-                   </View>
-                   {(apt as any).shippingInfo.deliveryType === 'dropoff' && (apt as any).shippingInfo.address && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Location: {(apt as any).shippingInfo.address}
-                       </ThemedText>
-                     </View>
-                   )}
-                 </>
-               )}
              </View>
 
              {/* Booking Actions */}
@@ -524,8 +512,8 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
-               {/* Shipping Information */}
-               {(svc as any).shippingInfo && (
+               {/* Shipping Information - Only for Laundry Services (Never for Auto Services) */}
+               {(svc as any).shippingInfo && (svc as any).serviceType === 'laundry' && !(svc as any).homeService && !(svc as any).shopService && (
                  <>
                    <View style={styles.detailRow}>
                      <MaterialIcons 
@@ -644,24 +632,43 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
-               {/* Shipping Information */}
-               {(svc as any).shippingInfo && (
+               
+               {/* Home Service Information */}
+               {(svc as any).homeService && (
                  <>
                    <View style={styles.detailRow}>
-                     <MaterialIcons 
-                       name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                       size={16} 
-                       color={subtitleColor} 
-                     />
-                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                       Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                     <MaterialIcons name="home" size={16} color="#10B981" />
+                     <ThemedText style={[
+                       styles.detailText, 
+                       { color: '#10B981', fontWeight: '600' }
+                     ]}>
+                       Home Service
                      </ThemedText>
                    </View>
-                   {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
+                   
+                   {(svc as any).problemDescription && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="build" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Problem: {(svc as any).problemDescription}
+                       </ThemedText>
+                     </View>
+                   )}
+                   
+                   {(svc as any).address && (
                      <View style={styles.detailRow}>
                        <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                        <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Location: {(svc as any).shippingInfo.address}
+                         Service Address: {(svc as any).address}
+                       </ThemedText>
+                     </View>
+                   )}
+                   
+                   {(svc as any).contactNumber && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="phone" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Contact: {(svc as any).contactNumber}
                        </ThemedText>
                      </View>
                    )}
