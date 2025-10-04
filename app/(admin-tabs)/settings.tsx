@@ -646,15 +646,9 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView style={styles.helpContent}>
-              {/* Quick Actions */}
-              <View style={styles.quickActions}>
-                <TouchableOpacity style={[styles.quickActionCard, { borderColor }]}
-                  onPress={() => { setHelpModalVisible(false); router.push('/admin-dashboard' as any); }}>
-                  <MaterialIcons name="dashboard" size={22} color={colorPalette.primary} />
-                  <ThemedText style={[styles.quickActionText, { color: textColor }]}>Go to Dashboard</ThemedText>
-                  <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.quickActionCard, { borderColor }]}
+               {/* Quick Actions */}
+               <View style={styles.quickActions}>
+                 <TouchableOpacity style={[styles.quickActionCard, { borderColor }]}
                   onPress={() => { setHelpModalVisible(false); router.push('/(admin-tabs)/reservations' as any); }}>
                   <MaterialIcons name="event-available" size={22} color={colorPalette.primary} />
                   <ThemedText style={[styles.quickActionText, { color: textColor }]}>Manage Reservations</ThemedText>
@@ -706,31 +700,35 @@ export default function SettingsScreen() {
               </View>
 
               {/* Contact Support */}
-              <View style={[styles.contactCard, { borderColor }] }>
+              <View style={[styles.contactCard, { backgroundColor: cardBgColor, borderColor }]}>
                 <View style={styles.contactHeader}>
-                  <View style={[styles.contactIcon, { backgroundColor: colorPalette.primaryLight }]}>
-                    <MaterialIcons name="support-agent" size={20} color={colorPalette.darkest} />
+                  <View style={[styles.contactIcon, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="support-agent" size={24} color="#fff" />
                   </View>
-                  <ThemedText style={[styles.contactTitle, { color: textColor }]}>Contact Support</ThemedText>
+                  <View style={styles.contactTitleContainer}>
+                    <ThemedText style={[styles.contactTitle, { color: textColor }]}>Contact Support</ThemedText>
+                    <ThemedText style={[styles.contactSubtitle, { color: subtitleColor }]}>
+                      Get help with admin tasks
+                    </ThemedText>
+                  </View>
                 </View>
-                <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                  Need help with admin tasks? Our support team is here to assist you.
-                </ThemedText>
-                <View style={styles.contactActions}>
-                  <TouchableOpacity 
-                    style={[styles.contactButton, { borderColor }]} 
-                    onPress={() => Linking.openURL('mailto:support@gereuonlinehub.com?subject=Admin%20Support%20Request')}
-                  >
-                    <MaterialIcons name="email" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.contactButtonText, { color: colorPalette.primary }]}>Email Support</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.contactButton, { borderColor }]}
-                    onPress={() => Linking.openURL('https://docs.gereuonlinehub.com')}
-                  >
-                    <MaterialIcons name="library-books" size={18} color={colorPalette.primary} />
-                    <ThemedText style={[styles.contactButtonText, { color: colorPalette.primary }]}>View Docs</ThemedText>
-                  </TouchableOpacity>
+                
+                <View style={[styles.phoneCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                  <View style={styles.phoneIconContainer}>
+                    <MaterialIcons name="phone" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.phoneInfo}>
+                    <ThemedText style={[styles.phoneLabel, { color: subtitleColor }]}>Call Support</ThemedText>
+                    <TouchableOpacity 
+                      style={styles.phoneNumberContainer}
+                      onPress={() => Linking.openURL('tel:09100870754')}
+                    >
+                      <ThemedText style={[styles.phoneNumber, { color: colorPalette.primary }]}>
+                        09100870754
+                      </ThemedText>
+                      <MaterialIcons name="call" size={20} color={colorPalette.primary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </ScrollView>
@@ -1245,6 +1243,56 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 14,
+  },
+  contactTitleContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactSubtitle: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  phoneCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  phoneIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colorPalette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  phoneInfo: {
+    flex: 1,
+  },
+  phoneLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  phoneNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  phoneNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   contactActions: {
     flexDirection: 'row',

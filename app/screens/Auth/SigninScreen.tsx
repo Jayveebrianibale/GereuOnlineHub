@@ -188,11 +188,11 @@ export default function SigninScreen() {
       let errorMessage = 'Sign in failed. Please try again.';
 
       if (error.code === 'auth/user-not-found') {
-        errorMessage = '❌ Email not found. Please check your email address.';
+        errorMessage = 'Wrong email';
         setEmailError(true);
         setPasswordError(false);
       } else if (error.code === 'auth/wrong-password') {
-        errorMessage = '❌ Wrong password. Please check your password.';
+        errorMessage = 'Wrong password';
         setEmailError(false);
         setPasswordError(true);
       } else if (error.code === 'auth/invalid-email') {
@@ -216,7 +216,8 @@ export default function SigninScreen() {
         setPasswordError(false);
       } else if (error.code === 'auth/invalid-credential') {
         // For newer Firebase versions, this could be either email or password
-        errorMessage = '❌ Wrong email or password. Please check your credentials.';
+        // Since we can't distinguish, we'll show a generic message for both
+        errorMessage = 'Invalid email or password';
         setEmailError(true);
         setPasswordError(true);
       } else {

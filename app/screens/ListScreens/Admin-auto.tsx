@@ -48,7 +48,6 @@ const emptyAutoService = {
   description: '',
   services: [],
   includes: [],
-  warranty: '',
   available: true,
 };
 
@@ -60,6 +59,8 @@ const emptyMotorPart = {
   image: '',
   description: '',
   category: 'engine',
+  brand: '',
+  model: '',
   available: true,
 };
 
@@ -744,6 +745,83 @@ export default function AdminAutoManagement() {
                 </View>
               )}
 
+              {/* Category Field - Only for Parts */}
+              {activeTab === 'parts' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Category</ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentPart.category}
+                    onChangeText={(text) => setCurrentPart({ ...currentPart, category: text })}
+                    placeholder="e.g. engine, brake, electrical, body, accessories"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+              )}
+
+              {/* Brand Field - Only for Parts */}
+              {activeTab === 'parts' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Brand</ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentPart.brand}
+                    onChangeText={(text) => setCurrentPart({ ...currentPart, brand: text })}
+                    placeholder="e.g. Yamaha, Honda, Brembo, K&N"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+              )}
+
+              {/* Model Field - Only for Parts */}
+              {activeTab === 'parts' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Model</ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentPart.model}
+                    onChangeText={(text) => setCurrentPart({ ...currentPart, model: text })}
+                    placeholder="e.g. R15 V3, CBR150R, Universal"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+              )}
+
+              {/* Availability - Only for Parts */}
+              {activeTab === 'parts' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Availability</ThemedText>
+                  <View style={styles.radioGroup}>
+                    <TouchableOpacity
+                      style={styles.radioButton}
+                      onPress={() => setCurrentPart({ ...currentPart, available: true })}
+                    >
+                      <MaterialIcons
+                        name={currentPart.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={currentPart.available ? colorPalette.primary : textColor}
+                      />
+                      <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Available
+                      </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.radioButton, { marginLeft: 16 }]}
+                      onPress={() => setCurrentPart({ ...currentPart, available: false })}
+                    >
+                      <MaterialIcons
+                        name={!currentPart.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={!currentPart.available ? dangerColor : textColor}
+                      />
+                      <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Unavailable
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {/* Duration Field - Only for Services */}
               {activeTab === 'services' && (
                 <View style={styles.formGroup}>
@@ -780,19 +858,6 @@ export default function AdminAutoManagement() {
                 </View>
               )}
 
-              {/* Warranty Field - Only for Services */}
-              {activeTab === 'services' && (
-                <View style={styles.formGroup}>
-                  <ThemedText style={[styles.label, { color: textColor }]}>Warranty</ThemedText>
-                  <TextInput
-                    style={[styles.input, { color: textColor, borderColor }]}
-                    value={currentService.warranty}
-                    onChangeText={(text) => setCurrentService({ ...currentService, warranty: text })}
-                    placeholder="e.g. 6 months warranty"
-                    placeholderTextColor={subtitleColor}
-                  />
-                </View>
-              )}
 
               <View style={styles.formGroup}>
                 <ThemedText style={[styles.label, { color: textColor }]}>Image*</ThemedText>

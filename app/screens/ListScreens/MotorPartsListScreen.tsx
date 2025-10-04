@@ -5,7 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
 import { AUTO_ADMIN } from '../../config/adminConfig';
@@ -63,6 +64,13 @@ export default function MotorPartsListScreen() {
   const [motorParts, setMotorParts] = useState<MotorPart[]>([]);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [homeServiceModalVisible, setHomeServiceModalVisible] = useState(false);
+  const [selectedPartForBooking, setSelectedPartForBooking] = useState<MotorPart | null>(null);
+  const [problemDescription, setProblemDescription] = useState('');
+  const [address, setAddress] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [preferredTime, setPreferredTime] = useState('');
+  const [customAlertVisible, setCustomAlertVisible] = useState(false);
   
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -105,6 +113,62 @@ export default function MotorPartsListScreen() {
     } catch (e) {
       console.error('Error sending interest message:', e);
     }
+  };
+
+  const handleHomeServiceBooking = async () => {
+    // Simple validation
+    const fields = { problemDescription, address, contactNumber, preferredTime };
+    const missingFields = Object.entries(fields).filter(([_, value]) => !value.trim());
+    
+    if (missingFields.length > 0) {
+      Alert.alert('⚠️ Missing Information', 'Please fill in all required fields.');
+      return;
+    }
+
+    const part = selectedPartForBooking;
+    if (!part) return;
+
+    try {
+      // Simple home service data
+      const homeServiceData = {
+        partId: part.id,
+        partName: part.name,
+        partPrice: part.price,
+        partCategory: part.category,
+        homeService: true,
+        problemDescription: problemDescription.trim(),
+        address: address.trim(),
+        contactNumber: contactNumber.trim(),
+        preferredTime: preferredTime.trim(),
+        status: 'pending',
+        userId: user?.uid,
+        userEmail: user?.email,
+        userName: user?.displayName,
+        timestamp: new Date().toISOString()
+      };
+
+      // Save to database
+      const bookingRef = push(ref(db, 'homeServiceBookings'));
+      await set(bookingRef, homeServiceData);
+
+      // Reset form
+      setProblemDescription('');
+      setAddress('');
+      setContactNumber('');
+      setPreferredTime('');
+      setHomeServiceModalVisible(false);
+      setSelectedPartForBooking(null);
+
+      // Show custom alert
+      setCustomAlertVisible(true);
+    } catch (error) {
+      Alert.alert('❌ Failed', 'Please try again.');
+    }
+  };
+
+  const handleHomeServicePress = (part: MotorPart) => {
+    setSelectedPartForBooking(part);
+    setHomeServiceModalVisible(true);
   };
 
   // Handle navigation parameters
@@ -437,17 +501,132 @@ export default function MotorPartsListScreen() {
                     
                     <View style={styles.detailActions}>
                       <TouchableOpacity 
-                        style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} 
+                        style={[styles.actionButton, { backgroundColor: colorPalette.primary }]} 
                         onPress={() => handleMessageAdmin(selectedPart)}
                       >
                         <MaterialIcons name="message" size={20} color="#fff" />
-                        <ThemedText style={styles.contactButtonText}>Message</ThemedText>
+                        <ThemedText style={styles.actionButtonText}>Message</ThemedText>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.actionButton, { backgroundColor: colorPalette.primaryDark }]} 
+                        onPress={() => handleHomeServicePress(selectedPart)}
+                      >
+                        <MaterialIcons name="home" size={20} color="#fff" />
+                        <ThemedText style={styles.actionButtonText}>Home Service</ThemedText>
                       </TouchableOpacity>
                     </View>
                   </View>
                 </ScrollView>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Home Service Details Modal */}
+      <Modal
+        visible={homeServiceModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setHomeServiceModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
+            <ScrollView contentContainerStyle={styles.homeServiceScrollContent}>
+              <View style={styles.homeServiceHeader}>
+                <ThemedText type="title" style={[styles.homeServiceTitle, { color: textColor }]}>
+                  Home Service Details
+                </ThemedText>
+                <TouchableOpacity onPress={() => setHomeServiceModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ThemedText style={[styles.homeServiceSubtitle, { color: subtitleColor }]}>
+                Please provide the following information for home service:
+              </ThemedText>
+              
+              <View style={styles.homeServiceForm}>
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>
+                    What is the problem? *
+                  </ThemedText>
+                  <TextInput
+                    style={[styles.textArea, { color: textColor, borderColor }]}
+                    value={problemDescription}
+                    onChangeText={setProblemDescription}
+                    placeholder="Describe the issue with your vehicle..."
+                    placeholderTextColor={subtitleColor}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+                
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>
+                    Preferred Time *
+                  </ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={preferredTime}
+                    onChangeText={setPreferredTime}
+                    placeholder="e.g., 2:00 PM, 9:30 AM, 6:15 PM"
+                    placeholderTextColor={subtitleColor}
+                  />
+                  <ThemedText style={[styles.helperText, { color: subtitleColor }]}>
+                    Please specify the exact time you want the service (e.g., 2:00 PM)
+                  </ThemedText>
+                </View>
+                
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>
+                    Address *
+                  </ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={address}
+                    onChangeText={setAddress}
+                    placeholder="Enter your complete address..."
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+                
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>
+                    Contact Number *
+                  </ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={contactNumber}
+                    onChangeText={setContactNumber}
+                    placeholder="Enter your contact number..."
+                    placeholderTextColor={subtitleColor}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+              
+              <View style={styles.homeServiceActions}>
+                <TouchableOpacity 
+                  style={[styles.cancelButton, { borderColor }]}
+                  onPress={() => setHomeServiceModalVisible(false)}
+                >
+                  <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                    Cancel
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.confirmButton, { backgroundColor: colorPalette.primary }]}
+                  onPress={handleHomeServiceBooking}
+                >
+                  <ThemedText style={styles.confirmButtonText}>
+                    Confirm
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -458,6 +637,13 @@ export default function MotorPartsListScreen() {
         imageSource={selectedImage || ''}
         onClose={() => setImageViewerVisible(false)}
         title="Motor Part Image"
+      />
+      
+      {/* Custom Success Alert */}
+      <CustomAlert
+        visible={customAlertVisible}
+        title="Avail Successfully"
+        onClose={() => setCustomAlertVisible(false)}
       />
     </ThemedView>
   );
@@ -793,7 +979,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: normalize(12),
   },
-  contactButton: {
+  actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -803,10 +989,101 @@ const styles = StyleSheet.create({
     paddingHorizontal: normalize(isTablet ? 20 : 16),
     minHeight: normalize(isTablet ? 48 : 44),
   },
-  contactButtonText: {
+  actionButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: normalize(isTablet ? 16 : 14),
     marginLeft: normalize(8),
+  },
+  homeServiceModal: {
+    width: '100%',
+    borderRadius: normalize(isTablet ? 20 : 16),
+    maxHeight: '90%',
+    overflow: 'hidden',
+    maxWidth: isTablet ? wp(80) : wp(95),
+  },
+  homeServiceScrollContent: {
+    paddingBottom: normalize(20),
+  },
+  homeServiceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: normalize(isTablet ? 24 : 20),
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  homeServiceTitle: {
+    fontSize: normalize(isTablet ? 20 : 18),
+    fontWeight: '600',
+    flex: 1,
+    marginRight: normalize(12),
+  },
+  homeServiceSubtitle: {
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginBottom: normalize(24),
+    textAlign: 'center',
+    paddingHorizontal: normalize(20),
+  },
+  homeServiceForm: {
+    marginBottom: normalize(24),
+    paddingHorizontal: normalize(20),
+  },
+  formGroup: {
+    marginBottom: normalize(20),
+  },
+  label: {
+    fontSize: normalize(isTablet ? 16 : 14),
+    fontWeight: '600',
+    marginBottom: normalize(8),
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: normalize(8),
+    padding: normalize(12),
+    fontSize: normalize(isTablet ? 16 : 14),
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: normalize(8),
+    padding: normalize(12),
+    fontSize: normalize(isTablet ? 16 : 14),
+    height: normalize(100),
+    textAlignVertical: 'top',
+  },
+  helperText: {
+    fontSize: normalize(12),
+    marginTop: normalize(4),
+    fontStyle: 'italic',
+  },
+  homeServiceActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: normalize(12),
+    paddingHorizontal: normalize(20),
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    borderRadius: normalize(8),
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: normalize(isTablet ? 16 : 14),
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    borderRadius: normalize(8),
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: normalize(isTablet ? 16 : 14),
+    fontWeight: '600',
   },
 });

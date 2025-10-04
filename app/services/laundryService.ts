@@ -14,6 +14,7 @@ export interface LaundryService {
   description: string;
   services: string[];
   pickup: string;
+  delivery: string;
   minOrder: string;
   available: boolean;
 }

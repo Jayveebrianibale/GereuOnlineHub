@@ -27,6 +27,7 @@ export type FirebaseAdminReservation = {
   problemDescription?: string;
   address?: string;
   contactNumber?: string;
+  preferredTime?: string;
 };
 
 export type FirebaseUserReservation = {
@@ -52,6 +53,7 @@ export type FirebaseUserReservation = {
   problemDescription?: string;
   address?: string;
   contactNumber?: string;
+  preferredTime?: string;
 };
 
 // Admin Reservation Functions
@@ -64,6 +66,7 @@ export const saveAdminReservation = async (reservation: Omit<FirebaseAdminReserv
     const reservationData: FirebaseAdminReservation = {
       ...reservation,
       id: reservationId,
+      status: reservation.status || 'pending', // Ensure status is always set
       paymentStatus: reservation.paymentStatus || 'unpaid',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

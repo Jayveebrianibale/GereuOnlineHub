@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
 import { AUTO_ADMIN } from '../../config/adminConfig';
@@ -14,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-    AutoService,
-    getAutoServices,
+  AutoService,
+  getAutoServices,
 } from '../../services/autoService';
 import {
-    cacheAutoServices,
-    cacheMotorParts,
-    getCachedAutoServices,
-    getCachedMotorParts
+  cacheAutoServices,
+  cacheMotorParts,
+  getCachedAutoServices,
+  getCachedMotorParts
 } from '../../services/dataCache';
 import {
-    MotorPart,
-    getMotorParts,
+  MotorPart,
+  getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -75,6 +76,8 @@ export default function AutoListScreen() {
   const [problemDescription, setProblemDescription] = useState('');
   const [address, setAddress] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+  const [preferredTime, setPreferredTime] = useState('');
+  const [customAlertVisible, setCustomAlertVisible] = useState(false);
   
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -173,38 +176,23 @@ export default function AutoListScreen() {
   };
 
   const handleDirectBooking = async (service: any) => {
-    // Check if service is available
     if (!service.available) {
-      Alert.alert(
-        'Service Unavailable',
-        'This auto service is currently unavailable for avail. Please try again later or contact the admin.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('🚫 Unavailable', 'This service is currently unavailable.');
       return;
     }
 
     const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
-        // Add to user reservations with pending status and shop service info
-        const serviceWithStatus = { 
-          id: service.id,
-          title: service.title,
-          price: service.price,
-          image: service.image,
-          description: service.description,
-          duration: service.duration,
-          warranty: service.warranty,
-          services: service.services,
-          includes: service.includes,
-          available: service.available,
-          category: service.category,
+        // Simple shop service data
+        const serviceData = { 
+          ...service,
           status: 'pending' as const,
-          serviceType: 'auto', // Keep as 'auto' for the context
-          shopService: true // Mark as shop service with a different property
+          serviceType: 'auto',
+          shopService: true
         };
-        console.log('🚀 Saving user auto reservation (shop service) with all data:', serviceWithStatus);
-        await reserveAutoService(serviceWithStatus);
+        
+        await reserveAutoService(serviceData);
         
         // Create admin reservation
         if (user) {
@@ -233,88 +221,54 @@ export default function AutoListScreen() {
         setDetailModalVisible(false);
         setSelectedAutoService(null);
         
-        // Show success message and redirect to bookings
-        Alert.alert(
-          'Avail Successful!',
-          `You have successfully availed ${service.title}. You can view your avails in the Bookings tab.`,
-          [
-            {
-              text: 'View Bookings',
-              onPress: () => router.push('/(user-tabs)/bookings')
-            }
-          ]
-        );
+        // Show custom alert
+        setCustomAlertVisible(true);
       } catch (error) {
-        console.error('Error reserving auto service:', error);
-        Alert.alert(
-          'Avail Failed',
-          'Sorry, we couldn\'t process your avail. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('❌ Failed', 'Please try again.');
       }
     } else {
+      // Cancel existing booking
       try {
         await removeAutoReservation(service.id);
-        Alert.alert(
-          'Avail Cancelled',
-          'Your avail has been cancelled.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.');
       } catch (error) {
-        console.error('Error removing auto reservation:', error);
-        Alert.alert(
-          'Error',
-          'Failed to cancel avail. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('❌ Failed', 'Could not cancel booking.');
       }
     }
   };
 
   const handleHomeServiceBooking = async () => {
-    if (!problemDescription.trim() || !address.trim() || !contactNumber.trim()) {
-      Alert.alert('Missing Information', 'Please fill in all required fields.');
+    // Simple validation
+    const fields = { problemDescription, address, contactNumber, preferredTime };
+    const missingFields = Object.entries(fields).filter(([_, value]) => !value.trim());
+    
+    if (missingFields.length > 0) {
+      Alert.alert('⚠️ Missing Information', 'Please fill in all required fields.');
       return;
     }
 
     const service = selectedServiceForBooking;
-    if (!service) return;
-
-    // Check if service is available
-    if (!service.available) {
-      Alert.alert(
-        'Service Unavailable',
-        'This auto service is currently unavailable for reservation. Please try again later or contact the admin.',
-        [{ text: 'OK' }]
-      );
+    if (!service?.available) {
+      Alert.alert('🚫 Service Unavailable', 'This service is currently unavailable.');
       return;
     }
 
     const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
-        // Add to user reservations with pending status and home service info
-        const serviceWithStatus = { 
-          id: service.id,
-          title: service.title,
-          price: service.price,
-          image: service.image,
-          description: service.description,
-          duration: service.duration,
-          warranty: service.warranty,
-          services: service.services,
-          includes: service.includes,
-          available: service.available,
-          category: service.category,
+        // Simple service data with home service info
+        const serviceData = { 
+          ...service,
           status: 'pending' as const,
-          serviceType: 'auto', // Keep as 'auto' for the context
-          homeService: true, // Mark as home service with a different property
+          serviceType: 'auto',
+          homeService: true,
           problemDescription: problemDescription.trim(),
           address: address.trim(),
-          contactNumber: contactNumber.trim()
+          contactNumber: contactNumber.trim(),
+          preferredTime: preferredTime.trim()
         };
-        console.log('🚀 Saving user reservation with home service data:', serviceWithStatus);
-        await reserveAutoService(serviceWithStatus);
+        
+        await reserveAutoService(serviceData);
         
         // Create admin reservation with home service info
         if (user) {
@@ -322,7 +276,8 @@ export default function AutoListScreen() {
             homeService: true,
             problemDescription: problemDescription.trim(),
             address: address.trim(),
-            contactNumber: contactNumber.trim()
+            contactNumber: contactNumber.trim(),
+            preferredTime: preferredTime.trim()
           };
           
           const adminReservationData = mapServiceToAdminReservation(
@@ -357,40 +312,18 @@ export default function AutoListScreen() {
         setAddress('');
         setContactNumber('');
         
-        // Show success message and redirect to bookings
-        Alert.alert(
-          'Home Service Reservation Successful!',
-          `You have successfully reserved ${service.title} for home service. You can view your reservations in the Bookings tab.`,
-          [
-            {
-              text: 'View Bookings',
-              onPress: () => router.push('/(user-tabs)/bookings')
-            }
-          ]
-        );
+        // Show custom alert
+        setCustomAlertVisible(true);
       } catch (error) {
-        console.error('Error reserving home service:', error);
-        Alert.alert(
-          'Reservation Failed',
-          'Sorry, we couldn\'t process your reservation. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('❌ Failed', 'Please try again.');
       }
     } else {
+      // Cancel existing booking
       try {
         await removeAutoReservation(service.id);
-        Alert.alert(
-          'Reservation Cancelled',
-          'Your reservation has been cancelled.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.');
       } catch (error) {
-        console.error('Error removing auto reservation:', error);
-        Alert.alert(
-          'Error',
-          'Failed to cancel reservation. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('❌ Failed', 'Could not cancel booking.');
       }
     }
   };
@@ -1138,6 +1071,22 @@ export default function AutoListScreen() {
                   
                   <View style={styles.formGroup}>
                     <ThemedText style={[styles.label, { color: textColor }]}>
+                      Preferred Time *
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.input, { color: textColor, borderColor }]}
+                      value={preferredTime}
+                      onChangeText={setPreferredTime}
+                      placeholder="e.g., 2:00 PM, 9:30 AM, 6:15 PM"
+                      placeholderTextColor={subtitleColor}
+                    />
+                    <ThemedText style={[styles.helperText, { color: subtitleColor }]}>
+                      Please specify the exact time you want the service (e.g., 2:00 PM)
+                    </ThemedText>
+                  </View>
+                  
+                  <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>
                       Address *
                     </ThemedText>
                     <TextInput
@@ -1194,6 +1143,16 @@ export default function AutoListScreen() {
           imageSource={selectedImage || ''}
           onClose={() => setImageViewerVisible(false)}
           title="Auto Service Image"
+        />
+        
+        {/* Custom Success Alert */}
+        <CustomAlert
+          visible={customAlertVisible}
+          title="Avail Successfully"
+          onClose={() => {
+            setCustomAlertVisible(false);
+            router.push('/(user-tabs)/bookings');
+          }}
         />
       </ThemedView>
     );
@@ -1720,5 +1679,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

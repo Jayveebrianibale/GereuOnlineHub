@@ -47,6 +47,7 @@ export type AutoService = {
   problemDescription?: string;
   address?: string;
   contactNumber?: string;
+  preferredTime?: string;
   // Add other auto properties as needed
   [key: string]: any;
 };
@@ -162,7 +163,14 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
             reservationDate: r.reservationDate,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
-            shippingInfo: r.shippingInfo
+            shippingInfo: r.shippingInfo,
+            // Include home service details
+            homeService: (r as any).homeService,
+            shopService: (r as any).shopService,
+            problemDescription: (r as any).problemDescription,
+            address: (r as any).address,
+            contactNumber: (r as any).contactNumber,
+            preferredTime: (r as any).preferredTime
           })) as AutoService[];
         
         console.log('🔄 Filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
@@ -246,7 +254,14 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
           reservationDate: r.reservationDate,
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
-          shippingInfo: r.shippingInfo
+          shippingInfo: r.shippingInfo,
+          // Include home service details
+          homeService: (r as any).homeService,
+          shopService: (r as any).shopService,
+          problemDescription: (r as any).problemDescription,
+          address: (r as any).address,
+          contactNumber: (r as any).contactNumber,
+          preferredTime: (r as any).preferredTime
         })) as AutoService[];
       
       console.log('📡 Real-time filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
@@ -400,6 +415,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
         ...(service.problemDescription && { problemDescription: service.problemDescription }),
         ...(service.address && { address: service.address }),
         ...(service.contactNumber && { contactNumber: service.contactNumber }),
+        ...(service.preferredTime && { preferredTime: service.preferredTime }),
       };
       
       console.log('🚀 Saving user auto reservation with all data:', reservationData);

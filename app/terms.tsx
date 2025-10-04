@@ -64,7 +64,7 @@ export default function TermsScreen() {
         {/* Introduction */}
         <View style={[styles.introCard, { backgroundColor: isDark ? '#1E1E1E' : '#F8F9FA' }]}>
           <ThemedText style={[styles.introText, { color: textColor }]}>
-            Welcome to Gereu Online Hub - your comprehensive platform for property management, apartment rentals, laundry services, and automotive solutions. These Terms of Service govern your use of our mobile application and services. By using our app, you agree to be bound by these terms.
+            Welcome to Gereu Online Hub - your comprehensive mobile platform for apartment rentals, laundry services, car and motor services, and payment tracking within the Gereu Building. These Terms of Service govern your use of our mobile application and services. By using our app, you agree to be bound by these terms.
           </ThemedText>
         </View>
 
@@ -102,19 +102,25 @@ export default function TermsScreen() {
               <View style={styles.bulletItem}>
                 <MaterialIcons name="apartment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Property Management:</ThemedText> Apartment listings, rental information, availability checking, and booking management
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Apartment Rentals:</ThemedText> Room listings, rental information, availability checking, and booking management within the Gereu Building
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="local-laundry-service" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service booking, status tracking, pickup/delivery scheduling, and notifications
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service booking, status tracking, turnaround time management, and notifications
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="directions-car" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Automotive Services:</ThemedText> Auto parts catalog, service booking, maintenance scheduling, and repair services
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Car and Motor Services:</ThemedText> Auto parts catalog, service booking, maintenance scheduling, and repair services
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="payment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Payment Tracking:</ThemedText> Monitor payments, transactions, and GCash payment processing
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
@@ -125,7 +131,7 @@ export default function TermsScreen() {
               </View>
             </View>
             <ThemedText style={[styles.termContent, { color: textColor }]}>
-              <ThemedText style={[styles.termContent, { color: textColor, fontWeight: '600' }]}>Payment Policy:</ThemedText> All payments are processed in person at our business location. The app serves as an information and booking platform only. No online payments are processed through the application.
+              <ThemedText style={[styles.termContent, { color: textColor, fontWeight: '600' }]}>Payment Policy:</ThemedText> Payments are processed through GCash and other accepted payment methods. The app provides payment tracking and transaction monitoring capabilities for all services.
             </ThemedText>
           </View>
 
@@ -175,7 +181,7 @@ export default function TermsScreen() {
               <View style={styles.bulletItem}>
                 <MaterialIcons name="payment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  No online payments - all payments are made in person
+                  Payments are processed through GCash and other accepted payment methods
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
@@ -272,21 +278,27 @@ export default function TermsScreen() {
             </View>
             <View style={styles.bulletList}>
               <View style={styles.bulletItem}>
-                <MaterialIcons name="schedule" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <MaterialIcons name="apartment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Apartment Rentals:</ThemedText> Bookings are subject to availability and require confirmation. Cancellation must be made 24 hours in advance.
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Apartment Rentals:</ThemedText> Bookings are subject to availability within the Gereu Building. Reservations require admin confirmation. Cancellation must be made 24 hours in advance.
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="local-laundry-service" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service slots are limited. Same-day cancellations may incur charges. Pickup times are estimates.
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Laundry Services:</ThemedText> Service slots are limited. Turnaround times are estimates. Same-day cancellations may incur charges.
                 </ThemedText>
               </View>
               <View style={styles.bulletItem}>
                 <MaterialIcons name="directions-car" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
                 <ThemedText style={[styles.bulletText, { color: textColor }]}>
-                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Auto Services:</ThemedText> Appointments are required for major services. Parts availability may affect service timelines.
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Car and Motor Services:</ThemedText> Appointments are required for major services. Parts availability may affect service timelines. Duration estimates are provided for planning.
+                </ThemedText>
+              </View>
+              <View style={styles.bulletItem}>
+                <MaterialIcons name="payment" size={16} color={colorPalette.primary} style={styles.bulletIcon} />
+                <ThemedText style={[styles.bulletText, { color: textColor }]}>
+                  <ThemedText style={[styles.bulletText, { color: textColor, fontWeight: '600' }]}>Payment Tracking:</ThemedText> All payments are processed through GCash and other accepted methods. Payment status can be monitored through the app.
                 </ThemedText>
               </View>
             </View>
@@ -408,7 +420,7 @@ export default function TermsScreen() {
             </ThemedText>
           </View>
           <ThemedText style={[styles.contactText, { color: textColor }]}>
-            Property Management & Services Platform
+            Apartment Rentals, Laundry & Auto Services Platform
           </ThemedText>
           <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
             Last Updated: September 2025

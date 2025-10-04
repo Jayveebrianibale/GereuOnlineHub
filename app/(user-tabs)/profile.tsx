@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
 // Storage upload removed; we will store data URL directly in Realtime Database
 import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 
 const colorPalette = {
@@ -78,7 +78,6 @@ export default function Profile() {
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
-  const [adminSelectionModalVisible, setAdminSelectionModalVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     services: false,
     mission: false,
@@ -424,53 +423,88 @@ export default function Profile() {
       return;
     }
 
-    // Generate chat ID for support chat
-    const chatId = `support_${user.uid}`;
+    // Use the first admin from admin configuration
+    const adminEmail = 'xxc49540@gmail.com'; // Primary admin email
+    const adminName = 'Admin Support';
+    
+    // Generate chat ID based on user and admin emails
+    const chatId = [user.email, adminEmail].sort().join('_');
     
     router.push({
       pathname: '/chat/[id]',
       params: {
         id: chatId,
         chatId: chatId,
-        recipientName: 'Support Team',
-        recipientEmail: 'support@gereuonlinehub.com',
+        recipientName: adminName,
+        recipientEmail: adminEmail,
         currentUserEmail: user.email || '',
       }
     });
   };
 
-  const handleCallUs = () => {
-    setAdminSelectionModalVisible(true);
+
+  const handleFAQPress = (faqType: string) => {
+    switch (faqType) {
+      case 'apartment-booking':
+        Alert.alert(
+          'How to Book an Apartment',
+          '1. Go to the Home tab\n2. Scroll to "Apartment Rentals" section\n3. Tap on an available apartment\n4. Review details and tap "Book Now"\n5. Fill in your information and confirm booking\n\nYou will receive a confirmation notification once your booking is processed.',
+          [{ text: 'Got it!', style: 'default' }]
+        );
+        break;
+      case 'laundry-services':
+        Alert.alert(
+          'How to Use Laundry Services',
+          '1. Go to the Home tab\n2. Scroll to "Laundry Services" section\n3. Select your preferred laundry service\n4. Choose your service type and schedule\n5. Drop off your clothes at the designated area\n6. Track your laundry status in the Bookings tab\n\nYou will be notified when your laundry is ready for pickup.',
+          [{ text: 'Got it!', style: 'default' }]
+        );
+        break;
+      case 'car-services':
+        Alert.alert(
+          'How to Schedule Car Services',
+          '1. Go to the Home tab\n2. Scroll to "Car and Motor Services" section\n3. Select the service you need\n4. Choose your preferred date and time\n5. Provide vehicle details and service description\n6. Confirm your appointment\n\nOur technicians will contact you to confirm the appointment and location.',
+          [{ text: 'Got it!', style: 'default' }]
+        );
+        break;
+      case 'view-bookings':
+        router.push('/(user-tabs)/bookings');
+        break;
+      case 'payment-billing':
+        Alert.alert(
+          'Payment and Billing',
+          'Payment Methods:\n• Cash on service\n• Bank transfer\n• Mobile payment apps\n\nBilling:\n• You will receive a receipt after service completion\n• All prices are displayed before booking\n• No hidden fees or charges\n\nFor billing questions, contact support.',
+          [{ text: 'Got it!', style: 'default' }]
+        );
+        break;
+      case 'notification-settings':
+        setNotificationModalVisible(true);
+        break;
+      default:
+        break;
+    }
   };
 
-  const handleCallAdmin = (adminName: string, phone: string) => {
-    setAdminSelectionModalVisible(false);
-    const phoneUrl = `tel:${phone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Alert.alert('Error', 'Unable to open phone dialer');
-    });
-  };
-
-  const handleEmailUs = () => {
-    const admins = [
-      { name: 'Jayvee Briani', email: 'jayveebriani@gmail.com' },
-      { name: 'Alfredo Sayson', email: 'alfredosayson@gmail.com' },
-      { name: 'Sayson Admin', email: 'sayson5@gmail.com' }
-    ];
-
+  const handleHelpCenterPress = () => {
     Alert.alert(
-      'Email Support',
-      'Choose an admin to email:',
+      'Help Center',
+      'Choose a topic for detailed guides:',
       [
-        ...admins.map(admin => ({
-          text: admin.name,
-          onPress: () => {
-            const emailUrl = `mailto:${admin.email}?subject=Support Request - Gereu Online Hub`;
-            Linking.openURL(emailUrl).catch(() => {
-              Alert.alert('Error', 'Unable to open email client');
-            });
-          }
-        })),
+        {
+          text: 'Apartment Booking Guide',
+          onPress: () => handleFAQPress('apartment-booking')
+        },
+        {
+          text: 'Laundry Services Guide',
+          onPress: () => handleFAQPress('laundry-services')
+        },
+        {
+          text: 'Car Services Guide',
+          onPress: () => handleFAQPress('car-services')
+        },
+        {
+          text: 'Payment & Billing Info',
+          onPress: () => handleFAQPress('payment-billing')
+        },
         { text: 'Cancel', style: 'cancel' }
       ]
     );
@@ -676,14 +710,17 @@ export default function Profile() {
                   <View style={styles.formField}>
                     <ThemedText style={[styles.fieldLabel, { color: textColor }]}>Email Address</ThemedText>
                     <TextInput
-                      style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', color: textColor, borderColor }]}
+                      style={[styles.textInput, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5', color: subtitleColor, borderColor }]}
                       value={personalInfo.email}
-                      onChangeText={(value) => handlePersonalInfoChange('email', value)}
-                      placeholder="Enter your email"
+                      editable={false}
+                      placeholder="Email address"
                       placeholderTextColor={subtitleColor}
                       keyboardType="email-address"
                       autoCapitalize="none"
                     />
+                    <ThemedText style={[styles.helpText, { color: subtitleColor }]}>
+                      Email address cannot be changed
+                    </ThemedText>
                   </View>
                   
                 </View>
@@ -750,8 +787,8 @@ export default function Profile() {
                     </ThemedText>
                   </View>
                   <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                    Gereu Online Hub is your one-stop platform for apartment rentals, Car and Motor parts, and laundry facilities. 
-                    We provide convenient access to essential community services through our mobile app.
+                    Gereu Online Hub is your comprehensive mobile platform for apartment rentals, laundry services, and car maintenance within the Gereu Building. 
+                    We provide convenient access to essential community services, real-time booking management, and seamless communication with service providers.
                   </ThemedText>
                 </View>
 
@@ -783,7 +820,19 @@ export default function Profile() {
                             Apartment Rentals
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
-                            Browse and book modern apartments with digital amenities, smart home features, and flexible lease options.
+                            Browse available apartments in the Gereu Building with real-time availability, detailed photos, pricing, and instant booking capabilities.
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <View style={styles.serviceItem}>
+                        <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                        <View style={styles.serviceContent}>
+                          <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
+                            Laundry Services
+                          </ThemedText>
+                          <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
+                            Professional laundry services with pickup/delivery options, status tracking, and notifications when your laundry is ready.
                           </ThemedText>
                         </View>
                       </View>
@@ -795,19 +844,19 @@ export default function Profile() {
                             Car and Motor Services
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
-                            Professional automotive maintenance, repairs, and services with certified technicians and quality parts.
+                            Professional automotive maintenance and repair services with certified technicians, quality parts, and convenient scheduling.
                           </ThemedText>
                         </View>
                       </View>
 
                       <View style={styles.serviceItem}>
-                        <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                        <MaterialIcons name="notifications" size={20} color={colorPalette.primary} />
                         <View style={styles.serviceContent}>
                           <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
-                            Laundry Facilities
+                            Real-time Notifications
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
-                            State-of-the-art laundry facilities with modern equipment, mobile app controls, and flexible scheduling.
+                            Stay updated with instant notifications for booking confirmations, service updates, and important announcements.
                           </ThemedText>
                         </View>
                       </View>
@@ -816,10 +865,10 @@ export default function Profile() {
                         <MaterialIcons name="chat" size={20} color={colorPalette.primary} />
                         <View style={styles.serviceContent}>
                           <ThemedText style={[styles.serviceTitle, { color: textColor }]}>
-                            Customer Support
+                            Live Support
                           </ThemedText>
                           <ThemedText style={[styles.serviceDescription, { color: subtitleColor }]}>
-                            24/7 customer support with real-time messaging, quick response times, and dedicated assistance.
+                            Get instant help through live chat, phone support, and email assistance for all your service needs.
                           </ThemedText>
                         </View>
                       </View>
@@ -848,8 +897,8 @@ export default function Profile() {
                   
                   {expandedSections.mission && (
                     <ThemedText style={[styles.infoDescription, { color: subtitleColor }]}>
-                      To provide easy access to apartment rentals, Car and Motor parts, and laundry facilities through our mobile app, 
-                      making community services more convenient and accessible for everyone.
+                      To revolutionize community living in the Gereu Building by providing seamless access to apartment rentals, laundry services, and car maintenance through our innovative mobile platform. 
+                      We aim to make essential services more convenient, transparent, and accessible for all residents and users.
                     </ThemedText>
                   )}
                 </View>
@@ -885,14 +934,14 @@ export default function Profile() {
                       <View style={styles.contactRow}>
                         <MaterialIcons name="phone" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                          +63 (2) 8XXX-XXXX
+                          09100870754
                         </ThemedText>
                       </View>
                       
                       <View style={styles.contactRow}>
                         <MaterialIcons name="location-on" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
-                          Gereu Online Hub, Philippines
+                          Gereu Building, Philippines
                         </ThemedText>
                       </View>
                       
@@ -900,6 +949,13 @@ export default function Profile() {
                         <MaterialIcons name="schedule" size={18} color={colorPalette.primary} />
                         <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
                           Monday - Friday: 8:00 AM - 6:00 PM
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={styles.contactRow}>
+                        <MaterialIcons name="chat" size={18} color={colorPalette.primary} />
+                        <ThemedText style={[styles.contactText, { color: subtitleColor }]}>
+                          Live chat available 24/7 in the app
                         </ThemedText>
                       </View>
                     </View>
@@ -938,13 +994,23 @@ export default function Profile() {
                       </View>
                       
                       <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Services:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Apartments, Laundry, Car Services</ThemedText>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
                         <ThemedText style={[styles.detailLabel, { color: textColor }]}>Last Updated:</ThemedText>
                         <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>January 2025</ThemedText>
                       </View>
                       
                       <View style={styles.detailRow}>
+                        <ThemedText style={[styles.detailLabel, { color: textColor }]}>Location:</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Building, Philippines</ThemedText>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
                         <ThemedText style={[styles.detailLabel, { color: textColor }]}>Developer:</ThemedText>
-                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Online Hub</ThemedText>
+                        <ThemedText style={[styles.detailValue, { color: subtitleColor }]}>Gereu Online Hub Team</ThemedText>
                       </View>
                     </View>
                   )}
@@ -956,7 +1022,7 @@ export default function Profile() {
                     © 2025 Gereu Online Hub. All rights reserved.
                   </ThemedText>
                   <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
-                    Your trusted platform for apartment rentals, auto services, and laundry facilities
+                    Your trusted platform for apartment rentals, laundry services, and car maintenance in the Gereu Building
                   </ThemedText>
                 </View>
               </ScrollView>
@@ -1009,7 +1075,7 @@ export default function Profile() {
                       We're Here to Help!
                     </ThemedText>
                     <ThemedText style={[styles.heroSubtitle, { color: '#fff' }]}>
-                      Get instant support for all your needs
+                      Get support for apartments, laundry, and car services
                     </ThemedText>
                   </View>
                 </View>
@@ -1027,49 +1093,23 @@ export default function Profile() {
                       Live Chat
                     </ThemedText>
                     <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
-                      Instant help
+                      Instant support
                     </ThemedText>
                   </TouchableOpacity>
+
 
                   <TouchableOpacity 
                     style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
-                    onPress={handleCallUs}
+                    onPress={handleHelpCenterPress}
                   >
-                    <View style={[styles.quickActionIcon, { backgroundColor: '#2196F3' }]}>
-                      <MaterialIcons name="phone" size={24} color="#fff" />
-                    </View>
-                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
-                      Call Us
-                    </ThemedText>
-                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
-                      Mon-Fri 8AM-6PM
-                    </ThemedText>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
-                    onPress={handleEmailUs}
-                  >
-                    <View style={[styles.quickActionIcon, { backgroundColor: '#FF9800' }]}>
-                      <MaterialIcons name="email" size={24} color="#fff" />
-                    </View>
-                    <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
-                      Email Us
-                    </ThemedText>
-                    <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
-                      2-4 hour response
-                    </ThemedText>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={[styles.quickActionCard, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
                     <View style={[styles.quickActionIcon, { backgroundColor: '#9C27B0' }]}>
                       <MaterialIcons name="help" size={24} color="#fff" />
                     </View>
                     <ThemedText style={[styles.quickActionTitle, { color: textColor }]}>
-                      FAQ
+                      Help Center
                     </ThemedText>
                     <ThemedText style={[styles.quickActionSubtitle, { color: subtitleColor }]}>
-                      Common questions
+                      Guides & tutorials
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -1077,64 +1117,112 @@ export default function Profile() {
                 {/* Popular Topics */}
                 <View style={[styles.topicsSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
                   <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                    Popular Topics
+                    Frequently Asked Questions
                   </ThemedText>
                   
                   <View style={styles.topicsList}>
-                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('apartment-booking')}
+                    >
                       <View style={styles.topicContent}>
                         <MaterialIcons name="apartment" size={20} color={colorPalette.primary} />
                         <View style={styles.topicText}>
                           <ThemedText style={[styles.topicTitle, { color: textColor }]}>
-                            Booking Apartments
+                            How to Book an Apartment?
                           </ThemedText>
                           <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
-                            Learn how to find and book your perfect apartment
+                            Step-by-step guide to finding and reserving apartments
                           </ThemedText>
                         </View>
                       </View>
                       <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
-                      <View style={styles.topicContent}>
-                        <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
-                        <View style={styles.topicText}>
-                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
-                            Car and Motor Parts
-                          </ThemedText>
-                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
-                            Schedule maintenance and repairs for your vehicle
-                          </ThemedText>
-                        </View>
-                      </View>
-                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('laundry-services')}
+                    >
                       <View style={styles.topicContent}>
                         <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
                         <View style={styles.topicText}>
                           <ThemedText style={[styles.topicTitle, { color: textColor }]}>
-                            Laundry Services
+                            How to Use Laundry Services?
                           </ThemedText>
                           <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
-                            Use our smart laundry facilities
+                            Learn how to book and track your laundry
                           </ThemedText>
                         </View>
                       </View>
                       <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('car-services')}
+                    >
                       <View style={styles.topicContent}>
-                        <MaterialIcons name="account-circle" size={20} color={colorPalette.primary} />
+                        <MaterialIcons name="directions-car" size={20} color={colorPalette.primary} />
                         <View style={styles.topicText}>
                           <ThemedText style={[styles.topicTitle, { color: textColor }]}>
-                            Account Settings
+                            How to Schedule Car Services?
                           </ThemedText>
                           <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
-                            Manage your profile and preferences
+                            Book maintenance and repair services for your vehicle
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('view-bookings')}
+                    >
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="receipt" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            How to View My Bookings?
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Check your reservation status and history
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('payment-billing')}
+                    >
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="payment" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Payment and Billing
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Information about payment methods and billing
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color={subtitleColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.topicItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
+                      onPress={() => handleFAQPress('notification-settings')}
+                    >
+                      <View style={styles.topicContent}>
+                        <MaterialIcons name="notifications" size={20} color={colorPalette.primary} />
+                        <View style={styles.topicText}>
+                          <ThemedText style={[styles.topicTitle, { color: textColor }]}>
+                            Notification Settings
+                          </ThemedText>
+                          <ThemedText style={[styles.topicDescription, { color: subtitleColor }]}>
+                            Manage your notification preferences
                           </ThemedText>
                         </View>
                       </View>
@@ -1146,14 +1234,14 @@ export default function Profile() {
                 {/* Contact Information */}
                 <View style={[styles.contactSection, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderColor }]}>
                   <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                    Get in Touch
+                    Contact Support
                   </ThemedText>
                   
                   <View style={styles.contactGrid}>
                     <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
                       <MaterialIcons name="email" size={24} color={colorPalette.primary} />
                       <ThemedText style={[styles.contactLabel, { color: textColor }]}>
-                        Email
+                        Email Support
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
                         support@gereuonlinehub.com
@@ -1163,17 +1251,17 @@ export default function Profile() {
                     <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
                       <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
                       <ThemedText style={[styles.contactLabel, { color: textColor }]}>
-                        Phone
+                        Phone Support
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
-                        +63 (2) 8XXX-XXXX
+                        09100870754
                       </ThemedText>
                     </View>
 
                     <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
                       <MaterialIcons name="schedule" size={24} color={colorPalette.primary} />
                       <ThemedText style={[styles.contactLabel, { color: textColor }]}>
-                        Hours
+                        Support Hours
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
                         Mon-Fri: 8AM-6PM
@@ -1183,10 +1271,10 @@ export default function Profile() {
                     <View style={[styles.contactItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
                       <MaterialIcons name="location-on" size={24} color={colorPalette.primary} />
                       <ThemedText style={[styles.contactLabel, { color: textColor }]}>
-                        Location
+                        Service Area
                       </ThemedText>
                       <ThemedText style={[styles.contactValue, { color: subtitleColor }]}>
-                        Gereu Online Hub, Philippines
+                        Gereu Building, Philippines
                       </ThemedText>
                     </View>
                   </View>
@@ -1195,7 +1283,7 @@ export default function Profile() {
                 {/* Footer */}
                 <View style={styles.footerSection}>
                   <ThemedText style={[styles.copyright, { color: subtitleColor }]}>
-                    Need more help? We're here 24/7!
+                    Need help with apartments, laundry, or car services? We're here to help!
                   </ThemedText>
                 </View>
               </ScrollView>
@@ -1488,114 +1576,6 @@ export default function Profile() {
           </View>
         </Modal>
 
-        {/* Admin Selection Modal */}
-        <Modal
-          visible={adminSelectionModalVisible}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setAdminSelectionModalVisible(false)}
-        >
-          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-            <View style={[styles.adminSelectionModal, { backgroundColor: cardBgColor }]}>
-              {/* Header */}
-              <View style={[styles.adminModalHeader, { backgroundColor: isDark ? '#1A1A1A' : '#F8F9FA' }]}>
-                <View style={styles.headerContent}>
-                  <View style={[styles.logoWrapper, { backgroundColor: colorPalette.primary }]}>
-                    <MaterialIcons name="phone" size={24} color="#fff" />
-                  </View>
-                  
-                  <View style={styles.appInfoContainer}>
-                    <ThemedText type="title" style={[styles.appName, { color: textColor }]}>
-                      Call Support
-                    </ThemedText>
-                    <View style={[styles.versionBadge, { backgroundColor: '#4CAF50' }]}>
-                      <ThemedText style={[styles.appVersion, { color: '#fff' }]}>
-                        Choose Admin
-                      </ThemedText>
-                    </View>
-                  </View>
-                </View>
-                
-                <TouchableOpacity 
-                  style={[styles.closeButton, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}
-                  onPress={() => setAdminSelectionModalVisible(false)}
-                >
-                  <MaterialIcons name="close" size={20} color={textColor} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.adminModalContent} showsVerticalScrollIndicator={false}>
-                <ThemedText style={[styles.adminSelectionTitle, { color: textColor }]}>
-                  Select an admin to call:
-                </ThemedText>
-                
-                {/* Admin List */}
-                <View style={styles.adminList}>
-                  <TouchableOpacity 
-                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
-                    onPress={() => handleCallAdmin('Jayvee Briani', '+639100870754')}
-                  >
-                    <View style={[styles.adminAvatar, { backgroundColor: colorPalette.primary }]}>
-                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>JB</ThemedText>
-                    </View>
-                    <View style={styles.adminInfo}>
-                      <ThemedText style={[styles.adminName, { color: textColor }]}>
-                        Jayvee Briani
-                      </ThemedText>
-                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
-                        jayveebriani@gmail.com
-                      </ThemedText>
-                    </View>
-                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
-                    onPress={() => handleCallAdmin('Alfredo Sayson', '+639100870754')}
-                  >
-                    <View style={[styles.adminAvatar, { backgroundColor: '#FF9800' }]}>
-                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>AS</ThemedText>
-                    </View>
-                    <View style={styles.adminInfo}>
-                      <ThemedText style={[styles.adminName, { color: textColor }]}>
-                        Alfredo Sayson
-                      </ThemedText>
-                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
-                        alfredosayson@gmail.com
-                      </ThemedText>
-                    </View>
-                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.adminItem, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}
-                    onPress={() => handleCallAdmin('Sayson Admin', '+639100870754')}
-                  >
-                    <View style={[styles.adminAvatar, { backgroundColor: '#9C27B0' }]}>
-                      <ThemedText style={[styles.adminInitials, { color: '#fff' }]}>SA</ThemedText>
-                    </View>
-                    <View style={styles.adminInfo}>
-                      <ThemedText style={[styles.adminName, { color: textColor }]}>
-                        Sayson Admin
-                      </ThemedText>
-                      <ThemedText style={[styles.adminEmail, { color: subtitleColor }]}>
-                        sayson5@gmail.com
-                      </ThemedText>
-                    </View>
-                    <MaterialIcons name="phone" size={24} color={colorPalette.primary} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Footer */}
-                <View style={styles.adminModalFooter}>
-                  <ThemedText style={[styles.adminFooterText, { color: subtitleColor }]}>
-                    Available Mon-Fri: 8AM-6PM
-                  </ThemedText>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
 
         {/* Profile Menu */}
         <View style={styles.menuSection}>
@@ -2309,82 +2289,9 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  // Admin Selection Modal Styles
-  adminSelectionModal: {
-    width: '90%',
-    maxWidth: 400,
-    borderRadius: 20,
-    maxHeight: '80%',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
-  },
-  adminModalHeader: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-    position: 'relative',
-  },
-  adminModalContent: {
-    padding: 20,
-    paddingBottom: 10,
-  },
-  adminSelectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  adminList: {
-    gap: 12,
-  },
-  adminItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  adminAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  adminInitials: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  adminInfo: {
-    flex: 1,
-  },
-  adminName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  adminEmail: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  adminModalFooter: {
-    alignItems: 'center',
-    paddingTop: 16,
-    marginTop: 8,
-  },
-  adminFooterText: {
+  helpText: {
     fontSize: 12,
-    opacity: 0.6,
-    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 4,
   },
 });

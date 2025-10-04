@@ -2,8 +2,8 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { AdminPaymentSettingsModal } from '../components/AdminPaymentSettings';
 import { RobustImage } from '../components/RobustImage';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
@@ -47,6 +47,7 @@ export default function ReservationsScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
   const [filterVisible, setFilterVisible] = useState(false);
   const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';
@@ -60,8 +61,9 @@ export default function ReservationsScreen() {
   const titleSize = width < 400 ? 20 : 24;
   const subtitleSize = width < 400 ? 12 : 14;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (status: string | null | undefined) => {
+    const validStatus = status || 'pending';
+    switch (validStatus) {
       case 'confirmed':
         return '#10B981';
       case 'pending':
@@ -72,19 +74,60 @@ export default function ReservationsScreen() {
       case 'cancelled':
         return '#EF4444';
       default:
-        return textColor;
+        return '#F59E0B'; // Default to pending color
     }
   };
 
-  // Sort newest first and apply status filter
-  const displayReservations = (adminReservations || [])
-    .slice()
-    .sort((a, b) => {
-      const aTime = a?.reservationDate ? new Date(a.reservationDate).getTime() : 0;
-      const bTime = b?.reservationDate ? new Date(b.reservationDate).getTime() : 0;
-      return bTime - aTime;
-    })
-    .filter(r => statusFilter === 'all' ? true : (r.status === statusFilter));
+  // Helper function to check if a date is valid
+  const isValidDate = (dateString: string | undefined): boolean => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    return !isNaN(date.getTime()) && date.getTime() > 0;
+  };
+
+  // Helper function to safely format date
+  const formatDate = (dateString: string | undefined): string => {
+    if (!isValidDate(dateString)) {
+      return 'Invalid Date';
+    }
+    return new Date(dateString!).toLocaleDateString();
+  };
+
+  // Calculate simple reservation summary
+  const reservationSummary = useMemo(() => {
+    const validReservations = (adminReservations || []).filter(r => isValidDate(r.reservationDate));
+    return {
+      total: validReservations.length,
+      pending: validReservations.filter(r => (r.status || 'pending') === 'pending').length,
+      confirmed: validReservations.filter(r => r.status === 'confirmed').length,
+      completed: validReservations.filter(r => r.status === 'completed').length,
+    };
+  }, [adminReservations]);
+
+  // Sort newest first and apply status filter and search, filtering out invalid dates
+  const displayReservations = useMemo(() => {
+    return (adminReservations || [])
+      .slice()
+      .filter(r => isValidDate(r.reservationDate))
+      .filter(r => {
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          return (
+            r.userName?.toLowerCase().includes(query) ||
+            r.userEmail?.toLowerCase().includes(query) ||
+            r.serviceTitle?.toLowerCase().includes(query) ||
+            getServiceTypeDisplayName(r.serviceType).toLowerCase().includes(query)
+          );
+        }
+        return true;
+      })
+      .filter(r => statusFilter === 'all' ? true : ((r.status || 'pending') === statusFilter))
+      .sort((a, b) => {
+        const aTime = a?.reservationDate ? new Date(a.reservationDate).getTime() : 0;
+        const bTime = b?.reservationDate ? new Date(b.reservationDate).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [adminReservations, searchQuery, statusFilter]);
 
   const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
     const performUpdate = async () => {
@@ -272,6 +315,62 @@ export default function ReservationsScreen() {
           </View>
         </View>
 
+        {/* Search Bar */}
+        <View style={[styles.searchBar, { backgroundColor: cardBgColor, borderColor }]}>
+          <MaterialIcons name="search" size={20} color={subtitleColor} />
+          <TextInput
+            style={[styles.searchInput, { color: textColor }]}
+            placeholder="Search reservations..."
+            placeholderTextColor={subtitleColor}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialIcons name="clear" size={20} color={subtitleColor} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Simple Summary Bar */}
+        <View style={[styles.summaryBar, { backgroundColor: cardBgColor, borderColor }]}>
+          <View style={styles.summaryItem}>
+            <ThemedText style={[styles.summaryNumber, { color: textColor }]}>
+              {reservationSummary.total}
+            </ThemedText>
+            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
+              Total
+            </ThemedText>
+          </View>
+          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
+          <View style={styles.summaryItem}>
+            <ThemedText style={[styles.summaryNumber, { color: '#F59E0B' }]}>
+              {reservationSummary.pending}
+            </ThemedText>
+            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
+              Pending
+            </ThemedText>
+          </View>
+          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
+          <View style={styles.summaryItem}>
+            <ThemedText style={[styles.summaryNumber, { color: '#10B981' }]}>
+              {reservationSummary.confirmed}
+            </ThemedText>
+            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
+              Confirmed
+            </ThemedText>
+          </View>
+          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
+          <View style={styles.summaryItem}>
+            <ThemedText style={[styles.summaryNumber, { color: '#3B82F6' }]}>
+              {reservationSummary.completed}
+            </ThemedText>
+            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
+              Completed
+            </ThemedText>
+          </View>
+        </View>
+
         {/* Reservations List */}
         <View style={styles.reservationsContainer}>
           {/* Filter Modal */}
@@ -381,7 +480,7 @@ export default function ReservationsScreen() {
                         styles.statusText,
                         { color: getStatusColor(reservation.status) }
                       ]}>
-                        {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
+                        {(reservation.status || 'pending').charAt(0).toUpperCase() + (reservation.status || 'pending').slice(1)}
                       </ThemedText>
                     </View>
                   </View>
@@ -432,7 +531,7 @@ export default function ReservationsScreen() {
                   {/* Shipping Information for Laundry Services Only */}
                   {reservation.serviceType === 'laundry' && (reservation as any).shippingInfo && (
                     <>
-                      <View style={styles.detailRow}>
+                      <View key="shipping-delivery-type" style={styles.detailRow}>
                         <MaterialIcons 
                           name={(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
                           size={16} 
@@ -448,7 +547,7 @@ export default function ReservationsScreen() {
                       
                       {/* Drop Off Address */}
                       {(reservation as any).shippingInfo.deliveryType === 'dropoff' && (reservation as any).shippingInfo.address && (
-                        <View style={styles.detailRow}>
+                        <View key="shipping-dropoff-address" style={styles.detailRow}>
                           <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                           <ThemedText style={[
                             styles.detailText, 
@@ -461,7 +560,7 @@ export default function ReservationsScreen() {
                       
                       {/* Pickup Details */}
                       {(reservation as any).shippingInfo.deliveryType === 'pickup' && (
-                        <View style={[
+                        <View key="shipping-pickup-details" style={[
                           styles.pickupDetailsContainer,
                           {
                             backgroundColor: isDark 
@@ -483,14 +582,16 @@ export default function ReservationsScreen() {
                             {/* Date and Time Row */}
                             <View style={styles.pickupDateTimeRow}>
                               {(reservation as any).shippingInfo.pickupDate && (
-                                <View style={[
-                                  styles.pickupDetailItem,
-                                  {
-                                    backgroundColor: isDark 
-                                      ? 'rgba(0, 178, 255, 0.15)' 
-                                      : 'rgba(0, 178, 255, 0.06)',
-                                  }
-                                ]}>
+                                <View 
+                                  key="pickup-date"
+                                  style={[
+                                    styles.pickupDetailItem,
+                                    {
+                                      backgroundColor: isDark 
+                                        ? 'rgba(0, 178, 255, 0.15)' 
+                                        : 'rgba(0, 178, 255, 0.06)',
+                                    }
+                                  ]}>
                                   <MaterialIcons name="event" size={16} color={colorPalette.primary} />
                                   <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Date</ThemedText>
                                   <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
@@ -499,14 +600,16 @@ export default function ReservationsScreen() {
                                 </View>
                               )}
                               {(reservation as any).shippingInfo.pickupTime && (
-                                <View style={[
-                                  styles.pickupDetailItem,
-                                  {
-                                    backgroundColor: isDark 
-                                      ? 'rgba(0, 178, 255, 0.15)' 
-                                      : 'rgba(0, 178, 255, 0.06)',
-                                  }
-                                ]}>
+                                <View 
+                                  key="pickup-time"
+                                  style={[
+                                    styles.pickupDetailItem,
+                                    {
+                                      backgroundColor: isDark 
+                                        ? 'rgba(0, 178, 255, 0.15)' 
+                                        : 'rgba(0, 178, 255, 0.06)',
+                                    }
+                                  ]}>
                                   <MaterialIcons name="schedule" size={16} color={colorPalette.primary} />
                                   <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Time</ThemedText>
                                   <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
@@ -518,14 +621,16 @@ export default function ReservationsScreen() {
                             
                             {/* Address */}
                             {(reservation as any).shippingInfo.pickupAddress && (
-                              <View style={[
-                                styles.pickupDetailItemFull,
-                                {
-                                  backgroundColor: isDark 
-                                    ? 'rgba(0, 178, 255, 0.15)' 
-                                    : 'rgba(0, 178, 255, 0.06)',
-                                }
-                              ]}>
+                              <View 
+                                key="pickup-address"
+                                style={[
+                                  styles.pickupDetailItemFull,
+                                  {
+                                    backgroundColor: isDark 
+                                      ? 'rgba(0, 178, 255, 0.15)' 
+                                      : 'rgba(0, 178, 255, 0.06)',
+                                  }
+                                ]}>
                                 <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
                                 <View style={styles.pickupDetailTextContainer}>
                                   <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Pickup Address</ThemedText>
@@ -538,14 +643,16 @@ export default function ReservationsScreen() {
                             
                             {/* Contact */}
                             {(reservation as any).shippingInfo.pickupContactNumber && (
-                              <View style={[
-                                styles.pickupDetailItemFull,
-                                {
-                                  backgroundColor: isDark 
-                                    ? 'rgba(0, 178, 255, 0.15)' 
-                                    : 'rgba(0, 178, 255, 0.06)',
-                                }
-                              ]}>
+                              <View 
+                                key="pickup-contact"
+                                style={[
+                                  styles.pickupDetailItemFull,
+                                  {
+                                    backgroundColor: isDark 
+                                      ? 'rgba(0, 178, 255, 0.15)' 
+                                      : 'rgba(0, 178, 255, 0.06)',
+                                  }
+                                ]}>
                                 <MaterialIcons name="phone" size={16} color={colorPalette.primary} />
                                 <View style={styles.pickupDetailTextContainer}>
                                   <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Contact Number</ThemedText>
@@ -558,14 +665,16 @@ export default function ReservationsScreen() {
                             
                             {/* Instructions */}
                             {(reservation as any).shippingInfo.pickupInstructions && (reservation as any).shippingInfo.pickupInstructions !== 'No special instructions' && (
-                              <View style={[
-                                styles.pickupDetailItemFull,
-                                {
-                                  backgroundColor: isDark 
-                                    ? 'rgba(0, 178, 255, 0.15)' 
-                                    : 'rgba(0, 178, 255, 0.06)',
-                                }
-                              ]}>
+                              <View 
+                                key="pickup-instructions"
+                                style={[
+                                  styles.pickupDetailItemFull,
+                                  {
+                                    backgroundColor: isDark 
+                                      ? 'rgba(0, 178, 255, 0.15)' 
+                                      : 'rgba(0, 178, 255, 0.06)',
+                                  }
+                                ]}>
                                 <MaterialIcons name="note" size={16} color={colorPalette.primary} />
                                 <View style={styles.pickupDetailTextContainer}>
                                   <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Special Instructions</ThemedText>
@@ -583,54 +692,82 @@ export default function ReservationsScreen() {
                   
                   {/* Home Service Information */}
                   {(reservation as any).homeService && (
-                    <>
-                      <View style={styles.detailRow}>
-                        <MaterialIcons name="home" size={16} color="#10B981" />
-                        <ThemedText style={[
-                          styles.detailText, 
-                          { color: '#10B981', fontWeight: '600' }
-                        ]}>
-                          Home Service
+                    <View style={[styles.homeServiceContainer, { backgroundColor: cardBgColor, borderColor }]}>
+                      <View style={styles.homeServiceHeader}>
+                        <View style={styles.homeServiceIconContainer}>
+                          <MaterialIcons name="home" size={20} color="#10B981" />
+                        </View>
+                        <ThemedText style={[styles.homeServiceTitle, { color: '#10B981' }]}>
+                          Home Service Request
                         </ThemedText>
                       </View>
-                      {console.log('🏠 Home service reservation data:', reservation)}
                       
-                      {(reservation as any).problemDescription && (
-                        <View style={styles.detailRow}>
-                          <MaterialIcons name="build" size={16} color={subtitleColor} />
-                          <ThemedText style={[
-                            styles.detailText, 
-                            { color: textColor }
-                          ]}>
-                            Problem: {(reservation as any).problemDescription}
-                          </ThemedText>
-                        </View>
-                      )}
-                      
-                      {(reservation as any).address && (
-                        <View style={styles.detailRow}>
-                          <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                          <ThemedText style={[
-                            styles.detailText, 
-                            { color: textColor }
-                          ]}>
-                            Service Address: {(reservation as any).address}
-                          </ThemedText>
-                        </View>
-                      )}
-                      
-                      {(reservation as any).contactNumber && (
-                        <View style={styles.detailRow}>
-                          <MaterialIcons name="phone" size={16} color={subtitleColor} />
-                          <ThemedText style={[
-                            styles.detailText, 
-                            { color: textColor }
-                          ]}>
-                            Contact: {(reservation as any).contactNumber}
-                          </ThemedText>
-                        </View>
-                      )}
-                    </>
+                      <View style={styles.homeServiceDetails}>
+                        {(reservation as any).problemDescription && (
+                          <View style={styles.homeServiceDetailItem}>
+                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#FEF3C7' }]}>
+                              <MaterialIcons name="build" size={16} color="#F59E0B" />
+                            </View>
+                            <View style={styles.homeServiceDetailContent}>
+                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                                Problem Description
+                              </ThemedText>
+                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                                {(reservation as any).problemDescription}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+                        
+                        {(reservation as any).address && (
+                          <View style={styles.homeServiceDetailItem}>
+                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#DBEAFE' }]}>
+                              <MaterialIcons name="location-on" size={16} color="#3B82F6" />
+                            </View>
+                            <View style={styles.homeServiceDetailContent}>
+                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                                Service Address
+                              </ThemedText>
+                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                                {(reservation as any).address}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+                        
+                        {(reservation as any).contactNumber && (
+                          <View style={styles.homeServiceDetailItem}>
+                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#D1FAE5' }]}>
+                              <MaterialIcons name="phone" size={16} color="#10B981" />
+                            </View>
+                            <View style={styles.homeServiceDetailContent}>
+                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                                Contact Number
+                              </ThemedText>
+                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                                {(reservation as any).contactNumber}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+                        
+                        {(reservation as any).preferredTime && (
+                          <View style={styles.homeServiceDetailItem}>
+                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#F3E8FF' }]}>
+                              <MaterialIcons name="schedule" size={16} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.homeServiceDetailContent}>
+                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                                Preferred Time
+                              </ThemedText>
+                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                                {(reservation as any).preferredTime}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    </View>
                   )}
                   
                   <View style={styles.detailRow}>
@@ -639,7 +776,7 @@ export default function ReservationsScreen() {
                       styles.detailText, 
                       { color: textColor }
                     ]}>
-                      {new Date(reservation.reservationDate).toLocaleDateString()}
+                      {formatDate(reservation.reservationDate)}
                     </ThemedText>
                   </View>
                   
@@ -656,19 +793,19 @@ export default function ReservationsScreen() {
                   {/* Payment Information */}
                   {isPaymentRequired(reservation.serviceType) && (
                     <>
-                      <View style={styles.paymentSection}>
+                      <View key="payment-section" style={styles.paymentSection}>
                         <ThemedText style={[styles.paymentSectionTitle, { color: textColor }]}>
                           Payment Information
                         </ThemedText>
                         
-                        <View style={styles.detailRow}>
+                        <View key="payment-down-payment" style={styles.detailRow}>
                           <MaterialIcons name="payment" size={16} color="#10B981" />
                           <ThemedText style={[styles.detailText, { color: textColor }]}>
                             Down Payment: {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
                           </ThemedText>
                         </View>
                         
-                        <View style={styles.detailRow}>
+                        <View key="payment-status" style={styles.detailRow}>
                           <MaterialIcons 
                             name={(reservation as any).paymentStatus === 'paid' ? 'check-circle' : 'pending'} 
                             size={16} 
@@ -686,9 +823,10 @@ export default function ReservationsScreen() {
                 </View>
                 
                   <View style={styles.reservationActions}>
-                    {reservation.status === 'pending' && (
+                    {(reservation.status || 'pending') === 'pending' && (
                       <>
                         <TouchableOpacity 
+                          key="accept-button"
                           style={[styles.actionButton, styles.acceptButton]}
                           onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
@@ -696,6 +834,7 @@ export default function ReservationsScreen() {
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
+                          key="decline-button"
                           style={[styles.actionButton, styles.declineButton]}
                           onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
@@ -704,8 +843,9 @@ export default function ReservationsScreen() {
                       </>
                     )}
                     
-                    {reservation.status === 'confirmed' && (
+                    {(reservation.status || 'pending') === 'confirmed' && (
                       <TouchableOpacity 
+                        key="complete-button"
                         style={[styles.actionButton, styles.completeButton]}
                         onPress={async () => {
                           try {
@@ -738,6 +878,7 @@ export default function ReservationsScreen() {
                     
                     {/* Delete button - always visible */}
                     <TouchableOpacity 
+                      key="delete-button"
                       style={[styles.actionButton, styles.deleteButton]}
                       onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle)}
                     >
@@ -844,18 +985,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   reservationCard: {
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginBottom: 20,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
     overflow: 'hidden',
   },
   reservationContent: {
-    padding: 16,
+    padding: 20,
   },
   reservationHeader: {
     flexDirection: 'row',
@@ -865,30 +1006,30 @@ const styles = StyleSheet.create({
   },
   reservationImage: {
     width: '100%',
-    height: 160,
-    borderRadius: 10,
-    marginBottom: 12,
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   reservationService: {
     fontWeight: '600',
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
   },
   reservationDetails: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   detailText: {
     marginLeft: 8,
@@ -899,15 +1040,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: 12,
-    gap: 8,
+    paddingTop: 16,
+    gap: 12,
   },
   actionButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   emptyState: {
     alignItems: 'center',
@@ -1040,5 +1181,121 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 18,
+  },
+  summaryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 32,
+    marginHorizontal: 16,
+  },
+  summaryNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    marginLeft: 12,
+    paddingVertical: 4,
+  },
+  // Home Service Styles
+  homeServiceContainer: {
+    marginTop: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  homeServiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  homeServiceIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  homeServiceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  homeServiceDetails: {
+    gap: 12,
+  },
+  homeServiceDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  homeServiceDetailIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  homeServiceDetailContent: {
+    flex: 1,
+  },
+  homeServiceDetailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  homeServiceDetailValue: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });

@@ -757,44 +757,82 @@ export default function Bookings() {
                
                {/* Home Service Information */}
                {(svc as any).homeService && (
-                 <>
-                   <View style={styles.detailRow}>
-                     <MaterialIcons name="home" size={16} color="#10B981" />
-                     <ThemedText style={[
-                       styles.detailText, 
-                       { color: '#10B981', fontWeight: '600' }
-                     ]}>
-                       Home Service
+                 <View style={[styles.homeServiceContainer, { backgroundColor: cardBgColor, borderColor }]}>
+                   <View style={styles.homeServiceHeader}>
+                     <View style={styles.homeServiceIconContainer}>
+                       <MaterialIcons name="home" size={20} color="#10B981" />
+                     </View>
+                     <ThemedText style={[styles.homeServiceTitle, { color: '#10B981' }]}>
+                       Home Service Request
                      </ThemedText>
                    </View>
                    
-                   {(svc as any).problemDescription && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="build" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Problem: {(svc as any).problemDescription}
-                       </ThemedText>
-                     </View>
-                   )}
-                   
-                   {(svc as any).address && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Service Address: {(svc as any).address}
-                       </ThemedText>
-                     </View>
-                   )}
-                   
-                   {(svc as any).contactNumber && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="phone" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Contact: {(svc as any).contactNumber}
-                       </ThemedText>
-                     </View>
-                   )}
-                 </>
+                   <View style={styles.homeServiceDetails}>
+                     {(svc as any).problemDescription && (
+                       <View style={styles.homeServiceDetailItem}>
+                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#FEF3C7' }]}>
+                           <MaterialIcons name="build" size={16} color="#F59E0B" />
+                         </View>
+                         <View style={styles.homeServiceDetailContent}>
+                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                             Problem Description
+                           </ThemedText>
+                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                             {(svc as any).problemDescription}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     )}
+                     
+                     {(svc as any).address && (
+                       <View style={styles.homeServiceDetailItem}>
+                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#DBEAFE' }]}>
+                           <MaterialIcons name="location-on" size={16} color="#3B82F6" />
+                         </View>
+                         <View style={styles.homeServiceDetailContent}>
+                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                             Service Address
+                           </ThemedText>
+                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                             {(svc as any).address}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     )}
+                     
+                     {(svc as any).contactNumber && (
+                       <View style={styles.homeServiceDetailItem}>
+                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#D1FAE5' }]}>
+                           <MaterialIcons name="phone" size={16} color="#10B981" />
+                         </View>
+                         <View style={styles.homeServiceDetailContent}>
+                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                             Contact Number
+                           </ThemedText>
+                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                             {(svc as any).contactNumber}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     )}
+                     
+                     {(svc as any).preferredTime && (
+                       <View style={styles.homeServiceDetailItem}>
+                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#F3E8FF' }]}>
+                           <MaterialIcons name="schedule" size={16} color="#8B5CF6" />
+                         </View>
+                         <View style={styles.homeServiceDetailContent}>
+                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                             Preferred Time
+                           </ThemedText>
+                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                             {(svc as any).preferredTime}
+                           </ThemedText>
+                         </View>
+                       </View>
+                     )}
+                   </View>
+                 </View>
                )}
              </View>
 
@@ -1455,5 +1493,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 18,
+  },
+  // Home Service Styles
+  homeServiceContainer: {
+    marginTop: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  homeServiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  homeServiceIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  homeServiceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  homeServiceDetails: {
+    gap: 12,
+  },
+  homeServiceDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  homeServiceDetailIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  homeServiceDetailContent: {
+    flex: 1,
+  },
+  homeServiceDetailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  homeServiceDetailValue: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
 }); 

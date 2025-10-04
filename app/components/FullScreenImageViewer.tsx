@@ -1,28 +1,26 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as MediaLibrary from 'expo-media-library';
 import React, { useRef, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  ImageSourcePropType,
-  Modal,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    ImageSourcePropType,
+    Modal,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  GestureHandlerRootView,
-  PanGestureHandler,
-  PinchGestureHandler,
-  TapGestureHandler,
+    GestureHandlerRootView,
+    PanGestureHandler,
+    PinchGestureHandler,
+    TapGestureHandler,
 } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from 'react-native-reanimated';
 import { RobustImage } from './RobustImage';
 
@@ -42,7 +40,6 @@ export const FullScreenImageViewer: React.FC<FullScreenImageViewerProps> = ({
   title = 'Image Preview'
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   // Animation values
   const scale = useSharedValue(1);
@@ -58,38 +55,6 @@ export const FullScreenImageViewer: React.FC<FullScreenImageViewerProps> = ({
     onClose();
   };
 
-  const saveImageToGallery = async () => {
-    try {
-      setIsSaving(true);
-      
-      // Request permission to save to media library
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
-        return;
-      }
-
-      // Handle different image source types
-      if (typeof imageSource === 'string') {
-        // Save to media library
-        const asset = await MediaLibrary.saveToLibraryAsync(imageSource);
-        
-        Alert.alert('Success', 'Photo saved to your gallery!', [
-          { text: 'OK', style: 'default' }
-        ]);
-      } else {
-        // If it's an ImageSourcePropType, we need to handle it differently
-        Alert.alert('Error', 'Cannot save this type of image source.');
-        return;
-      }
-      
-    } catch (error) {
-      console.error('Error saving image:', error);
-      Alert.alert('Error', 'Failed to save photo. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const resetZoom = () => {
     scale.value = withSpring(1);
@@ -188,23 +153,6 @@ export const FullScreenImageViewer: React.FC<FullScreenImageViewerProps> = ({
             >
               <MaterialIcons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-              onPress={saveImageToGallery}
-              disabled={isSaving}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons 
-                name={isSaving ? "hourglass-empty" : "download"} 
-                size={24} 
-                color={isSaving ? "#888" : "#fff"} 
-              />
-              {!isSaving && (
-                <View style={styles.saveButtonGlow} />
-              )}
-            </TouchableOpacity>
           </View>
 
           {/* Image Container */}
@@ -259,7 +207,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -273,47 +221,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  saveButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 178, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#00B2FF',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    position: 'relative',
-  },
-  saveButtonDisabled: {
-    backgroundColor: 'rgba(136, 136, 136, 0.6)',
-    shadowOpacity: 0.1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  saveButtonGlow: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 178, 255, 0.2)',
-    shadowColor: '#00B2FF',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 0,
   },
   imageContainer: {
     flex: 1,

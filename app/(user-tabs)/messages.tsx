@@ -81,13 +81,22 @@ export default function MessagesScreen() {
         Object.keys(usersData).forEach(userId => {
           const userData = usersData[userId];
           if (ADMIN_EMAILS.includes(userData.email)) {
-            adminUsersList.push({
-              id: userId,
-              name: userData.name || 'Admin',
-              email: userData.email,
-              avatar: userData.avatar || userData.name?.charAt(0)?.toUpperCase() || 'A',
-              role: userData.role || 'admin'
-            });
+            // Filter out admin with name "Jeibii" (case-insensitive)
+            const adminName = userData.name || 'Admin';
+            const safeName = adminName.toLowerCase().trim();
+            console.log('Checking admin:', { adminName, safeName, email: userData.email });
+            if (!safeName.includes('jeibii')) {
+              console.log('Adding admin to list:', adminName);
+              adminUsersList.push({
+                id: userId,
+                name: adminName,
+                email: userData.email,
+                avatar: userData.avatar || adminName?.charAt(0)?.toUpperCase() || 'A',
+                role: userData.role || 'admin'
+              });
+            } else {
+              console.log('Filtering out admin:', adminName);
+            }
           }
         });
         

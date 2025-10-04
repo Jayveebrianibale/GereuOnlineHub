@@ -10,11 +10,11 @@ import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpa
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
-    createLaundryService,
-    deleteLaundryService,
-    getLaundryServices,
-    updateLaundryService,
-    type LaundryService
+  createLaundryService,
+  deleteLaundryService,
+  getLaundryServices,
+  updateLaundryService,
+  type LaundryService
 } from '../../services/laundryService';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
@@ -40,6 +40,8 @@ const emptyLaundryService = {
   reviews: 0,
   description: '',
   services: [],
+  pickup: '',
+  delivery: '',
   minOrder: '',
   available: true,
 };
@@ -361,6 +363,26 @@ export default function AdminLaundryManagement() {
             </ThemedText>
           </View>
         </View>
+        {item.pickup && (
+          <View style={styles.detailsRow}>
+            <View style={styles.detailItem}>
+              <MaterialIcons name="local-shipping" size={16} color={subtitleColor} />
+              <ThemedText style={[styles.detailText, { color: textColor }]}>
+                Pickup: {item.pickup}
+              </ThemedText>
+            </View>
+          </View>
+        )}
+        {item.delivery && (
+          <View style={styles.detailsRow}>
+            <View style={styles.detailItem}>
+              <MaterialIcons name="delivery-dining" size={16} color={subtitleColor} />
+              <ThemedText style={[styles.detailText, { color: textColor }]}>
+                Delivery: {item.delivery}
+              </ThemedText>
+            </View>
+          </View>
+        )}
         <View style={styles.adminActions}>
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
@@ -634,6 +656,27 @@ export default function AdminLaundryManagement() {
                 />
               </View>
 
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Pickup Information</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.pickup}
+                  onChangeText={(text) => setCurrentService({ ...currentService, pickup: text })}
+                  placeholder="e.g. Free within 5km radius, P50 pickup fee, etc."
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={[styles.label, { color: textColor }]}>Delivery Information</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: textColor, borderColor }]}
+                  value={currentService.delivery}
+                  onChangeText={(text) => setCurrentService({ ...currentService, delivery: text })}
+                  placeholder="e.g. Free delivery within 3km, P100 delivery fee, Same day delivery, etc."
+                  placeholderTextColor={subtitleColor}
+                />
+              </View>
 
               <View style={styles.formGroup}>
                 <ThemedText style={[styles.label, { color: textColor }]}>Minimum Order</ThemedText>

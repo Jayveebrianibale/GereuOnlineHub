@@ -15,7 +15,6 @@ export interface AutoService {
   services: string[];
   category: string;
   includes: string[];
-  warranty: string;
   available: boolean;
 }
 
