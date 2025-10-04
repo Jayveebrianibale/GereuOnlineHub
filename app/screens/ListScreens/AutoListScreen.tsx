@@ -19,8 +19,14 @@ import {
 } from '../../services/autoService';
 import {
     cacheAutoServices,
-    getCachedAutoServices
+    cacheMotorParts,
+    getCachedAutoServices,
+    getCachedMotorParts
 } from '../../services/dataCache';
+import {
+    MotorPart,
+    getMotorParts,
+} from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
 import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
@@ -52,14 +58,23 @@ export default function AutoListScreen() {
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
 
+  const [activeTab, setActiveTab] = useState<'services' | 'parts'>('services');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedAutoService, setSelectedAutoService] = useState<any>(null);
+  const [selectedMotorPart, setSelectedMotorPart] = useState<any>(null);
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  const [motorParts, setMotorParts] = useState<MotorPart[]>([]);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [serviceTypeModalVisible, setServiceTypeModalVisible] = useState(false);
+  const [homeServiceModalVisible, setHomeServiceModalVisible] = useState(false);
+  const [selectedServiceForBooking, setSelectedServiceForBooking] = useState<any>(null);
+  const [problemDescription, setProblemDescription] = useState('');
+  const [address, setAddress] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
@@ -103,7 +118,61 @@ export default function AutoListScreen() {
       console.error('Error sending interest message:', e);
     }
   };
-  const handleAutoReservation = async (service: any) => {
+
+  const handleMessageAdminForPart = async (part: any) => {
+    try {
+      if (!user?.email) return;
+      const ADMIN_EMAIL = AUTO_ADMIN.email;
+      const ADMIN_NAME = AUTO_ADMIN.name;
+      const chatId = [user.email, ADMIN_EMAIL].sort().join('_');
+
+      const priceText = typeof part?.price !== 'undefined' ? `Price: ${formatPHP(part.price)}` : '';
+      const messageText = `I'm interested in Motor Part: ${part?.name || 'Motor Part'}\n${priceText}\nCategory: ${part?.category || 'N/A'}`;
+
+      const newMsgRef = push(ref(db, 'messages'));
+      await set(newMsgRef, {
+        id: newMsgRef.key,
+        chatId,
+        text: messageText,
+        image: part?.image || null,
+        imageUrl: part?.image || null,
+        category: 'auto',
+        serviceId: part?.id || null,
+        senderEmail: user.email,
+        senderName: user.displayName || 'User',
+        recipientEmail: ADMIN_EMAIL,
+        recipientName: ADMIN_NAME,
+        timestamp: Date.now(),
+        time: Date.now(),
+        messageType: 'motor_parts_inquiry',
+        partName: part?.name || 'Motor Part',
+        partPrice: part?.price || 0,
+        partCategory: part?.category || 'N/A',
+      });
+
+      setDetailModalVisible(false);
+      router.push(`/chat/${encodeURIComponent(chatId)}?recipientName=${encodeURIComponent(ADMIN_NAME)}&recipientEmail=${encodeURIComponent(ADMIN_EMAIL)}&currentUserEmail=${encodeURIComponent(user.email)}`);
+    } catch (e) {
+      console.error('Error sending interest message:', e);
+    }
+  };
+  const handleServiceTypeSelection = (service: any) => {
+    setSelectedServiceForBooking(service);
+    setServiceTypeModalVisible(true);
+  };
+
+  const handleServiceTypeChoice = (type: 'home' | 'shop') => {
+    setServiceTypeModalVisible(false);
+    
+    if (type === 'home') {
+      setHomeServiceModalVisible(true);
+    } else {
+      // Direct booking for shop service
+      handleDirectBooking(selectedServiceForBooking);
+    }
+  };
+
+  const handleDirectBooking = async (service: any) => {
     // Check if service is available
     if (!service.available) {
       Alert.alert(
@@ -117,8 +186,24 @@ export default function AutoListScreen() {
     const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
     if (!isReserved) {
       try {
-        // Add to user reservations with pending status
-        const serviceWithStatus = { ...service, status: 'pending' as const };
+        // Add to user reservations with pending status and shop service info
+        const serviceWithStatus = { 
+          id: service.id,
+          title: service.title,
+          price: service.price,
+          image: service.image,
+          description: service.description,
+          duration: service.duration,
+          warranty: service.warranty,
+          services: service.services,
+          includes: service.includes,
+          available: service.available,
+          category: service.category,
+          status: 'pending' as const,
+          serviceType: 'auto', // Keep as 'auto' for the context
+          shopService: true // Mark as shop service with a different property
+        };
+        console.log('🚀 Saving user auto reservation (shop service) with all data:', serviceWithStatus);
         await reserveAutoService(serviceWithStatus);
         
         // Create admin reservation
@@ -185,6 +270,134 @@ export default function AutoListScreen() {
       }
     }
   };
+
+  const handleHomeServiceBooking = async () => {
+    if (!problemDescription.trim() || !address.trim() || !contactNumber.trim()) {
+      Alert.alert('Missing Information', 'Please fill in all required fields.');
+      return;
+    }
+
+    const service = selectedServiceForBooking;
+    if (!service) return;
+
+    // Check if service is available
+    if (!service.available) {
+      Alert.alert(
+        'Service Unavailable',
+        'This auto service is currently unavailable for reservation. Please try again later or contact the admin.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const isReserved = reservedAutoServices.some(s => (s as any).serviceId === service.id);
+    if (!isReserved) {
+      try {
+        // Add to user reservations with pending status and home service info
+        const serviceWithStatus = { 
+          id: service.id,
+          title: service.title,
+          price: service.price,
+          image: service.image,
+          description: service.description,
+          duration: service.duration,
+          warranty: service.warranty,
+          services: service.services,
+          includes: service.includes,
+          available: service.available,
+          category: service.category,
+          status: 'pending' as const,
+          serviceType: 'auto', // Keep as 'auto' for the context
+          homeService: true, // Mark as home service with a different property
+          problemDescription: problemDescription.trim(),
+          address: address.trim(),
+          contactNumber: contactNumber.trim()
+        };
+        console.log('🚀 Saving user reservation with home service data:', serviceWithStatus);
+        await reserveAutoService(serviceWithStatus);
+        
+        // Create admin reservation with home service info
+        if (user) {
+          const homeServiceData = {
+            homeService: true,
+            problemDescription: problemDescription.trim(),
+            address: address.trim(),
+            contactNumber: contactNumber.trim()
+          };
+          
+          const adminReservationData = mapServiceToAdminReservation(
+            service,
+            'auto',
+            user.uid,
+            user.displayName || 'Unknown User',
+            user.email || 'No email',
+            homeServiceData
+          );
+          console.log('🚀 Saving admin reservation with home service data:', adminReservationData);
+          await addAdminReservation(adminReservationData);
+
+          // Notify admins of new home service reservation
+          await notifyAdmins(
+            'New Home Service Reservation',
+            `${user.displayName || 'A user'} reserved ${service.title || 'an auto service'} for home service.`,
+            {
+              serviceType: 'auto',
+              serviceId: service.id,
+              userId: user.uid,
+              action: 'reserved',
+            }
+          );
+        }
+        
+        // Reset form and close modals
+        setHomeServiceModalVisible(false);
+        setDetailModalVisible(false);
+        setSelectedAutoService(null);
+        setProblemDescription('');
+        setAddress('');
+        setContactNumber('');
+        
+        // Show success message and redirect to bookings
+        Alert.alert(
+          'Home Service Reservation Successful!',
+          `You have successfully reserved ${service.title} for home service. You can view your reservations in the Bookings tab.`,
+          [
+            {
+              text: 'View Bookings',
+              onPress: () => router.push('/(user-tabs)/bookings')
+            }
+          ]
+        );
+      } catch (error) {
+        console.error('Error reserving home service:', error);
+        Alert.alert(
+          'Reservation Failed',
+          'Sorry, we couldn\'t process your reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      try {
+        await removeAutoReservation(service.id);
+        Alert.alert(
+          'Reservation Cancelled',
+          'Your reservation has been cancelled.',
+          [{ text: 'OK' }]
+        );
+      } catch (error) {
+        console.error('Error removing auto reservation:', error);
+        Alert.alert(
+          'Error',
+          'Failed to cancel reservation. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    }
+  };
+
+  const handleAutoReservation = async (service: any) => {
+    handleServiceTypeSelection(service);
+  };
   // Removed unused loading state
 
   // Handle navigation parameters
@@ -219,29 +432,38 @@ export default function AutoListScreen() {
     }
   }, [params.selectedServiceId, params.serviceType, autoServices]);
 
-  // Fetch auto services from Firebase or cache
+  // Fetch auto services and motor parts from Firebase or cache
   useEffect(() => {
-    const fetchAutoServices = async () => {
+    const fetchData = async () => {
       try {
-        // Check cache first
+        // Fetch auto services
         const cachedServices = getCachedAutoServices();
         if (cachedServices) {
           console.log('🚀 Using cached auto services data in auto list');
           setAutoServices(cachedServices);
-          return;
+        } else {
+          console.log('📡 Fetching auto services from Firebase in auto list...');
+          const autoServicesData = await getAutoServices();
+          setAutoServices(autoServicesData);
+          cacheAutoServices(autoServicesData);
         }
 
-        console.log('📡 Fetching auto services from Firebase in auto list...');
-        const autoServicesData = await getAutoServices();
-        setAutoServices(autoServicesData);
-        
-        // Cache the data for future use
-        cacheAutoServices(autoServicesData);
+        // Fetch motor parts
+        const cachedParts = getCachedMotorParts();
+        if (cachedParts) {
+          console.log('🚀 Using cached motor parts data in auto list');
+          setMotorParts(cachedParts);
+        } else {
+          console.log('📡 Fetching motor parts from Firebase in auto list...');
+          const motorPartsData = await getMotorParts();
+          setMotorParts(motorPartsData);
+          cacheMotorParts(motorPartsData);
+        }
       } catch (error) {
-        console.error('Error fetching auto services:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchAutoServices();
+    fetchData();
   }, []);
 
 
@@ -362,6 +584,70 @@ export default function AutoListScreen() {
       </View>
     );
 
+  const renderMotorPartItem = ({ item }: { item: any }) => (
+    <View
+      style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
+    >
+      <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
+      <View style={styles.autoContent}>
+        <View style={styles.autoHeader}>
+          <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
+            {item.name}
+          </ThemedText>
+        </View>
+        
+        <ThemedText style={[styles.description, { color: subtitleColor }]}>
+          {item.description}
+        </ThemedText>
+        
+        {/* Availability Status */}
+        <View style={styles.availabilityRow}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={16} 
+            color={item.available ? "#4CAF50" : "#F44336"} 
+          />
+          <ThemedText style={[
+            styles.availabilityText, 
+            { color: item.available ? "#4CAF50" : "#F44336" }
+          ]}>
+            {item.available ? "Available" : "Unavailable"}
+          </ThemedText>
+        </View>
+        
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.detailText, { color: textColor }]}> 
+              {formatPHP(item.price)}
+            </ThemedText>
+          </View>
+          <View style={styles.detailItem}>
+            <MaterialIcons name="category" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
+              {item.category}
+            </ThemedText>
+          </View>
+        </View>
+        
+        <View style={styles.priceRow}>
+          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}> 
+            {formatPHP(item.price)}
+          </ThemedText>
+          <TouchableOpacity 
+            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => {
+              setSelectedMotorPart(item);
+              setDetailModalVisible(true);
+            }}
+          >
+            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
   // Add new auto service
   // Removed unused handleAddService function
 
@@ -403,7 +689,24 @@ export default function AutoListScreen() {
     return filtered;
   }
 
+  function getFilteredMotorParts() {
+    let filtered = motorParts;
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(part => part.category === selectedFilter);
+    }
+    if (searchQuery.trim().length > 0) {
+      const query = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(part =>
+        part.name.toLowerCase().includes(query) ||
+        part.description.toLowerCase().includes(query) ||
+        part.category.toLowerCase().includes(query)
+      );
+    }
+    return filtered;
+  }
+
   const filteredServices = getFilteredAutoServices();
+  const filteredParts = getFilteredMotorParts();
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -423,22 +726,67 @@ export default function AutoListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Auto Services List or No Results Message */}
-      {filteredServices.length === 0 ? (
-        <View style={styles.noResultsContainer}>
-          <MaterialIcons name="car-repair" size={64} color={subtitleColor} />
-          <ThemedText type="subtitle" style={[styles.noResultsText, { color: textColor }]}>
-            No Auto-Services found
+      {/* Tab Navigation */}
+      <View style={[styles.tabContainer, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'services' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('services')}
+        >
+          <ThemedText style={[
+            styles.tabText, 
+            { color: activeTab === 'services' ? colorPalette.primary : subtitleColor }
+          ]}>
+            Services
           </ThemedText>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'parts' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('parts')}
+        >
+          <ThemedText style={[
+            styles.tabText, 
+            { color: activeTab === 'parts' ? colorPalette.primary : subtitleColor }
+          ]}>
+            Parts & Accessories
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content List */}
+      {activeTab === 'services' ? (
+        filteredServices.length === 0 ? (
+          <View style={styles.noResultsContainer}>
+            <MaterialIcons name="car-repair" size={64} color={subtitleColor} />
+            <ThemedText type="subtitle" style={[styles.noResultsText, { color: textColor }]}>
+              No Auto-Services found
+            </ThemedText>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredServices}
+            renderItem={renderAutoItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )
       ) : (
-        <FlatList
-          data={filteredServices}
-          renderItem={renderAutoItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-        />
+        filteredParts.length === 0 ? (
+          <View style={styles.noResultsContainer}>
+            <MaterialIcons name="settings" size={64} color={subtitleColor} />
+            <ThemedText type="subtitle" style={[styles.noResultsText, { color: textColor }]}>
+              No Motor Parts found
+            </ThemedText>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredParts}
+            renderItem={renderMotorPartItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )
       )}
 
       {/* Search Modal */}
@@ -501,13 +849,17 @@ export default function AutoListScreen() {
        >
          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
            <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
-             {selectedAutoService && (
+             {(selectedAutoService || selectedMotorPart) && (
                <>
                  <View style={styles.detailHeader}>
                    <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
-                     {selectedAutoService.title}
+                     {selectedAutoService?.title || selectedMotorPart?.name}
                    </ThemedText>
-                   <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                   <TouchableOpacity onPress={() => {
+                     setDetailModalVisible(false);
+                     setSelectedAutoService(null);
+                     setSelectedMotorPart(null);
+                   }}>
                      <MaterialIcons name="close" size={24} color={textColor} />
                    </TouchableOpacity>
                  </View>
@@ -518,10 +870,10 @@ export default function AutoListScreen() {
                    contentContainerStyle={styles.detailScrollContent}
                  >
                    <TouchableOpacity 
-                    onPress={() => handleImagePress(selectedAutoService.image)}
+                    onPress={() => handleImagePress(selectedAutoService?.image || selectedMotorPart?.image)}
                     activeOpacity={0.8}
                   >
-                    <RobustImage source={selectedAutoService.image} style={styles.detailImage} resizeMode="cover" />
+                    <RobustImage source={selectedAutoService?.image || selectedMotorPart?.image} style={styles.detailImage} resizeMode="cover" />
                     <View style={styles.imageOverlay}>
                       <MaterialIcons name="zoom-in" size={24} color="#fff" />
                     </View>
@@ -530,139 +882,159 @@ export default function AutoListScreen() {
                    <View style={styles.detailContent}>
                      <View style={styles.detailRatingRow}>
                        <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
-                         {formatPHP(selectedAutoService.price)}
+                         {formatPHP(selectedAutoService?.price || selectedMotorPart?.price)}
                        </ThemedText>
                      </View>
                      
                      <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
-                       {selectedAutoService.description}
+                       {selectedAutoService?.description || selectedMotorPart?.description}
                      </ThemedText>
                      
                      <View style={styles.detailSpecs}>
                        <View style={styles.detailItem}>
                          <MaterialIcons name="attach-money" size={20} color={subtitleColor} />
                          <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                           {formatPHP(selectedAutoService.price)}
+                           {formatPHP(selectedAutoService?.price || selectedMotorPart?.price)}
                          </ThemedText>
                        </View>
-                       <View style={styles.detailItem}>
-                         <Ionicons name="timer-outline" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedAutoService.duration}
-                         </ThemedText>
-                       </View>
-                       <View style={styles.detailItem}>
-                         <MaterialIcons name="verified" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedAutoService.warranty}
-                         </ThemedText>
-                       </View>
+                       {selectedAutoService && (
+                         <>
+                           <View style={styles.detailItem}>
+                             <Ionicons name="timer-outline" size={20} color={subtitleColor} />
+                             <ThemedText style={[styles.detailText, { color: textColor }]}>
+                               {selectedAutoService.duration}
+                             </ThemedText>
+                           </View>
+                           <View style={styles.detailItem}>
+                             <MaterialIcons name="verified" size={20} color={subtitleColor} />
+                             <ThemedText style={[styles.detailText, { color: textColor }]}>
+                               {selectedAutoService.warranty}
+                             </ThemedText>
+                           </View>
+                         </>
+                       )}
+                       {selectedMotorPart && (
+                         <View style={styles.detailItem}>
+                           <MaterialIcons name="category" size={20} color={subtitleColor} />
+                           <ThemedText style={[styles.detailText, { color: textColor }]}>
+                             {selectedMotorPart.category}
+                           </ThemedText>
+                         </View>
+                       )}
                      </View>
                      
-                     <View style={styles.servicesSection}>
-                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                         Services Included
-                       </ThemedText>
-                       <View style={styles.servicesGrid}>
-                        {selectedAutoService?.services?.map((service: string, index: number) => (
-                          <View key={index} style={styles.serviceItem}>
-                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                            <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
-                              {service}
-                            </ThemedText>
+                     {selectedAutoService && (
+                       <>
+                         <View style={styles.servicesSection}>
+                           <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                             Services Included
+                           </ThemedText>
+                           <View style={styles.servicesGrid}>
+                            {selectedAutoService?.services?.map((service: string, index: number) => (
+                              <View key={index} style={styles.serviceItem}>
+                                <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                                <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                                  {service}
+                                </ThemedText>
+                              </View>
+                            ))}
                           </View>
-                        ))}
-                      </View>
-
-                     </View>
-                     
-                     <View style={styles.includesSection}>
-                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                         What&apos;s Included
-                       </ThemedText>
-                       <View style={styles.includesGrid}>
-                        {selectedAutoService?.includes?.map((include: string, index: number) => (
-                          <View key={index} style={styles.includeItem}>
-                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                            <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
-                              {include}
-                            </ThemedText>
+                         </View>
+                         
+                         <View style={styles.includesSection}>
+                           <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                             What&apos;s Included
+                           </ThemedText>
+                           <View style={styles.includesGrid}>
+                            {selectedAutoService?.includes?.map((include: string, index: number) => (
+                              <View key={index} style={styles.includeItem}>
+                                <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                                <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
+                                  {include}
+                                </ThemedText>
+                              </View>
+                            ))}
                           </View>
-                        ))}
-                      </View>
-
-                     </View>
+                         </View>
+                       </>
+                     )}
                      
                      <View style={styles.detailActions}>
-                       <TouchableOpacity style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} onPress={() => handleMessageAdmin(selectedAutoService)}>
+                       <TouchableOpacity 
+                         style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} 
+                         onPress={() => selectedAutoService ? handleMessageAdmin(selectedAutoService) : handleMessageAdminForPart(selectedMotorPart)}
+                       >
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
-                        <TouchableOpacity 
-                        style={[
-                          styles.bookButton,
-                          {
-                            borderColor: selectedAutoService.available ? colorPalette.primary : '#ccc',
-                            backgroundColor: (() => {
-                              if (!selectedAutoService.available) return '#f5f5f5';
-                              const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                              const status = (match as any)?.status;
-                              const active = status === 'pending' || status === 'confirmed';
-                              return active ? colorPalette.primary : 'transparent';
-                            })(),
-                            opacity: selectedAutoService.available ? 1 : 0.6,
-                          }
-                        ]}
-                        onPress={() => selectedAutoService.available ? handleAutoReservation(selectedAutoService) : null}
-                        disabled={!selectedAutoService.available}
-                      >
-                        {(() => {
-                          if (!selectedAutoService.available) {
-                            return (
-                              <MaterialIcons
-                                name="cancel"
-                                size={20}
-                                color="#999"
-                              />
-                            );
-                          }
-                          const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                          const status = (match as any)?.status;
-                          const active = status === 'pending' || status === 'confirmed';
-                          return (
-                            <MaterialIcons
-                              name={active ? 'check-circle' : 'bookmark-border'}
-                              size={20}
-                              color={active ? '#fff' : colorPalette.primary}
-                            />
-                          );
-                        })()}
-                        {!selectedAutoService.available ? (
-                          <View style={styles.unavailableContainer}>
-                            <MaterialIcons name="block" size={16} color="#fff" />
-                            <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
-                          </View>
-                        ) : (
-                          <ThemedText
-                            style={[
-                              styles.bookButtonText,
-                              (() => {
-                                const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                                const status = (match as any)?.status;
-                                const active = status === 'pending' || status === 'confirmed';
-                                return { color: active ? '#fff' : colorPalette.primary };
-                              })()
-                            ]}
-                          >
-                            {(() => {
-                              const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
-                              const status = (match as any)?.status;
-                              const active = status === 'pending' || status === 'confirmed';
-                              return active ? 'Reserved' : 'Avail';
-                            })()}
-                          </ThemedText>
-                        )}
-                       </TouchableOpacity>
+                       
+                       {selectedAutoService && (
+                         <TouchableOpacity 
+                           style={[
+                             styles.bookButton,
+                             {
+                               borderColor: selectedAutoService.available ? colorPalette.primary : '#ccc',
+                               backgroundColor: (() => {
+                                 if (!selectedAutoService.available) return '#f5f5f5';
+                                 const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                                 const status = (match as any)?.status;
+                                 const active = status === 'pending' || status === 'confirmed';
+                                 return active ? colorPalette.primary : 'transparent';
+                               })(),
+                               opacity: selectedAutoService.available ? 1 : 0.6,
+                             }
+                           ]}
+                           onPress={() => selectedAutoService.available ? handleAutoReservation(selectedAutoService) : null}
+                           disabled={!selectedAutoService.available}
+                         >
+                           {(() => {
+                             if (!selectedAutoService.available) {
+                               return (
+                                 <MaterialIcons
+                                   name="cancel"
+                                   size={20}
+                                   color="#999"
+                                 />
+                               );
+                             }
+                             const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                             const status = (match as any)?.status;
+                             const active = status === 'pending' || status === 'confirmed';
+                             return (
+                               <MaterialIcons
+                                 name={active ? 'check-circle' : 'bookmark-border'}
+                                 size={20}
+                                 color={active ? '#fff' : colorPalette.primary}
+                               />
+                             );
+                           })()}
+                           {!selectedAutoService.available ? (
+                             <View style={styles.unavailableContainer}>
+                               <MaterialIcons name="block" size={16} color="#fff" />
+                               <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                             </View>
+                           ) : (
+                             <ThemedText
+                               style={[
+                                 styles.bookButtonText,
+                                 (() => {
+                                   const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                                   const status = (match as any)?.status;
+                                   const active = status === 'pending' || status === 'confirmed';
+                                   return { color: active ? '#fff' : colorPalette.primary };
+                                 })()
+                               ]}
+                             >
+                               {(() => {
+                                 const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                                 const status = (match as any)?.status;
+                                 const active = status === 'pending' || status === 'confirmed';
+                                 return active ? 'Reserved' : 'Avail';
+                               })()}
+                             </ThemedText>
+                           )}
+                         </TouchableOpacity>
+                       )}
                      </View>
                    </View>
                  </ScrollView>
@@ -672,6 +1044,150 @@ export default function AutoListScreen() {
          </View>
         </Modal>
         
+        {/* Service Type Selection Modal */}
+        <Modal
+          visible={serviceTypeModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setServiceTypeModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.serviceTypeModal, { backgroundColor: cardBgColor }]}>
+              <View style={styles.serviceTypeHeader}>
+                <ThemedText type="title" style={[styles.serviceTypeTitle, { color: textColor }]}>
+                  Choose Service Type
+                </ThemedText>
+                <TouchableOpacity onPress={() => setServiceTypeModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ThemedText style={[styles.serviceTypeSubtitle, { color: subtitleColor }]}>
+                How would you like to receive this service?
+              </ThemedText>
+              
+              <View style={styles.serviceTypeOptions}>
+                <TouchableOpacity
+                  style={[styles.serviceTypeOption, { backgroundColor: cardBgColor, borderColor }]}
+                  onPress={() => handleServiceTypeChoice('home')}
+                >
+                  <MaterialIcons name="home" size={32} color={colorPalette.primary} />
+                  <ThemedText type="subtitle" style={[styles.serviceTypeOptionTitle, { color: textColor }]}>
+                    Home Service
+                  </ThemedText>
+                  <ThemedText style={[styles.serviceTypeOptionDesc, { color: subtitleColor }]}>
+                    We'll come to your location
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.serviceTypeOption, { backgroundColor: cardBgColor, borderColor }]}
+                  onPress={() => handleServiceTypeChoice('shop')}
+                >
+                  <MaterialIcons name="store" size={32} color={colorPalette.primary} />
+                  <ThemedText type="subtitle" style={[styles.serviceTypeOptionTitle, { color: textColor }]}>
+                    Shop Service
+                  </ThemedText>
+                  <ThemedText style={[styles.serviceTypeOptionDesc, { color: subtitleColor }]}>
+                    Bring your vehicle to our shop
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Home Service Details Modal */}
+        <Modal
+          visible={homeServiceModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setHomeServiceModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
+              <ScrollView contentContainerStyle={styles.homeServiceScrollContent}>
+                <View style={styles.homeServiceHeader}>
+                  <ThemedText type="title" style={[styles.homeServiceTitle, { color: textColor }]}>
+                    Home Service Details
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => setHomeServiceModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                
+                <ThemedText style={[styles.homeServiceSubtitle, { color: subtitleColor }]}>
+                  Please provide the following information for home service:
+                </ThemedText>
+                
+                <View style={styles.homeServiceForm}>
+                  <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>
+                      What is the problem? *
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.textArea, { color: textColor, borderColor }]}
+                      value={problemDescription}
+                      onChangeText={setProblemDescription}
+                      placeholder="Describe the issue with your vehicle..."
+                      placeholderTextColor={subtitleColor}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
+                  
+                  <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>
+                      Address *
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.input, { color: textColor, borderColor }]}
+                      value={address}
+                      onChangeText={setAddress}
+                      placeholder="Enter your complete address..."
+                      placeholderTextColor={subtitleColor}
+                    />
+                  </View>
+                  
+                  <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>
+                      Contact Number *
+                    </ThemedText>
+                    <TextInput
+                      style={[styles.input, { color: textColor, borderColor }]}
+                      value={contactNumber}
+                      onChangeText={setContactNumber}
+                      placeholder="Enter your contact number..."
+                      placeholderTextColor={subtitleColor}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                </View>
+                
+                <View style={styles.homeServiceActions}>
+                  <TouchableOpacity 
+                    style={[styles.cancelButton, { borderColor }]}
+                    onPress={() => setHomeServiceModalVisible(false)}
+                  >
+                    <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                      Cancel
+                    </ThemedText>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.confirmButton, { backgroundColor: colorPalette.primary }]}
+                    onPress={handleHomeServiceBooking}
+                  >
+                    <ThemedText style={styles.confirmButtonText}>
+                      Confirm
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Full Screen Image Viewer */}
         <FullScreenImageViewer
           visible={imageViewerVisible}
@@ -1061,5 +1577,148 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: normalize(isTablet ? 16 : 14),
     marginLeft: normalize(8),
+  },
+  // Tab styles
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    marginTop: 0,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tabButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#00B2FF',
+  },
+  // Service Type Modal Styles
+  serviceTypeModal: {
+    width: '90%',
+    borderRadius: 16,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  serviceTypeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  serviceTypeTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  serviceTypeSubtitle: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  serviceTypeOptions: {
+    gap: 16,
+  },
+  serviceTypeOption: {
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  serviceTypeOptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  serviceTypeOptionDesc: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  // Home Service Modal Styles
+  homeServiceModal: {
+    width: '95%',
+    borderRadius: 16,
+    maxHeight: '90%',
+  },
+  homeServiceScrollContent: {
+    padding: 20,
+  },
+  homeServiceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  homeServiceTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  homeServiceSubtitle: {
+    fontSize: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  homeServiceForm: {
+    marginBottom: 24,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  homeServiceActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -242,6 +242,17 @@ export default function Bookings() {
   const apartmentsSorted = sortNewestFirst(reservedApartments as any[]);
   const laundrySorted = sortNewestFirst(reservedLaundryServices as any[]);
   const autoSorted = sortNewestFirst(reservedAutoServices as any[]);
+  
+  console.log('📱 Bookings screen - Reserved services:');
+  console.log('📱 Apartments:', reservedApartments.length, apartmentsSorted.length);
+  console.log('📱 Laundry:', reservedLaundryServices.length, laundrySorted.length);
+  console.log('📱 Auto:', reservedAutoServices.length, autoSorted.length);
+  console.log('📱 Auto services details:', reservedAutoServices.map(a => ({ 
+    id: a.id, 
+    serviceTitle: a.serviceTitle, 
+    serviceType: a.serviceType,
+    serviceId: (a as any).serviceId 
+  })));
 
   // Debug: Log the sorting results
   console.log('Original apartments:', reservedApartments.map(r => ({ 
@@ -404,29 +415,6 @@ export default function Bookings() {
                    </ThemedText>
                  </View>
                )}
-               {/* Shipping Information */}
-               {(apt as any).shippingInfo && (
-                 <>
-                   <View style={styles.detailRow}>
-                     <MaterialIcons 
-                       name={(apt as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                       size={16} 
-                       color={subtitleColor} 
-                     />
-                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                       Delivery: {(apt as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
-                     </ThemedText>
-                   </View>
-                   {(apt as any).shippingInfo.deliveryType === 'dropoff' && (apt as any).shippingInfo.address && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Location: {(apt as any).shippingInfo.address}
-                       </ThemedText>
-                     </View>
-                   )}
-                 </>
-               )}
              </View>
 
              {/* Booking Actions */}
@@ -524,8 +512,8 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
-               {/* Shipping Information */}
-               {(svc as any).shippingInfo && (
+               {/* Shipping Information - Only for Laundry Services (Never for Auto Services) */}
+               {(svc as any).shippingInfo && (svc as any).serviceType === 'laundry' && !(svc as any).homeService && !(svc as any).shopService && (
                  <>
                    <View style={styles.detailRow}>
                      <MaterialIcons 
@@ -537,12 +525,134 @@ export default function Bookings() {
                        Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
                      </ThemedText>
                    </View>
+                   
+                   {/* Drop Off Address */}
                    {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
                      <View style={styles.detailRow}>
                        <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                        <ThemedText style={[styles.detailText, { color: textColor }]}> 
                          Address: {(svc as any).shippingInfo.address}
                        </ThemedText>
+                     </View>
+                   )}
+                   
+                   {/* Pickup Details */}
+                   {(svc as any).shippingInfo.deliveryType === 'pickup' && (
+                     <View style={[
+                       styles.pickupDetailsContainer,
+                       {
+                         backgroundColor: isDark 
+                           ? 'rgba(0, 178, 255, 0.12)' 
+                           : 'rgba(0, 178, 255, 0.08)',
+                         borderColor: isDark 
+                           ? 'rgba(0, 178, 255, 0.3)' 
+                           : 'rgba(0, 178, 255, 0.2)',
+                       }
+                     ]}>
+                       <View style={styles.pickupDetailsHeader}>
+                         <MaterialIcons name="local-shipping" size={18} color={colorPalette.primary} />
+                         <ThemedText style={[styles.pickupDetailsTitle, { color: textColor }]}>
+                           Pickup Details
+                         </ThemedText>
+                       </View>
+                       
+                       <View style={styles.pickupDetailsContent}>
+                         {/* Date and Time Row */}
+                         <View style={styles.pickupDateTimeRow}>
+                           {(svc as any).shippingInfo.pickupDate && (
+                             <View style={[
+                               styles.pickupDetailItem,
+                               {
+                                 backgroundColor: isDark 
+                                   ? 'rgba(0, 178, 255, 0.15)' 
+                                   : 'rgba(0, 178, 255, 0.06)',
+                               }
+                             ]}>
+                               <MaterialIcons name="event" size={16} color={colorPalette.primary} />
+                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Date</ThemedText>
+                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
+                                 {(svc as any).shippingInfo.pickupDate}
+                               </ThemedText>
+                             </View>
+                           )}
+                           {(svc as any).shippingInfo.pickupTime && (
+                             <View style={[
+                               styles.pickupDetailItem,
+                               {
+                                 backgroundColor: isDark 
+                                   ? 'rgba(0, 178, 255, 0.15)' 
+                                   : 'rgba(0, 178, 255, 0.06)',
+                               }
+                             ]}>
+                               <MaterialIcons name="schedule" size={16} color={colorPalette.primary} />
+                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Time</ThemedText>
+                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
+                                 {(svc as any).shippingInfo.pickupTime}
+                               </ThemedText>
+                             </View>
+                           )}
+                         </View>
+                         
+                         {/* Address */}
+                         {(svc as any).shippingInfo.pickupAddress && (
+                           <View style={[
+                             styles.pickupDetailItemFull,
+                             {
+                               backgroundColor: isDark 
+                                 ? 'rgba(0, 178, 255, 0.15)' 
+                                 : 'rgba(0, 178, 255, 0.06)',
+                             }
+                           ]}>
+                             <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+                             <View style={styles.pickupDetailTextContainer}>
+                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Pickup Address</ThemedText>
+                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
+                                 {(svc as any).shippingInfo.pickupAddress}
+                               </ThemedText>
+                             </View>
+                           </View>
+                         )}
+                         
+                         {/* Contact */}
+                         {(svc as any).shippingInfo.pickupContactNumber && (
+                           <View style={[
+                             styles.pickupDetailItemFull,
+                             {
+                               backgroundColor: isDark 
+                                 ? 'rgba(0, 178, 255, 0.15)' 
+                                 : 'rgba(0, 178, 255, 0.06)',
+                             }
+                           ]}>
+                             <MaterialIcons name="phone" size={16} color={colorPalette.primary} />
+                             <View style={styles.pickupDetailTextContainer}>
+                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Contact Number</ThemedText>
+                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
+                                 {(svc as any).shippingInfo.pickupContactNumber}
+                               </ThemedText>
+                             </View>
+                           </View>
+                         )}
+                         
+                         {/* Instructions */}
+                         {(svc as any).shippingInfo.pickupInstructions && (svc as any).shippingInfo.pickupInstructions !== 'No special instructions' && (
+                           <View style={[
+                             styles.pickupDetailItemFull,
+                             {
+                               backgroundColor: isDark 
+                                 ? 'rgba(0, 178, 255, 0.15)' 
+                                 : 'rgba(0, 178, 255, 0.06)',
+                             }
+                           ]}>
+                             <MaterialIcons name="note" size={16} color={colorPalette.primary} />
+                             <View style={styles.pickupDetailTextContainer}>
+                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Special Instructions</ThemedText>
+                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
+                                 {(svc as any).shippingInfo.pickupInstructions}
+                               </ThemedText>
+                             </View>
+                           </View>
+                         )}
+                       </View>
                      </View>
                    )}
                  </>
@@ -644,24 +754,43 @@ export default function Bookings() {
                    {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                  </ThemedText>
                </View>
-               {/* Shipping Information */}
-               {(svc as any).shippingInfo && (
+               
+               {/* Home Service Information */}
+               {(svc as any).homeService && (
                  <>
                    <View style={styles.detailRow}>
-                     <MaterialIcons 
-                       name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                       size={16} 
-                       color={subtitleColor} 
-                     />
-                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                       Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                     <MaterialIcons name="home" size={16} color="#10B981" />
+                     <ThemedText style={[
+                       styles.detailText, 
+                       { color: '#10B981', fontWeight: '600' }
+                     ]}>
+                       Home Service
                      </ThemedText>
                    </View>
-                   {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
+                   
+                   {(svc as any).problemDescription && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="build" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Problem: {(svc as any).problemDescription}
+                       </ThemedText>
+                     </View>
+                   )}
+                   
+                   {(svc as any).address && (
                      <View style={styles.detailRow}>
                        <MaterialIcons name="location-on" size={16} color={subtitleColor} />
                        <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Location: {(svc as any).shippingInfo.address}
+                         Service Address: {(svc as any).address}
+                       </ThemedText>
+                     </View>
+                   )}
+                   
+                   {(svc as any).contactNumber && (
+                     <View style={styles.detailRow}>
+                       <MaterialIcons name="phone" size={16} color={subtitleColor} />
+                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                         Contact: {(svc as any).contactNumber}
                        </ThemedText>
                      </View>
                    )}
@@ -1263,5 +1392,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 4,
+  },
+  pickupDetailsContainer: {
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colorPalette.primary,
+    shadowColor: colorPalette.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pickupDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pickupDetailsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  pickupDetailsContent: {
+    gap: 8,
+  },
+  pickupDateTimeRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  pickupDetailItem: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.2)',
+  },
+  pickupDetailItemFull: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 8,
+    padding: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.2)',
+  },
+  pickupDetailTextContainer: {
+    flex: 1,
+  },
+  pickupDetailLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  pickupDetailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 }); 

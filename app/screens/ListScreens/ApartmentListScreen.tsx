@@ -24,7 +24,7 @@ import { PaymentData, isPaymentRequired } from '../../services/paymentService';
 import { getAdminReservations } from '../../services/reservationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
-import { mapServiceToAdminReservation } from '../../utils/reservationUtils';
+import { mapServiceToAdminReservation, parsePrice } from '../../utils/reservationUtils';
 import { isSmallScreen, isTablet, normalize, wp } from '../../utils/responsiveUtils';
 const placeholderImage = require("../../../assets/images/apartment1.webp");
 
@@ -881,7 +881,7 @@ export default function ApartmentListScreen() {
             serviceType="apartment"
             serviceId={pendingReservation.id}
             serviceTitle={pendingReservation.title}
-            fullAmount={parseFloat(pendingReservation.price) || 0}
+            fullAmount={parsePrice(pendingReservation.price)}
             isDark={isDark}
           />
         )}

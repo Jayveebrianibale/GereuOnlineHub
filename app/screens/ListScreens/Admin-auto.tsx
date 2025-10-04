@@ -10,12 +10,19 @@ import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpa
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
-    createAutoService,
-    deleteAutoService,
-    getAutoServices,
-    updateAutoService,
-    type AutoService
+  createAutoService,
+  deleteAutoService,
+  getAutoServices,
+  updateAutoService,
+  type AutoService
 } from '../../services/autoService';
+import {
+  createMotorPart,
+  deleteMotorPart,
+  getMotorParts,
+  updateMotorPart,
+  type MotorPart
+} from '../../services/motorPartsService';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
@@ -45,6 +52,17 @@ const emptyAutoService = {
   available: true,
 };
 
+// Initial empty motor part template
+const emptyMotorPart = {
+  id: '',
+  name: '',
+  price: '',
+  image: '',
+  description: '',
+  category: 'engine',
+  available: true,
+};
+
 export default function AdminAutoManagement() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
@@ -57,10 +75,14 @@ export default function AdminAutoManagement() {
   const borderColor = isDark ? '#333' : '#eee';
   const dangerColor = isDark ? '#FF6B6B' : '#FF3B30';
 
+  const [activeTab, setActiveTab] = useState<'services' | 'parts'>('services');
   const [autoServices, setAutoServices] = useState<AutoService[]>([]);
+  const [motorParts, setMotorParts] = useState<MotorPart[]>([]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [currentService, setCurrentService] = useState<any>(emptyAutoService);
+  const [currentPart, setCurrentPart] = useState<any>(emptyMotorPart);
   const [isNewService, setIsNewService] = useState(false);
+  const [isNewPart, setIsNewPart] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [imageSelectionVisible, setImageSelectionVisible] = useState(false);
@@ -101,7 +123,11 @@ export default function AdminAutoManagement() {
   const selectAndClose = async (pathOrUri: string) => {
     // Simply store the local URI in form state - will be saved to Realtime DB on save
     console.log('Storing local image URI for Realtime DB:', pathOrUri);
-    setCurrentService({ ...currentService, image: pathOrUri });
+    if (activeTab === 'services') {
+      setCurrentService({ ...currentService, image: pathOrUri });
+    } else {
+      setCurrentPart({ ...currentPart, image: pathOrUri });
+    }
     await addRecentImage(pathOrUri);
     setImageSelectionVisible(false);
   };
@@ -173,43 +199,62 @@ export default function AdminAutoManagement() {
     }
   };
 
-  // Load auto services from Firebase
+  // Load auto services and motor parts from Firebase
   useEffect(() => {
-    const fetchServices = async () => {
+    const fetchData = async () => {
       try {
-        const servicesData = await getAutoServices();
+        const [servicesData, partsData] = await Promise.all([
+          getAutoServices(),
+          getMotorParts()
+        ]);
         setAutoServices(servicesData);
+        setMotorParts(partsData);
       } catch (error) {
-        console.error('Error fetching auto services: ', error);
-        Alert.alert('Error', 'Failed to fetch auto services');
+        console.error('Error fetching data: ', error);
+        Alert.alert('Error', 'Failed to fetch data');
       }
     };
 
-    fetchServices();
+    fetchData();
   }, []);
 
   const handleAddNew = () => {
+    if (activeTab === 'services') {
     setCurrentService({ ...emptyAutoService, id: Date.now().toString() });
     setIsNewService(true);
+      setIsNewPart(false);
+    } else {
+      setCurrentPart({ ...emptyMotorPart, id: Date.now().toString() });
+      setIsNewPart(true);
+      setIsNewService(false);
+    }
     setEditModalVisible(true);
   };
 
-  const handleEdit = (service: any) => {
+  const handleEdit = (item: any) => {
+    if (activeTab === 'services') {
     // Ensure services and includes arrays are initialized if they don't exist
     const serviceWithArrays = {
-      ...service,
-      services: Array.isArray(service.services) ? service.services : [],
-      includes: Array.isArray(service.includes) ? service.includes : []
+        ...item,
+        services: Array.isArray(item.services) ? item.services : [],
+        includes: Array.isArray(item.includes) ? item.includes : []
     };
     setCurrentService(serviceWithArrays);
     setIsNewService(false);
+      setIsNewPart(false);
+      } else {
+        setCurrentPart(item);
+        setIsNewPart(false);
+        setIsNewService(false);
+      }
     setEditModalVisible(true);
   };
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
     
-    // Required field validations
+    if (activeTab === 'services') {
+      // Required field validations for services
     if (!currentService.title || currentService.title.trim() === '') {
       errors.title = 'Service title is required';
     }
@@ -233,6 +278,29 @@ export default function AdminAutoManagement() {
     
     if (currentService.price && !currentService.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
       errors.price = 'Please enter a valid price (e.g., P300, 20,000)';
+      }
+    } else {
+      // Required field validations for parts
+      if (!currentPart.name || currentPart.name.trim() === '') {
+        errors.name = 'Part name is required';
+      }
+      
+      if (!currentPart.price || currentPart.price.trim() === '') {
+        errors.price = 'Price is required';
+      }
+      
+      if (!currentPart.image || currentPart.image.trim() === '') {
+        errors.image = 'Image is required';
+      }
+      
+      // Additional validations
+      if (currentPart.name && currentPart.name.trim().length < 3) {
+        errors.name = 'Part name must be at least 3 characters';
+      }
+      
+      if (currentPart.price && !currentPart.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
+        errors.price = 'Please enter a valid price (e.g., P300, 20,000)';
+      }
     }
     
     setFieldErrors(errors);
@@ -251,6 +319,7 @@ export default function AdminAutoManagement() {
     try {
       setIsUploadingImage(true);
       
+      if (activeTab === 'services') {
       const serviceData = { ...currentService };
       
       if (isNewService) {
@@ -266,10 +335,28 @@ export default function AdminAutoManagement() {
         setAutoServices(autoServices.map(svc =>
           svc.id === currentService.id ? serviceData : svc
         ));
+        }
+      } else {
+        const partData = { ...currentPart };
+        
+        if (isNewPart) {
+          // Remove the id property as it will be generated by Firebase
+          const { id, ...partToSave } = partData;
+          const newPart = await createMotorPart(partToSave);
+          setMotorParts([...motorParts, newPart]);
+          setToast({ visible: true, message: 'Motor part added successfully', type: 'success' });
+        } else {
+          // Update existing part
+          const { id, ...partToUpdate } = partData;
+          await updateMotorPart(id, partToUpdate);
+          setMotorParts(motorParts.map(part =>
+            part.id === currentPart.id ? partData : part
+          ));
+        }
       }
       setEditModalVisible(false);
     } catch (error) {
-      console.error('Error saving auto service: ', error);
+      console.error('Error saving data: ', error);
       
       // Show specific error messages
       if (error instanceof Error) {
@@ -288,7 +375,7 @@ export default function AdminAutoManagement() {
         } else {
           setModalToast({ 
             visible: true, 
-            message: 'Failed to save service. Please try again.', 
+            message: `Failed to save ${activeTab === 'services' ? 'service' : 'part'}. Please try again.`, 
             type: 'error' 
           });
         }
@@ -312,13 +399,18 @@ export default function AdminAutoManagement() {
   const confirmDelete = async () => {
     if (serviceToDelete) {
       try {
+        if (activeTab === 'services') {
         await deleteAutoService(serviceToDelete);
         setAutoServices(autoServices.filter(svc => svc.id !== serviceToDelete));
+        } else {
+          await deleteMotorPart(serviceToDelete);
+          setMotorParts(motorParts.filter(part => part.id !== serviceToDelete));
+        }
         setDeleteConfirmVisible(false);
         setServiceToDelete(null);
       } catch (error) {
-        console.error('Error deleting auto service: ', error);
-        Alert.alert('Error', 'Failed to delete auto service');
+        console.error('Error deleting item: ', error);
+        Alert.alert('Error', `Failed to delete ${activeTab === 'services' ? 'auto service' : 'motor part'}`);
       }
     }
   };
@@ -383,6 +475,44 @@ export default function AdminAutoManagement() {
     </View>
   );
 
+  const renderPartItem = ({ item }: { item: any }) => (
+    <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}>
+      <RobustImage source={item.image} style={styles.serviceImage} resizeMode="cover" />
+      <View style={styles.serviceContent}>
+        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
+          {item.name}
+        </ThemedText>
+        <ThemedText style={[styles.description, { color: subtitleColor }]}>
+          {item.description}
+        </ThemedText>
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
+              {item.price}
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.adminActions}>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => handleEdit(item)}
+          >
+            <MaterialIcons name="edit" size={16} color="#fff" />
+            <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: dangerColor }]}
+            onPress={() => handleDelete(item.id)}
+          >
+            <MaterialIcons name="delete" size={16} color="#fff" />
+            <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Header */}
@@ -391,7 +521,7 @@ export default function AdminAutoManagement() {
           <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
         </TouchableOpacity>
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Car and Motor Parts
+          Car and Motor Management
         </ThemedText>
         <TouchableOpacity
           style={styles.headerAddButton}
@@ -401,8 +531,35 @@ export default function AdminAutoManagement() {
         </TouchableOpacity>
       </View>
 
-      {/* Services List */}
-      {autoServices.length > 0 ? (
+      {/* Tab Navigation */}
+      <View style={[styles.tabContainer, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'services' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('services')}
+        >
+          <ThemedText style={[
+            styles.tabText, 
+            { color: activeTab === 'services' ? colorPalette.primary : subtitleColor }
+          ]}>
+            Services
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'parts' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('parts')}
+        >
+          <ThemedText style={[
+            styles.tabText, 
+            { color: activeTab === 'parts' ? colorPalette.primary : subtitleColor }
+          ]}>
+            Parts & Accessories
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content List */}
+      {activeTab === 'services' ? (
+        autoServices.length > 0 ? (
         <FlatList
           data={autoServices}
           renderItem={renderServiceItem}
@@ -412,11 +569,29 @@ export default function AdminAutoManagement() {
         />
       ) : (
         <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
-          <MaterialIcons name="car-repair" size={48} color={subtitleColor} />
+            <MaterialIcons name="build" size={48} color={subtitleColor} />
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
             No auto services found. Add a new one to get started.
           </ThemedText>
         </ThemedView>
+        )
+      ) : (
+        motorParts.length > 0 ? (
+          <FlatList
+            data={motorParts}
+            renderItem={renderPartItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
+            <MaterialIcons name="settings" size={48} color={subtitleColor} />
+            <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+              No motor parts found. Add a new one to get started.
+            </ThemedText>
+          </ThemedView>
+        )
       )}
 
       {/* Toast - positioned above modals */}
@@ -460,46 +635,63 @@ export default function AdminAutoManagement() {
             <ScrollView contentContainerStyle={styles.editScrollContent}>
               <View style={styles.modalHeader}>
                 <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
-                  {isNewService ? 'Add New Service' : 'Edit Service'}
+                  {activeTab === 'services' 
+                    ? (isNewService ? 'Add New Service' : 'Edit Service')
+                    : (isNewPart ? 'Add New Part' : 'Edit Part')
+                  }
                 </ThemedText>
                 <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                   <MaterialIcons name="close" size={24} color={textColor} />
                 </TouchableOpacity>
               </View>
 
+              {/* Title/Name Field */}
               <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Service Title*</ThemedText>
+                <ThemedText style={[styles.label, { color: textColor }]}>
+                  {activeTab === 'services' ? 'Service Title*' : 'Part Name*'}
+                </ThemedText>
                 <TextInput
                   style={[
                     styles.input, 
                     { 
                       color: textColor, 
-                      borderColor: fieldErrors.title ? dangerColor : borderColor,
-                      borderWidth: fieldErrors.title ? 2 : 1
+                      borderColor: fieldErrors.title || fieldErrors.name ? dangerColor : borderColor,
+                      borderWidth: fieldErrors.title || fieldErrors.name ? 2 : 1
                     }
                   ]}
-                  value={currentService.title}
+                  value={activeTab === 'services' ? currentService.title : currentPart.name}
                   onChangeText={(text) => {
+                    if (activeTab === 'services') {
                     setCurrentService({ ...currentService, title: text });
-                    // Clear error when user starts typing
                     if (fieldErrors.title) {
                       setFieldErrors(prev => {
                         const newErrors = { ...prev };
                         delete newErrors.title;
                         return newErrors;
                       });
+                      }
+                    } else {
+                      setCurrentPart({ ...currentPart, name: text });
+                      if (fieldErrors.name) {
+                        setFieldErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.name;
+                          return newErrors;
+                        });
+                      }
                     }
                   }}
-                  placeholder="Service title"
+                  placeholder={activeTab === 'services' ? 'Service title' : 'Part name'}
                   placeholderTextColor={subtitleColor}
                 />
-                {fieldErrors.title && (
+                {(fieldErrors.title || fieldErrors.name) && (
                   <ThemedText style={[styles.errorText, { color: dangerColor }]}>
-                    {fieldErrors.title}
+                    {fieldErrors.title || fieldErrors.name}
                   </ThemedText>
                 )}
               </View>
 
+              {/* Price Field */}
               <View style={styles.formGroup}>
                 <ThemedText style={[styles.label, { color: textColor }]}>Price*</ThemedText>
                 <TextInput
@@ -511,10 +703,13 @@ export default function AdminAutoManagement() {
                       borderWidth: fieldErrors.price ? 2 : 1
                     }
                   ]}
-                  value={currentService.price}
+                  value={activeTab === 'services' ? currentService.price : currentPart.price}
                   onChangeText={(text) => {
-                    setCurrentService({ ...currentService, price: text });
-                    // Clear error when user starts typing
+                    if (activeTab === 'services') {
+                      setCurrentService({ ...currentService, price: text });
+                    } else {
+                      setCurrentPart({ ...currentPart, price: text });
+                    }
                     if (fieldErrors.price) {
                       setFieldErrors(prev => {
                         const newErrors = { ...prev };
@@ -533,49 +728,71 @@ export default function AdminAutoManagement() {
                 )}
               </View>
 
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Duration*</ThemedText>
-                <TextInput
-                  style={[
-                    styles.input, 
-                    { 
-                      color: textColor, 
-                      borderColor: fieldErrors.duration ? dangerColor : borderColor,
-                      borderWidth: fieldErrors.duration ? 2 : 1
-                    }
-                  ]}
-                  value={currentService.duration}
-                  onChangeText={(text) => {
-                    setCurrentService({ ...currentService, duration: text });
-                    // Clear error when user starts typing
-                    if (fieldErrors.duration) {
-                      setFieldErrors(prev => {
-                        const newErrors = { ...prev };
-                        delete newErrors.duration;
-                        return newErrors;
-                      });
-                    }
-                  }}
-                  placeholder="e.g. 30 min or 1 hour"
-                  placeholderTextColor={subtitleColor}
-                />
-                {fieldErrors.duration && (
-                  <ThemedText style={[styles.errorText, { color: dangerColor }]}>
-                    {fieldErrors.duration}
-                  </ThemedText>
-                )}
-              </View>
+              {/* Description Field - Only for Parts */}
+              {activeTab === 'parts' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
+                  <TextInput
+                    style={[styles.textarea, { color: textColor, borderColor }]}
+                    value={currentPart.description}
+                    onChangeText={(text) => setCurrentPart({ ...currentPart, description: text })}
+                    placeholder="Part description"
+                    placeholderTextColor={subtitleColor}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+              )}
 
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Warranty</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: textColor, borderColor }]}
-                  value={currentService.warranty}
-                  onChangeText={(text) => setCurrentService({ ...currentService, warranty: text })}
-                  placeholder="e.g. 6 months warranty"
-                  placeholderTextColor={subtitleColor}
-                />
-              </View>
+              {/* Duration Field - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Duration*</ThemedText>
+                  <TextInput
+                    style={[
+                      styles.input, 
+                      { 
+                        color: textColor, 
+                        borderColor: fieldErrors.duration ? dangerColor : borderColor,
+                        borderWidth: fieldErrors.duration ? 2 : 1
+                      }
+                    ]}
+                    value={currentService.duration}
+                    onChangeText={(text) => {
+                      setCurrentService({ ...currentService, duration: text });
+                      // Clear error when user starts typing
+                      if (fieldErrors.duration) {
+                        setFieldErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.duration;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    placeholder="e.g. 30 min or 1 hour"
+                    placeholderTextColor={subtitleColor}
+                  />
+                  {fieldErrors.duration && (
+                    <ThemedText style={[styles.errorText, { color: dangerColor }]}>
+                      {fieldErrors.duration}
+                    </ThemedText>
+                  )}
+                </View>
+              )}
+
+              {/* Warranty Field - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Warranty</ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor }]}
+                    value={currentService.warranty}
+                    onChangeText={(text) => setCurrentService({ ...currentService, warranty: text })}
+                    placeholder="e.g. 6 months warranty"
+                    placeholderTextColor={subtitleColor}
+                  />
+                </View>
+              )}
 
               <View style={styles.formGroup}>
                 <ThemedText style={[styles.label, { color: textColor }]}>Image*</ThemedText>
@@ -606,10 +823,10 @@ export default function AdminAutoManagement() {
                         Uploading image...
                       </ThemedText>
                     </View>
-                  ) : currentService.image ? (
+                  ) : (activeTab === 'services' ? currentService.image : currentPart.image) ? (
                     <>
                       <RobustImage
-                        source={currentService.image}
+                        source={activeTab === 'services' ? currentService.image : currentPart.image}
                         style={styles.imagePreviewImage}
                         resizeMode="cover"
                       />
@@ -634,110 +851,122 @@ export default function AdminAutoManagement() {
                 )}
               </View>
 
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
-                <TextInput
-                  style={[styles.textarea, { color: textColor, borderColor }]}
-                  value={currentService.description}
-                  onChangeText={(text) => setCurrentService({ ...currentService, description: text })}
-                  placeholder="Service description"
-                  placeholderTextColor={subtitleColor}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <View style={styles.servicesHeader}>
-                  <ThemedText style={[styles.label, { color: textColor }]}>Services Included*</ThemedText>
-                  <TouchableOpacity 
-                    style={styles.addItemButton}
-                    onPress={() => addItem('services')}
-                  >
-                    <MaterialIcons name="add" size={20} color={colorPalette.primary} />
-                  </TouchableOpacity>
+              {/* Description Field - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Description</ThemedText>
+                  <TextInput
+                    style={[styles.textarea, { color: textColor, borderColor }]}
+                    value={currentService.description}
+                    onChangeText={(text) => setCurrentService({ ...currentService, description: text })}
+                    placeholder="Service description"
+                    placeholderTextColor={subtitleColor}
+                    multiline
+                    numberOfLines={4}
+                  />
                 </View>
-                
-                {currentService.services.map((service: string, index: number) => (
-                  <View key={`service-${index}`} style={styles.itemInputRow}>
-                    <TextInput
-                      style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
-                      value={service}
-                      onChangeText={(text) => handleServiceChange(text, index, 'services')}
-                      placeholder={`Service ${index + 1}`}
-                      placeholderTextColor={subtitleColor}
-                    />
+              )}
+
+              {/* Services Included - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <View style={styles.servicesHeader}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Services Included*</ThemedText>
                     <TouchableOpacity 
-                      style={styles.removeItemButton}
-                      onPress={() => removeItem(index, 'services')}
+                      style={styles.addItemButton}
+                      onPress={() => addItem('services')}
                     >
-                      <MaterialIcons name="remove" size={20} color={dangerColor} />
+                      <MaterialIcons name="add" size={20} color={colorPalette.primary} />
                     </TouchableOpacity>
                   </View>
-                ))}
-              </View>
-
-              <View style={styles.formGroup}>
-                <View style={styles.servicesHeader}>
-                  <ThemedText style={[styles.label, { color: textColor }]}>What&apos;s Included*</ThemedText>
-                  <TouchableOpacity 
-                    style={styles.addItemButton}
-                    onPress={() => addItem('includes')}
-                  >
-                    <MaterialIcons name="add" size={20} color={colorPalette.primary} />
-                  </TouchableOpacity>
+                  
+                  {currentService.services.map((service: string, index: number) => (
+                    <View key={`service-${index}`} style={styles.itemInputRow}>
+                      <TextInput
+                        style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
+                        value={service}
+                        onChangeText={(text) => handleServiceChange(text, index, 'services')}
+                        placeholder={`Service ${index + 1}`}
+                        placeholderTextColor={subtitleColor}
+                      />
+                      <TouchableOpacity 
+                        style={styles.removeItemButton}
+                        onPress={() => removeItem(index, 'services')}
+                      >
+                        <MaterialIcons name="remove" size={20} color={dangerColor} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-                
-                {currentService.includes.map((include: string, index: number) => (
-                  <View key={`include-${index}`} style={styles.itemInputRow}>
-                    <TextInput
-                      style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
-                      value={include}
-                      onChangeText={(text) => handleServiceChange(text, index, 'includes')}
-                      placeholder={`Included item ${index + 1}`}
-                      placeholderTextColor={subtitleColor}
-                    />
+              )}
+
+              {/* What's Included - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <View style={styles.servicesHeader}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>What&apos;s Included*</ThemedText>
                     <TouchableOpacity 
-                      style={styles.removeItemButton}
-                      onPress={() => removeItem(index, 'includes')}
+                      style={styles.addItemButton}
+                      onPress={() => addItem('includes')}
                     >
-                      <MaterialIcons name="remove" size={20} color={dangerColor} />
+                      <MaterialIcons name="add" size={20} color={colorPalette.primary} />
                     </TouchableOpacity>
                   </View>
-                ))}
-              </View>
-
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Availability</ThemedText>
-                <View style={styles.radioGroup}>
-                  <TouchableOpacity
-                    style={styles.radioButton}
-                    onPress={() => setCurrentService({ ...currentService, available: true })}
-                  >
-                    <MaterialIcons
-                      name={currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
-                      size={20}
-                      color={currentService.available ? colorPalette.primary : textColor}
-                    />
-                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
-                      Available
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.radioButton, { marginLeft: 16 }]}
-                    onPress={() => setCurrentService({ ...currentService, available: false })}
-                  >
-                    <MaterialIcons
-                      name={!currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
-                      size={20}
-                      color={!currentService.available ? dangerColor : textColor}
-                    />
-                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
-                      Unavailable
-                    </ThemedText>
-                  </TouchableOpacity>
+                  
+                  {currentService.includes.map((include: string, index: number) => (
+                    <View key={`include-${index}`} style={styles.itemInputRow}>
+                      <TextInput
+                        style={[styles.input, { color: textColor, borderColor, flex: 1 }]}
+                        value={include}
+                        onChangeText={(text) => handleServiceChange(text, index, 'includes')}
+                        placeholder={`Included item ${index + 1}`}
+                        placeholderTextColor={subtitleColor}
+                      />
+                      <TouchableOpacity 
+                        style={styles.removeItemButton}
+                        onPress={() => removeItem(index, 'includes')}
+                      >
+                        <MaterialIcons name="remove" size={20} color={dangerColor} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-              </View>
+              )}
+
+              {/* Availability - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Availability</ThemedText>
+                  <View style={styles.radioGroup}>
+                    <TouchableOpacity
+                      style={styles.radioButton}
+                      onPress={() => setCurrentService({ ...currentService, available: true })}
+                    >
+                      <MaterialIcons
+                        name={currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={currentService.available ? colorPalette.primary : textColor}
+                      />
+                      <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Available
+                      </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.radioButton, { marginLeft: 16 }]}
+                      onPress={() => setCurrentService({ ...currentService, available: false })}
+                    >
+                      <MaterialIcons
+                        name={!currentService.available ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={!currentService.available ? dangerColor : textColor}
+                      />
+                      <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Unavailable
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity 
@@ -754,7 +983,11 @@ export default function AdminAutoManagement() {
                   disabled={isUploadingImage}
                 >
                   <ThemedText style={styles.saveButtonText}>
-                    {isUploadingImage ? 'Uploading...' : (isNewService ? 'Add Service' : 'Save Changes')}
+                    {isUploadingImage ? 'Uploading...' : 
+                     (activeTab === 'services' ? 
+                       (isNewService ? 'Add Service' : 'Save Changes') : 
+                       (isNewPart ? 'Add Part' : 'Save Changes')
+                     )}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -840,7 +1073,7 @@ export default function AdminAutoManagement() {
                       <TouchableOpacity
                         style={[
                           styles.imageGridItem,
-                          currentService.image === img && styles.selectedImage
+                          (activeTab === 'services' ? currentService.image : currentPart.image) === img && styles.selectedImage
                         ]}
                         onPress={() => selectAndClose(img)}
                         activeOpacity={0.8}
@@ -923,6 +1156,11 @@ const styles = StyleSheet.create({
   serviceTitle: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 8,
   },
   detailsRow: {
@@ -1201,5 +1439,23 @@ const styles = StyleSheet.create({
   },
   modalToastClose: {
     padding: 4,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    marginTop: 0,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tabButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#00B2FF',
   },
 });
