@@ -1,17 +1,37 @@
+// ========================================
+// PASSWORD STRENGTH UTILITIES - PAMAMAHALA NG PASSWORD VALIDATION
+// ========================================
+// Ang file na ito ay naghahandle ng password strength validation utilities
+// May functions para sa pag-validate ng password strength at requirements
+// Ginagamit sa signup at password change screens
+
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa password strength
+
+// Interface para sa password strength result
 export interface PasswordStrength {
   score: number; // 0-4 (0 = very weak, 4 = very strong)
-  feedback: string[];
-  isValid: boolean;
+  feedback: string[]; // Array ng feedback messages
+  isValid: boolean; // Boolean na nag-indicate kung valid ang password
   requirements: {
-    length: boolean;
-    lowercase: boolean;
-    uppercase: boolean;
-    number: boolean;
-    specialChar: boolean;
+    length: boolean; // Length requirement (8+ characters)
+    lowercase: boolean; // Lowercase letter requirement
+    uppercase: boolean; // Uppercase letter requirement
+    number: boolean; // Number requirement
+    specialChar: boolean; // Special character requirement
   };
 }
 
+// ========================================
+// PASSWORD VALIDATION FUNCTIONS
+// ========================================
+// Main functions para sa password validation
+
+// Function para sa pag-validate ng password strength
 export const validatePasswordStrength = (password: string): PasswordStrength => {
+  // I-check ang password requirements
   const requirements = {
     length: password.length >= 8,
     lowercase: /[a-z]/.test(password),
@@ -23,14 +43,18 @@ export const validatePasswordStrength = (password: string): PasswordStrength => 
   const feedback: string[] = [];
   let score = 0;
 
-  // Length check
+  // ========================================
+  // LENGTH CHECK
+  // ========================================
   if (password.length < 8) {
     feedback.push('Password must be at least 8 characters long');
   } else {
     score += 1;
   }
 
-  // Character type checks
+  // ========================================
+  // CHARACTER TYPE CHECKS
+  // ========================================
   if (!requirements.lowercase) {
     feedback.push('Password must contain at least one lowercase letter');
   } else {

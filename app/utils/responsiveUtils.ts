@@ -1,8 +1,23 @@
+// ========================================
+// RESPONSIVE UTILITIES - PAMAMAHALA NG RESPONSIVE DESIGN
+// ========================================
+// Ang file na ito ay naghahandle ng responsive design utilities
+// May functions para sa pag-detect ng screen size at pag-scale ng UI elements
+// Ginagamit sa buong app para sa responsive design
+
+// Import ng React Native components
 import { Dimensions, PixelRatio, Platform } from 'react-native';
 
+// ========================================
+// SCREEN DIMENSIONS
+// ========================================
+// Kunin ang screen dimensions para sa responsive calculations
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Responsive breakpoints
+// ========================================
+// RESPONSIVE BREAKPOINTS
+// ========================================
+// Define ang breakpoints para sa different screen sizes
 export const breakpoints = {
   small: 375,    // iPhone SE, small phones
   medium: 414,   // iPhone 12, 13, 14
@@ -11,30 +26,45 @@ export const breakpoints = {
   desktop: 1200, // Desktop screens
 };
 
-// Device type detection
+// ========================================
+// DEVICE TYPE DETECTION
+// ========================================
+// I-detect ang device type base sa screen width
 export const isSmallScreen = SCREEN_WIDTH < breakpoints.small;
 export const isMediumScreen = SCREEN_WIDTH >= breakpoints.small && SCREEN_WIDTH < breakpoints.medium;
 export const isLargeScreen = SCREEN_WIDTH >= breakpoints.medium && SCREEN_WIDTH < breakpoints.large;
 export const isTablet = SCREEN_WIDTH >= breakpoints.tablet;
 export const isDesktop = SCREEN_WIDTH >= breakpoints.desktop;
 
-// Responsive font scaling
+// ========================================
+// RESPONSIVE SCALING FUNCTIONS
+// ========================================
+// Functions para sa pag-scale ng UI elements
+
+// Responsive font scaling base sa screen width
 const scale = SCREEN_WIDTH / 375; // Base width is iPhone X/11/12/13/14
 const verticalScale = SCREEN_HEIGHT / 812; // Base height is iPhone X/11/12/13/14
 
+// Function para sa pag-normalize ng font sizes
 export const normalize = (size: number): number => {
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
 };
 
+// Function para sa pag-normalize ng vertical sizes
 export const normalizeVertical = (size: number): number => {
   const newSize = size * verticalScale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
 };
 
-// Responsive values for different components
+// ========================================
+// RESPONSIVE VALUES
+// ========================================
+// Pre-defined responsive values para sa different components
 export const responsiveValues = {
-  // Tab Bar
+  // ========================================
+  // TAB BAR VALUES
+  // ========================================
   tabBar: {
     height: isSmallScreen ? 55 : isTablet ? 80 : 65,
     iconSize: isSmallScreen ? 20 : isTablet ? 28 : 24,
@@ -45,7 +75,9 @@ export const responsiveValues = {
     badgeFontSize: isSmallScreen ? 8 : isTablet ? 12 : 10,
   },
   
-  // Typography
+  // ========================================
+  // TYPOGRAPHY VALUES
+  // ========================================
   typography: {
     h1: normalize(isTablet ? 32 : 28),
     h2: normalize(isTablet ? 28 : 24),

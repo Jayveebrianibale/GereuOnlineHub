@@ -334,22 +334,32 @@ export default function ApartmentListScreen() {
       setPaymentModalVisible(false);
       setPendingReservation(null);
       
+      // ========================================
+      // SUCCESS ALERT - APARTMENT RESERVATION
+      // ========================================
+      // I-display ang success alert pagkatapos ng successful payment at reservation
+      // I-inform ang user na successful ang payment at reservation
       Alert.alert(
-        'Payment & Reservation Successful!',
-        'Your payment has been confirmed and your apartment reservation has been submitted! You can view your reservations in the Bookings tab.',
+        'Payment & Reservation Successful!', // Alert title - successful payment at reservation
+        'Your payment has been confirmed and your apartment reservation has been submitted! You can view your reservations in the Bookings tab.', // Alert message - confirmation ng payment at reservation
         [
           {
-            text: 'View Bookings',
-            onPress: () => router.push('/(user-tabs)/bookings')
+            text: 'View Bookings', // Button text - para sa pag-view ng bookings
+            onPress: () => router.push('/(user-tabs)/bookings') // I-navigate sa bookings tab
           }
         ]
       );
     } catch (error) {
       console.error('Error processing reservation after payment:', error);
+      // ========================================
+      // ERROR ALERT - APARTMENT RESERVATION ERROR
+      // ========================================
+      // I-display ang error alert kung may error sa reservation processing
+      // I-inform ang user na may error sa reservation pero successful ang payment
       Alert.alert(
-        'Reservation Error',
-        'Payment was successful but there was an error processing your reservation. Please contact support.',
-        [{ text: 'OK' }]
+        'Reservation Error', // Alert title - reservation error
+        'Payment was successful but there was an error processing your reservation. Please contact support.', // Alert message - payment successful pero may error sa reservation
+        [{ text: 'OK' }] // OK button para sa pag-close ng alert
       );
     }
   };

@@ -1,9 +1,22 @@
+// ========================================
+// MIGRATION UTILITIES - PAMAMAHALA NG DATA MIGRATION
+// ========================================
+// Ang file na ito ay naghahandle ng data migration utilities
+// May functions para sa pag-migrate ng existing users sa new system
+// Ginagamit para sa initial setup at data migration
+
+// Import ng Firebase Database functions
 import { get, ref, set } from 'firebase/database';
 import { isAdminEmail } from '../app/config/adminConfig';
 import { db } from '../app/firebaseConfig';
 import { UserData } from './userUtils';
 
-// Helper function to get user initials for avatar
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+// Utility functions para sa migration process
+
+// Helper function para sa pag-get ng user initials para sa avatar
 const getInitials = (name: string): string => {
   return name
     .split(' ')
@@ -12,13 +25,18 @@ const getInitials = (name: string): string => {
     .slice(0, 2);
 };
 
-// Migration function to create user data for existing Firebase Auth users
-// This should be run once to migrate existing users to the new system
+// ========================================
+// MIGRATION FUNCTIONS
+// ========================================
+// Main functions para sa data migration
+
+// Migration function para sa pag-create ng user data para sa existing Firebase Auth users
+// Dapat i-run ito once para i-migrate ang existing users sa new system
 export const migrateExistingUsers = async (): Promise<void> => {
   try {
     console.log('Starting user migration...');
     
-    // Check if users already exist in the database
+    // I-check kung may existing users na sa database
     const usersRef = ref(db, 'users');
     const snapshot = await get(usersRef);
     
@@ -27,7 +45,7 @@ export const migrateExistingUsers = async (): Promise<void> => {
       return;
     }
     
-    // Create sample admin users based on the admin config
+    // I-create ang sample admin users base sa admin config
     const adminEmails = [
       'jayveebriani@gmail.com',
       'pedro1@gmail.com'

@@ -1,76 +1,116 @@
+// ========================================
+// PAYMENT SERVICE - PAMAMAHALA NG PAYMENT
+// ========================================
+// Ang file na ito ay naghahandle ng payment service operations
+// May functions para sa payment creation, verification, at management
+// Support para sa different payment methods: GCash, cash, bank transfer
+
+// Import ng Firebase Database functions
 import { get, ref, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
 import { getAdminPaymentSettings } from './adminPaymentService';
 
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa payment system
+
+// Interface para sa payment data structure
 export interface PaymentData {
-  id: string;
-  userId: string;
-  reservationId: string;
-  serviceType: 'apartment' | 'laundry' | 'auto';
-  serviceId: string;
-  amount: number;
-  downPaymentAmount: number;
-  fullAmount: number;
-  status: 'pending' | 'paid' | 'failed' | 'refunded';
-  paymentMethod: 'gcash' | 'cash' | 'bank_transfer';
-  gcashNumber?: string;
-  qrCode?: string;
-  referenceNumber?: string;
-  createdAt: string;
-  updatedAt: string;
-  dueDate: string;
+  id: string; // Unique payment identifier
+  userId: string; // User ID
+  reservationId: string; // Reservation ID
+  serviceType: 'apartment' | 'laundry' | 'auto'; // Service type
+  serviceId: string; // Service ID
+  amount: number; // Payment amount
+  downPaymentAmount: number; // Down payment amount
+  fullAmount: number; // Full payment amount
+  status: 'pending' | 'paid' | 'failed' | 'refunded'; // Payment status
+  paymentMethod: 'gcash' | 'cash' | 'bank_transfer'; // Payment method
+  gcashNumber?: string; // GCash number (optional)
+  qrCode?: string; // QR code data (optional)
+  referenceNumber?: string; // Reference number (optional)
+  createdAt: string; // Creation timestamp
+  updatedAt: string; // Last update timestamp
+  dueDate: string; // Payment due date
 }
 
+// Interface para sa GCash payment data
 export interface GCashPaymentData {
-  amount: number;
+  amount: number; // Payment amount
   referenceNumber: string;
   qrCode: string;
   gcashNumber: string;
   dueDate: string;
 }
 
-// Generate a unique reference number for GCash payments
+// ========================================
+// GENERATE REFERENCE NUMBER FUNCTION
+// ========================================
+// I-generate ang unique reference number para sa GCash payments
+// Ginagamit para sa payment tracking at identification
 export function generateReferenceNumber(): string {
-  const timestamp = Date.now().toString();
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `GC${timestamp.slice(-6)}${random}`;
+  const timestamp = Date.now().toString(); // I-get ang current timestamp
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase(); // I-generate ang random string
+  return `GC${timestamp.slice(-6)}${random}`; // I-combine ang timestamp at random string
 }
 
-// Generate QR code data for GCash payment
+// ========================================
+// GENERATE GCASH QR CODE FUNCTION
+// ========================================
+// I-generate ang QR code data para sa GCash payment
+// Ginagamit para sa QR code display sa payment modal
 export function generateGCashQRCode(paymentData: GCashPaymentData): string {
+  // ========================================
+  // GCASH QR CODE FORMAT
+  // ========================================
   // GCash QR code format: gcash://pay?amount=AMOUNT&reference=REFERENCE&merchant=MERCHANT
   const qrData = {
-    amount: paymentData.amount,
-    reference: paymentData.referenceNumber,
-    merchant: 'GereuOnlineHub',
-    description: `Payment for reservation - Ref: ${paymentData.referenceNumber}`
+    amount: paymentData.amount, // Payment amount
+    reference: paymentData.referenceNumber, // Reference number
+    merchant: 'GereuOnlineHub', // Merchant name
+    description: `Payment for reservation - Ref: ${paymentData.referenceNumber}` // Payment description
   };
   
-  // Convert to URL format for QR code
+  // ========================================
+  // QR CODE URL GENERATION
+  // ========================================
+  // I-convert ang data to URL format para sa QR code
   const qrString = `gcash://pay?amount=${qrData.amount}&reference=${qrData.reference}&merchant=${qrData.merchant}&description=${encodeURIComponent(qrData.description)}`;
   
-  return qrString;
+  return qrString; // I-return ang QR code string
 }
 
-// Create a new payment record
+// ========================================
+// CREATE PAYMENT FUNCTION
+// ========================================
+// I-create ang new payment record sa database
+// I-generate ang payment data at i-save sa Firebase
 export async function createPayment(
-  userId: string,
-  reservationId: string,
-  serviceType: 'apartment' | 'laundry' | 'auto',
-  serviceId: string,
-  fullAmount: number,
-  paymentMethod: 'gcash' | 'cash' | 'bank_transfer' = 'gcash'
+  userId: string, // User ID
+  reservationId: string, // Reservation ID
+  serviceType: 'apartment' | 'laundry' | 'auto', // Service type
+  serviceId: string, // Service ID
+  fullAmount: number, // Full payment amount
+  paymentMethod: 'gcash' | 'cash' | 'bank_transfer' = 'gcash' // Payment method (default: gcash)
 ): Promise<PaymentData> {
   try {
-    const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount;
-    const referenceNumber = generateReferenceNumber();
+    // ========================================
+    // PAYMENT CALCULATIONS
+    // ========================================
+    // I-calculate ang down payment amount based sa service type
+    const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount; // 30% down payment para sa apartment
+    const referenceNumber = generateReferenceNumber(); // I-generate ang unique reference number
     
-    // Fetch admin's GCash information from payment settings
-    let gcashNumber = '+639123456789'; // Default fallback
+    // ========================================
+    // ADMIN PAYMENT SETTINGS
+    // ========================================
+    // I-fetch ang admin's GCash information mula sa payment settings
+    let gcashNumber = '+639123456789'; // Default fallback number
     try {
-      const adminSettings = await getAdminPaymentSettings();
+      const adminSettings = await getAdminPaymentSettings(); // I-fetch ang admin settings
       if (adminSettings?.gcashNumber) {
-        gcashNumber = adminSettings.gcashNumber;
+        gcashNumber = adminSettings.gcashNumber; // I-use ang admin's GCash number
       }
     } catch (error) {
       console.warn('Failed to fetch admin payment settings, using default GCash number:', error);

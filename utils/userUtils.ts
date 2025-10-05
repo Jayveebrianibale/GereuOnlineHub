@@ -1,21 +1,40 @@
+// ========================================
+// USER UTILITIES - PAMAMAHALA NG USER DATA
+// ========================================
+// Ang file na ito ay naghahandle ng user data management utilities
+// May functions para sa pag-store, update, delete, at retrieve ng user data
+// Ginagamit sa buong app para sa user management
+
+// Import ng Firebase Auth at Database functions
 import { User } from 'firebase/auth';
 import { DataSnapshot, get, onValue, ref, set } from 'firebase/database';
 import { isAdminEmail } from '../app/config/adminConfig';
 import { db } from '../app/firebaseConfig';
 
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa user data
+
+// Interface para sa user data structure
 export interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'user';
-  status: 'active' | 'inactive';
-  lastActive: string;
-  avatar: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; // User ID (Firebase UID)
+  name: string; // User's full name
+  email: string; // User's email address
+  role: 'admin' | 'user'; // User role (admin o user)
+  status: 'active' | 'inactive'; // User status
+  lastActive: string; // Last active timestamp
+  avatar: string; // User avatar (initials o image URL)
+  createdAt: string; // Creation timestamp
+  updatedAt: string; // Last update timestamp
 }
 
-// Store user data in Firebase Realtime Database when they register
+// ========================================
+// USER DATA MANAGEMENT FUNCTIONS
+// ========================================
+// Main functions para sa user data management
+
+// I-store ang user data sa Firebase Realtime Database kapag nag-register
 export const storeUserData = async (user: User, fullName: string): Promise<void> => {
   try {
     const userRef = ref(db, `users/${user.uid}`);
@@ -40,12 +59,12 @@ export const storeUserData = async (user: User, fullName: string): Promise<void>
   }
 };
 
-// Update user's last active time and set status to active
+// I-update ang user's last active time at i-set ang status to active
 export const updateUserLastActive = async (userId: string, email?: string, displayName?: string): Promise<void> => {
   try {
     const userRef = ref(db, `users/${userId}`);
     
-    // Check if user exists first
+    // I-check muna kung may existing user
     const snapshot = await get(userRef);
     if (snapshot.exists()) {
       // User exists, only update specific fields to preserve existing data

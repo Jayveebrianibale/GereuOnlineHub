@@ -891,10 +891,20 @@ export default function ReservationsScreen() {
                                 { serviceType: reservation.serviceType, serviceId: reservation.serviceId, action: 'completed' }
                               );
                             } catch {}
-                            Alert.alert('Success', 'Reservation has been marked as completed!');
+                            // ========================================
+                            // SUCCESS ALERT - ADMIN RESERVATION COMPLETED
+                            // ========================================
+                            // I-display ang success alert pagkatapos ng successful completion
+                            // I-inform ang admin na successful ang completion ng reservation
+                            Alert.alert('Success', 'Reservation has been marked as completed!'); // Alert title at message - reservation completed successfully
                           } catch (error) {
                             console.error('Error marking reservation as completed:', error);
-                            Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.');
+                            // ========================================
+                            // ERROR ALERT - ADMIN RESERVATION COMPLETION FAILED
+                            // ========================================
+                            // I-display ang error alert kung nag-fail ang completion
+                            // I-inform ang admin na nag-fail ang completion ng reservation
+                            Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.'); // Alert title at message - completion failed, try again
                           }
                         }}
                       >

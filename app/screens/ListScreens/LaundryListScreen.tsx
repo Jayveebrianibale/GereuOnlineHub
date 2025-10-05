@@ -289,23 +289,32 @@ export default function LaundryListScreen() {
       setPickupAddress('');
       setPickupContactNumber('');
       
-      // Show success message and redirect to bookings
+      // ========================================
+      // SUCCESS ALERT - LAUNDRY SERVICE AVAIL
+      // ========================================
+      // I-display ang success alert pagkatapos ng successful laundry service avail
+      // I-inform ang user na successful ang avail ng laundry service
       Alert.alert(
-        'Avail Successful!',
-        `You have successfully availed ${selectedLaundryService.title} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}). You can view your avails in the Bookings tab.`,
+        'Avail Successful!', // Alert title - successful avail
+        `You have successfully availed ${selectedLaundryService.title} (${deliveryType === 'pickup' ? 'Pickup' : 'Drop-off'}). You can view your avails in the Bookings tab.`, // Alert message - confirmation ng successful avail with service details
         [
           {
-            text: 'View Bookings',
-            onPress: () => router.push('/(user-tabs)/bookings')
+            text: 'View Bookings', // Button text - para sa pag-view ng bookings
+            onPress: () => router.push('/(user-tabs)/bookings') // I-navigate sa bookings tab
           }
         ]
       );
     } catch (error) {
       console.error('Error reserving laundry service:', error);
+      // ========================================
+      // ERROR ALERT - LAUNDRY SERVICE AVAIL FAILED
+      // ========================================
+      // I-display ang error alert kung nag-fail ang laundry service avail
+      // I-inform ang user na hindi na-process ang avail
       Alert.alert(
-        'Avail Failed',
-        'Sorry, we couldn\'t process your avail. Please try again.',
-        [{ text: 'OK' }]
+        'Avail Failed', // Alert title - failed avail
+        'Sorry, we couldn\'t process your avail. Please try again.', // Alert message - apology at instruction to try again
+        [{ text: 'OK' }] // OK button para sa pag-close ng alert
       );
     } finally {
       setIsConfirming(false);

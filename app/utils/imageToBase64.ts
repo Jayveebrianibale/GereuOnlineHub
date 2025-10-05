@@ -1,12 +1,28 @@
+// ========================================
+// IMAGE TO BASE64 UTILITIES - PAMAMAHALA NG IMAGE CONVERSION
+// ========================================
+// Ang file na ito ay naghahandle ng image conversion utilities
+// May functions para sa pag-convert ng image URI to base64 string
+// Ginagamit sa buong app para sa image storage at display
+
+// Import ng Expo FileSystem at ImageManipulator
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 
-// Convert image URI to base64 string
+// ========================================
+// IMAGE CONVERSION FUNCTIONS
+// ========================================
+// Main functions para sa image conversion
+
+// Function para sa pag-convert ng image URI to base64 string
 export const convertImageToBase64 = async (imageUri: string): Promise<string> => {
   try {
     console.log('Converting image to base64:', imageUri);
     
-    // First, try to read the file directly
+    // ========================================
+    // DIRECT FILE READ APPROACH
+    // ========================================
+    // I-try muna ang direct file read approach
     try {
       const fileInfo = await FileSystem.getInfoAsync(imageUri);
       console.log('File info:', fileInfo);
@@ -17,7 +33,7 @@ export const convertImageToBase64 = async (imageUri: string): Promise<string> =>
         });
         
         if (base64 && base64.length > 0) {
-          // Determine the MIME type based on file extension
+          // I-determine ang MIME type base sa file extension
           let mimeType = 'image/jpeg'; // default
           if (imageUri.toLowerCase().includes('.png')) {
             mimeType = 'image/png';
@@ -36,7 +52,10 @@ export const convertImageToBase64 = async (imageUri: string): Promise<string> =>
       console.log('Direct file read failed, trying ImageManipulator approach:', fileError);
     }
     
-    // Fallback: Use ImageManipulator to create a new file and then convert
+    // ========================================
+    // IMAGE MANIPULATOR FALLBACK APPROACH
+    // ========================================
+    // Fallback: I-use ang ImageManipulator para mag-create ng new file at i-convert
     try {
       console.log('Using ImageManipulator fallback approach...');
       const manipResult = await ImageManipulator.manipulateAsync(

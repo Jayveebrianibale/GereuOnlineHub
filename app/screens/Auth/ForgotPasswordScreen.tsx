@@ -1,32 +1,58 @@
+// ========================================
+// FORGOT PASSWORD SCREEN - PAG-RESET NG PASSWORD
+// ========================================
+// Ang file na ito ay naghahandle ng forgot password screen
+// May features na: email validation, password reset, error handling
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at Firebase Auth
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useState } from 'react';
 import {
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { auth } from '../../firebaseConfig';
 
+// ========================================
+// SCREEN DIMENSIONS
+// ========================================
+// Kunin ang screen dimensions para sa responsive design
 const { width, height } = Dimensions.get('window');
 
+// ========================================
+// FORGOT PASSWORD SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng forgot password functionality
+// May email validation at password reset features
 export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
-  const router = useRouter();
+  // ========================================
+  // STATE VARIABLES
+  // ========================================
+  const [email, setEmail] = useState(''); // Email input state
+  const [isLoading, setIsLoading] = useState(false); // Loading state para sa password reset
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' }); // Toast notification state
+  const router = useRouter(); // Navigation router
 
+  // ========================================
+  // PASSWORD RESET FUNCTION
+  // ========================================
+  // Function para sa pag-send ng password reset email
+  // May email validation at error handling
   const handleResetPassword = async () => {
+    // I-validate ang email input
     if (!email.trim()) {
       setToast({ visible: true, message: 'Please enter your email address', type: 'error' });
       return;
@@ -34,6 +60,7 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
+      // I-send ang password reset email gamit ang Firebase Auth
       await sendPasswordResetEmail(auth, email);
       setToast({ 
         visible: true, 
@@ -41,11 +68,12 @@ export default function ForgotPasswordScreen() {
         type: 'success' 
       });
       
-      // Navigate back to signin after successful reset
+      // I-navigate back sa signin screen pagkatapos ng successful reset
       setTimeout(() => {
         router.back();
       }, 2000);
     } catch (error: any) {
+      // I-handle ang error at i-display ang appropriate message
       let errorMessage = 'Failed to send reset email. Please try again.';
       
       if (error.code === 'auth/user-not-found') {

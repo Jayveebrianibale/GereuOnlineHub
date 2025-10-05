@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-  AutoService,
-  getAutoServices,
+    AutoService,
+    getAutoServices,
 } from '../../services/autoService';
 import {
-  cacheAutoServices,
-  cacheMotorParts,
-  getCachedAutoServices,
-  getCachedMotorParts
+    cacheAutoServices,
+    cacheMotorParts,
+    getCachedAutoServices,
+    getCachedMotorParts
 } from '../../services/dataCache';
 import {
-  MotorPart,
-  getMotorParts,
+    MotorPart,
+    getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -177,7 +177,12 @@ export default function AutoListScreen() {
 
   const handleDirectBooking = async (service: any) => {
     if (!service.available) {
-      Alert.alert('🚫 Unavailable', 'This service is currently unavailable.');
+      // ========================================
+      // UNAVAILABLE ALERT - AUTO SERVICE
+      // ========================================
+      // I-display ang unavailable alert kung hindi available ang service
+      // I-inform ang user na hindi available ang service
+      Alert.alert('🚫 Unavailable', 'This service is currently unavailable.'); // Alert title at message - service unavailable
       return;
     }
 
@@ -224,15 +229,30 @@ export default function AutoListScreen() {
         // Show custom alert
         setCustomAlertVisible(true);
       } catch (error) {
-        Alert.alert('❌ Failed', 'Please try again.');
+        // ========================================
+        // FAILED ALERT - AUTO SERVICE BOOKING
+        // ========================================
+        // I-display ang failed alert kung nag-fail ang booking
+        // I-inform ang user na nag-fail ang booking at i-try ulit
+        Alert.alert('❌ Failed', 'Please try again.'); // Alert title at message - booking failed, try again
       }
     } else {
       // Cancel existing booking
       try {
         await removeAutoReservation(service.id);
-        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.');
+        // ========================================
+        // CANCELLED ALERT - AUTO SERVICE BOOKING
+        // ========================================
+        // I-display ang cancelled alert pagkatapos ng successful cancellation
+        // I-inform ang user na successful ang cancellation
+        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.'); // Alert title at message - booking cancelled successfully
       } catch (error) {
-        Alert.alert('❌ Failed', 'Could not cancel booking.');
+        // ========================================
+        // FAILED ALERT - AUTO SERVICE CANCELLATION
+        // ========================================
+        // I-display ang failed alert kung nag-fail ang cancellation
+        // I-inform ang user na hindi na-cancel ang booking
+        Alert.alert('❌ Failed', 'Could not cancel booking.'); // Alert title at message - cancellation failed
       }
     }
   };
@@ -243,13 +263,23 @@ export default function AutoListScreen() {
     const missingFields = Object.entries(fields).filter(([_, value]) => !value.trim());
     
     if (missingFields.length > 0) {
-      Alert.alert('⚠️ Missing Information', 'Please fill in all required fields.');
+      // ========================================
+      // MISSING INFORMATION ALERT - AUTO SERVICE
+      // ========================================
+      // I-display ang missing information alert kung may kulang na fields
+      // I-inform ang user na kailangan niyang i-fill ang lahat ng required fields
+      Alert.alert('⚠️ Missing Information', 'Please fill in all required fields.'); // Alert title at message - missing required fields
       return;
     }
 
     const service = selectedServiceForBooking;
     if (!service?.available) {
-      Alert.alert('🚫 Service Unavailable', 'This service is currently unavailable.');
+      // ========================================
+      // SERVICE UNAVAILABLE ALERT - AUTO SERVICE
+      // ========================================
+      // I-display ang service unavailable alert kung hindi available ang service
+      // I-inform ang user na hindi available ang service
+      Alert.alert('🚫 Service Unavailable', 'This service is currently unavailable.'); // Alert title at message - service unavailable
       return;
     }
 
@@ -321,9 +351,19 @@ export default function AutoListScreen() {
       // Cancel existing booking
       try {
         await removeAutoReservation(service.id);
-        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.');
+        // ========================================
+        // CANCELLED ALERT - AUTO SERVICE BOOKING
+        // ========================================
+        // I-display ang cancelled alert pagkatapos ng successful cancellation
+        // I-inform ang user na successful ang cancellation
+        Alert.alert('✅ Cancelled', 'Booking cancelled successfully.'); // Alert title at message - booking cancelled successfully
       } catch (error) {
-        Alert.alert('❌ Failed', 'Could not cancel booking.');
+        // ========================================
+        // FAILED ALERT - AUTO SERVICE CANCELLATION
+        // ========================================
+        // I-display ang failed alert kung nag-fail ang cancellation
+        // I-inform ang user na hindi na-cancel ang booking
+        Alert.alert('❌ Failed', 'Could not cancel booking.'); // Alert title at message - cancellation failed
       }
     }
   };

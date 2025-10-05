@@ -1,3 +1,11 @@
+// ========================================
+// NOTIFICATIONS SCREEN - PAMAMAHALA NG NOTIFICATIONS
+// ========================================
+// Ang file na ito ay naghahandle ng notifications screen
+// May comprehensive features: view notifications, mark as read, delete notifications
+// Real-time notification updates at haptic feedback
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -8,40 +16,57 @@ import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { FirebaseUserReservation, listenToUserReservations } from './services/reservationService';
 
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa notification system
+
+// Interface para sa notification data structure
 interface Notification {
-  id: string;
-  type: 'reservation' | 'message' | 'system';
-  title: string;
-  message: string;
-  timestamp: number;
-  isRead: boolean;
-  isDeleted?: boolean;
-  reservationId?: string;
-  chatId?: string;
-  actionUrl?: string;
+  id: string; // Unique notification identifier
+  type: 'reservation' | 'message' | 'system'; // Notification type
+  title: string; // Notification title
+  message: string; // Notification message content
+  timestamp: number; // Notification timestamp
+  isRead: boolean; // Read status
+  isDeleted?: boolean; // Deleted status (optional)
+  reservationId?: string; // Related reservation ID (optional)
+  chatId?: string; // Related chat ID (optional)
+  actionUrl?: string; // Action URL (optional)
 }
 
-
+// ========================================
+// NOTIFICATIONS SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng notifications management
+// May comprehensive features para sa notification management
 export default function NotificationsScreen() {
-  const { colorScheme } = useColorScheme();
-  const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const router = useRouter(); // Navigation router
+  const [notifications, setNotifications] = useState<Notification[]>([]); // Notifications list
+  const [isLoading, setIsLoading] = useState(true); // Loading state
+  const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
+  const [unreadCount, setUnreadCount] = useState(0); // Unread count
 
+  // ========================================
+  // THEME COLORS
+  // ========================================
+  // Dynamic colors based on theme
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#0F0F0F' : '#FAFBFC';
   const textColor = isDark ? '#FFFFFF' : '#1A1A1A';
@@ -439,10 +464,15 @@ export default function NotificationsScreen() {
           <View style={styles.notificationContent}>
             {/* Status Indicator */}
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
+              {/* ========================================
+                   STATUS ICON - NOTIFICATION TYPE INDICATOR
+                   ========================================
+                   I-display ang status icon based sa notification type
+                   Ginagamit para sa visual indication ng notification status */}
               <MaterialIcons 
-                name={getStatusIcon(item.title)} 
-                size={18} 
-                color="#FFFFFF" 
+                name={getStatusIcon(item.title)} // Dynamic icon based sa notification title
+                size={18} // Icon size - 18px
+                color="#FFFFFF" // White color para sa contrast
               />
             </View>
 
@@ -463,6 +493,11 @@ export default function NotificationsScreen() {
               
               <View style={styles.notificationFooter}>
                 <View style={styles.timeContainer}>
+                  {/* ========================================
+                       SCHEDULE ICON - TIMESTAMP INDICATOR
+                       ========================================
+                       I-display ang schedule icon para sa timestamp
+                       Ginagamit para sa visual indication ng time */}
                   <MaterialIcons name="schedule" size={12} color={subtitleColor} />
                   <ThemedText style={[styles.notificationTime, { color: subtitleColor }]}>
                     {formatTime(item.timestamp)}
@@ -483,11 +518,16 @@ export default function NotificationsScreen() {
             
             {/* Arrow */}
             <View style={styles.arrowContainer}>
+              {/* ========================================
+                   CHEVRON RIGHT ICON - NAVIGATION INDICATOR
+                   ========================================
+                   I-display ang chevron right icon para sa navigation
+                   Ginagamit para sa visual indication na clickable ang notification */}
               <MaterialIcons 
-                name="chevron-right" 
-                size={20} 
-                color={subtitleColor} 
-                style={{ opacity: 0.6 }} 
+                name="chevron-right" // Chevron right icon para sa navigation
+                size={20} // Icon size - 20px
+                color={subtitleColor} // Subtitle color para sa subtle appearance
+                style={{ opacity: 0.6 }} // Opacity para sa subtle effect
               />
             </View>
           </View>
@@ -504,12 +544,26 @@ export default function NotificationsScreen() {
     return colors.primary;
   };
 
+  // ========================================
+  // GET STATUS ICON FUNCTION - ICON SELECTION
+  // ========================================
+  // Function na nagde-determine ng appropriate icon based sa notification title
+  // Ginagamit para sa visual indication ng notification status
   const getStatusIcon = (title: string) => {
-    if (title.includes('pending') || title.includes('Pending')) return 'access-time' as const; // Clock icon for pending
-    if (title.includes('confirmed') || title.includes('Confirmed')) return 'check-circle' as const;
-    if (title.includes('declined') || title.includes('Declined')) return 'cancel' as const;
-    if (title.includes('cancelled') || title.includes('Cancelled')) return 'block' as const;
-    return 'notifications' as const;
+    // ========================================
+    // ICON MAPPING - NOTIFICATION STATUS ICONS
+    // ========================================
+    // I-map ang different status types sa appropriate icons
+    
+    if (title.includes('pending') || title.includes('Pending')) 
+      return 'access-time' as const; // Clock icon para sa pending status
+    if (title.includes('confirmed') || title.includes('Confirmed')) 
+      return 'check-circle' as const; // Check circle icon para sa confirmed status
+    if (title.includes('declined') || title.includes('Declined')) 
+      return 'cancel' as const; // Cancel icon para sa declined status
+    if (title.includes('cancelled') || title.includes('Cancelled')) 
+      return 'block' as const; // Block icon para sa cancelled status
+    return 'notifications' as const; // Default notifications icon
   };
 
   const getStatusText = (title: string): string => {
@@ -608,6 +662,11 @@ export default function NotificationsScreen() {
               style={styles.backButton}
               onPress={() => router.back()}
             >
+              {/* ========================================
+                   ARROW BACK ICON - BACK NAVIGATION
+                   ========================================
+                   I-display ang arrow back icon para sa back navigation
+                   Ginagamit para sa pag-navigate pabalik sa previous screen */}
               <MaterialIcons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
             <View style={styles.headerTextContainer}>
@@ -626,6 +685,11 @@ export default function NotificationsScreen() {
                 style={[styles.actionButton, { backgroundColor: colors.error }]}
                 onPress={handleClearAllNotifications}
               >
+                {/* ========================================
+                     DELETE OUTLINE ICON - CLEAR ALL NOTIFICATIONS
+                     ========================================
+                     I-display ang delete outline icon para sa clear all action
+                     Ginagamit para sa pag-clear ng lahat ng notifications */}
                 <MaterialIcons name="delete-outline" size={20} color="#fff" />
               </TouchableOpacity>
             )}
@@ -634,6 +698,11 @@ export default function NotificationsScreen() {
                 style={[styles.actionButton, { backgroundColor: colors.primary }]}
                 onPress={handleMarkAllRead}
               >
+                {/* ========================================
+                     DONE ALL ICON - MARK ALL AS READ
+                     ========================================
+                     I-display ang done all icon para sa mark all as read action
+                     Ginagamit para sa pag-mark ng lahat ng notifications as read */}
                 <MaterialIcons name="done-all" size={18} color="#fff" />
               </TouchableOpacity>
             )}
@@ -666,11 +735,16 @@ export default function NotificationsScreen() {
               ]}
             >
               <View style={styles.emptyIconContainer}>
+                {/* ========================================
+                     NOTIFICATIONS NONE ICON - EMPTY STATE
+                     ========================================
+                     I-display ang notifications none icon para sa empty state
+                     Ginagamit para sa visual indication na walang notifications */}
                 <MaterialIcons 
-                  name="notifications-none" 
-                  size={80} 
-                  color={colors.primary} 
-                  style={{ opacity: 0.6 }} 
+                  name="notifications-none" // Notifications none icon para sa empty state
+                  size={80} // Large icon size - 80px para sa prominence
+                  color={colors.primary} // Primary color para sa brand consistency
+                  style={{ opacity: 0.6 }} // Opacity para sa subtle effect
                 />
               </View>
               <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
@@ -684,6 +758,11 @@ export default function NotificationsScreen() {
                   style={[styles.emptyActionButton, { backgroundColor: colors.primary }]}
                   onPress={handleRefresh}
                 >
+                  {/* ========================================
+                       REFRESH ICON - REFRESH ACTION
+                       ========================================
+                       I-display ang refresh icon para sa refresh action
+                       Ginagamit para sa pag-refresh ng notifications list */}
                   <MaterialIcons name="refresh" size={20} color="#fff" />
                   <ThemedText style={styles.emptyActionText}>Refresh</ThemedText>
                 </TouchableOpacity>
