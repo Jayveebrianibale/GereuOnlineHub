@@ -1,3 +1,11 @@
+// ========================================
+// SIGNIN SCREEN - PAG-LOGIN NG USER
+// ========================================
+// Ang file na ito ay naghahandle ng signin screen
+// May mga features na: email/password login, remember me, admin detection, animations
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at Firebase Auth
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -5,70 +13,102 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { isAdminEmail } from '../../config/adminConfig';
 import { auth } from '../../firebaseConfig';
 
+// ========================================
+// SCREEN DIMENSIONS AT RESPONSIVE CONFIGURATION
+// ========================================
+// Kunin ang screen dimensions para sa responsive design
 const { height, width } = Dimensions.get('window');
 
-// Responsive dimensions
-const isSmallScreen = height < 700;
-const isMediumScreen = height >= 700 && height < 800;
-const isLargeScreen = height >= 800;
+// ========================================
+// RESPONSIVE SCREEN DETECTION
+// ========================================
+// I-detect ang screen size para sa appropriate UI scaling
+const isSmallScreen = height < 700; // Small screens (mga older phones)
+const isMediumScreen = height >= 700 && height < 800; // Medium screens (standard phones)
+const isLargeScreen = height >= 800; // Large screens (tablets, large phones)
 
-// Responsive values
+// ========================================
+// RESPONSIVE VALUES CONFIGURATION
+// ========================================
+// Dynamic values na nagba-base sa screen size
+// Sinisiguro na maganda ang UI sa lahat ng device sizes
 const responsiveValues = {
-  headerHeight: isSmallScreen ? height * 0.35 : height * 0.45,
-  logoSize: isSmallScreen ? 80 : isMediumScreen ? 90 : 108,
-  logoInnerSize: isSmallScreen ? 80 : isMediumScreen ? 90 : 108,
-  titleFontSize: isSmallScreen ? 28 : isMediumScreen ? 30 : 32,
-  subtitleFontSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16,
-  formPadding: isSmallScreen ? 20 : isMediumScreen ? 24 : 28,
-  inputHeight: isSmallScreen ? 50 : isMediumScreen ? 55 : 60,
-  buttonHeight: isSmallScreen ? 50 : isMediumScreen ? 55 : 60,
-  marginHorizontal: isSmallScreen ? 16 : isMediumScreen ? 20 : 24,
-  formTitleSize: isSmallScreen ? 20 : isMediumScreen ? 21 : 22,
-  inputLabelSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16,
-  buttonTextSize: isSmallScreen ? 16 : isMediumScreen ? 17 : 18,
-  footerTextSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16,
-  headerPaddingTop: isSmallScreen ? 30 : isMediumScreen ? 35 : 40,
-  formMarginBottom: isSmallScreen ? 20 : isMediumScreen ? 22 : 24,
-  formCardMinHeight: isSmallScreen ? 400 : isMediumScreen ? 450 : 500,
-  inputSectionMargin: isSmallScreen ? 16 : isMediumScreen ? 18 : 20,
-  formHeaderMargin: isSmallScreen ? 28 : isMediumScreen ? 32 : 36,
+  headerHeight: isSmallScreen ? height * 0.35 : height * 0.45, // Height ng header section
+  logoSize: isSmallScreen ? 80 : isMediumScreen ? 90 : 108, // Size ng app logo
+  logoInnerSize: isSmallScreen ? 80 : isMediumScreen ? 90 : 108, // Size ng inner logo
+  titleFontSize: isSmallScreen ? 28 : isMediumScreen ? 30 : 32, // Font size ng title
+  subtitleFontSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16, // Font size ng subtitle
+  formPadding: isSmallScreen ? 20 : isMediumScreen ? 24 : 28, // Padding ng form
+  inputHeight: isSmallScreen ? 50 : isMediumScreen ? 55 : 60, // Height ng input fields
+  buttonHeight: isSmallScreen ? 50 : isMediumScreen ? 55 : 60, // Height ng buttons
+  marginHorizontal: isSmallScreen ? 16 : isMediumScreen ? 20 : 24, // Horizontal margins
+  formTitleSize: isSmallScreen ? 20 : isMediumScreen ? 21 : 22, // Font size ng form title
+  inputLabelSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16, // Font size ng input labels
+  buttonTextSize: isSmallScreen ? 16 : isMediumScreen ? 17 : 18, // Font size ng button text
+  footerTextSize: isSmallScreen ? 14 : isMediumScreen ? 15 : 16, // Font size ng footer text
+  headerPaddingTop: isSmallScreen ? 30 : isMediumScreen ? 35 : 40, // Top padding ng header
+  formMarginBottom: isSmallScreen ? 20 : isMediumScreen ? 22 : 24, // Bottom margin ng form
+  formCardMinHeight: isSmallScreen ? 400 : isMediumScreen ? 450 : 500, // Minimum height ng form card
+  inputSectionMargin: isSmallScreen ? 16 : isMediumScreen ? 18 : 20, // Margin ng input sections
+  formHeaderMargin: isSmallScreen ? 28 : isMediumScreen ? 32 : 36, // Margin ng form header
 };
 
+// ========================================
+// MAIN SIGNIN SCREEN COMPONENT
+// ========================================
+// Ito ang main component na naghahandle ng signin screen
+// May comprehensive features para sa user authentication
 export default function SigninScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
-  const [emailError, setEmailError] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
-  const [generalError, setGeneralError] = useState(false);
-  const router = useRouter();
+  // ========================================
+  // STATE VARIABLES - FORM INPUTS
+  // ========================================
+  // Mga state para sa form inputs at user interactions
+  const [email, setEmail] = useState(''); // Email input value
+  const [password, setPassword] = useState(''); // Password input value
+  const [showPassword, setShowPassword] = useState(false); // Toggle para sa password visibility
+  const [isLoading, setIsLoading] = useState(false); // Loading state para sa authentication
+  const [rememberMe, setRememberMe] = useState(false); // Remember me checkbox state
+  
+  // ========================================
+  // STATE VARIABLES - ERROR HANDLING
+  // ========================================
+  // Mga state para sa error handling at user feedback
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' }); // Toast notification state
+  const [emailError, setEmailError] = useState(false); // Email validation error state
+  const [passwordError, setPasswordError] = useState(false); // Password validation error state
+  const [generalError, setGeneralError] = useState(false); // General error state
+  
+  // ========================================
+  // ROUTER SETUP
+  // ========================================
+  const router = useRouter(); // Router para sa navigation
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const logoRotateAnim = useRef(new Animated.Value(0)).current;
+  // ========================================
+  // ANIMATION VALUES
+  // ========================================
+  // Mga animation values para sa smooth UI transitions
+  const fadeAnim = useRef(new Animated.Value(0)).current; // Fade animation (0 = invisible, 1 = visible)
+  const slideAnim = useRef(new Animated.Value(50)).current; // Slide animation (50 = down, 0 = normal position)
+  const scaleAnim = useRef(new Animated.Value(0.9)).current; // Scale animation (0.9 = smaller, 1 = normal size)
+  const logoRotateAnim = useRef(new Animated.Value(0)).current; // Logo rotation animation
 
   useEffect(() => {
     // Load saved credentials if they exist

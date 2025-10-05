@@ -1,3 +1,11 @@
+// ========================================
+// USER MESSAGES TAB - PAMAMAHALA NG MESSAGES
+// ========================================
+// Ang file na ito ay naghahandle ng user messages management
+// May comprehensive features: real-time chat, admin communication, message history
+// Live chat system na may real-time updates
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -11,6 +19,11 @@ import { ADMIN_EMAILS } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the messages screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -22,31 +35,54 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Interface for real-time messages
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa message system
+
+// Interface para sa real-time messages
 interface Message {
-  id: string;
-  name: string;
-  lastMessage: string;
-  time: number;
-  avatar: string;
-  unread: boolean;
-  chatId: string;
-  senderEmail: string;
-  recipientEmail?: string;
-  recipientName?: string;
-  senderName?: string;
+  id: string; // Unique message identifier
+  name: string; // Display name ng sender
+  lastMessage: string; // Last message content
+  time: number; // Timestamp ng message
+  avatar: string; // Profile picture URL
+  unread: boolean; // Unread status
+  chatId: string; // Chat conversation ID
+  senderEmail: string; // Sender email
+  recipientEmail?: string; // Recipient email (optional)
+  recipientName?: string; // Recipient name (optional)
+  senderName?: string; // Sender name (optional)
 }
 
-// Admin data will be fetched from Firebase
+// ========================================
+// ADMIN DATA CONFIGURATION
+// ========================================
+// Admin data na kukunin mula sa Firebase
 const ADMIN_USERS: any[] = [];
 
+// ========================================
+// USER MESSAGES SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng user messages management
+// May comprehensive features para sa chat system
 export default function MessagesScreen() {
+  // ========================================
+  // HELPER FUNCTIONS
+  // ========================================
+  // Utility functions para sa message management
+  
+  // Helper function para sa pag-get ng first name
   const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
-  const { colorScheme } = useColorScheme();
-  const { width } = Dimensions.get('window');
-  const isDark = colorScheme === 'dark';
-  const router = useRouter(); // Use Expo Router's useRouter instead of useNavigation
-  const { user } = useAuthContext(); // Get current user from auth context
+  
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const { width } = Dimensions.get('window'); // Screen width
+  const isDark = colorScheme === 'dark'; // Check kung dark mode
+  const router = useRouter(); // Navigation router
+  const { user } = useAuthContext(); // Current authenticated user
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';

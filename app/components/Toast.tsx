@@ -1,20 +1,45 @@
+// ========================================
+// TOAST COMPONENT - NOTIFICATION SYSTEM
+// ========================================
+// Ang file na ito ay naghahandle ng toast notifications sa buong app
+// May context provider para sa global toast management
+// Support para sa different toast types: success, error, info
+
+// Import ng React hooks at React Native components
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
+// ========================================
+// TYPE DEFINITIONS
+// ========================================
+// Mga type definitions para sa toast system
+
+// Type para sa different toast types
 type ToastType = 'success' | 'error' | 'info';
 
+// Type para sa toast message structure
 type ToastMessage = {
-  id: number;
-  text: string;
-  type: ToastType;
+  id: number; // Unique identifier ng toast message
+  text: string; // Message text na ipapakita
+  type: ToastType; // Type ng toast (success, error, info)
 };
 
+// Type para sa toast context value
 type ToastContextValue = {
-  showToast: (text: string, type?: ToastType, durationMs?: number) => void;
+  showToast: (text: string, type?: ToastType, durationMs?: number) => void; // Function para sa pag-show ng toast
 };
 
+// ========================================
+// TOAST CONTEXT CREATION
+// ========================================
+// Gumagawa ng React Context para sa toast management
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+// ========================================
+// USE TOAST HOOK
+// ========================================
+// Custom hook para sa pag-access ng toast context
+// Nag-throw ng error kung ginamit outside ng ToastProvider
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used within ToastProvider');

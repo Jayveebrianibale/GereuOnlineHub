@@ -1,3 +1,11 @@
+// ========================================
+// ADMIN MESSAGES TAB - PAMAMAHALA NG MESSAGES
+// ========================================
+// Ang file na ito ay naghahandle ng admin messages management
+// May comprehensive features: real-time chat, user communication, message history
+// Live chat system na may real-time updates para sa admin support
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -10,6 +18,11 @@ import { Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableO
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from "../firebaseConfig";
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the admin messages screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -21,27 +34,47 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Interface for real-time messages
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Type definitions para sa admin message system
+
+// Interface para sa real-time messages
 interface Message {
-  id: string;
-  name: string;
-  lastMessage: string;
-  time: number;
-  avatar: string;
-  unread: boolean;
-  chatId: string;
-  senderEmail: string;
-  recipientEmail?: string;
-  recipientName?: string;
+  id: string; // Unique message identifier
+  name: string; // Display name ng sender
+  lastMessage: string; // Last message content
+  time: number; // Timestamp ng message
+  avatar: string; // Profile picture URL
+  unread: boolean; // Unread status
+  chatId: string; // Chat conversation ID
+  senderEmail: string; // Sender email
+  recipientEmail?: string; // Recipient email (optional)
+  recipientName?: string; // Recipient name (optional)
 }
 
+// ========================================
+// ADMIN MESSAGES SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng admin messages management
+// May comprehensive features para sa admin chat system
 export default function MessagesScreen() {
+  // ========================================
+  // HELPER FUNCTIONS
+  // ========================================
+  // Utility functions para sa message management
+  
+  // Helper function para sa pag-get ng first name
   const getFirstName = (fullName: string) => (fullName || '').split(' ')[0] || '';
-  const { colorScheme } = useColorScheme();
-  const { width } = Dimensions.get('window');
-  const isDark = colorScheme === 'dark';
-  const router = useRouter();
-  const { user } = useAuthContext();
+  
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const { width } = Dimensions.get('window'); // Screen width
+  const isDark = colorScheme === 'dark'; // Check kung dark mode
+  const router = useRouter(); // Navigation router
+  const { user } = useAuthContext(); // Current authenticated user
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';

@@ -1,3 +1,11 @@
+// ========================================
+// ADMIN RESERVATIONS TAB - PAMAMAHALA NG RESERVATIONS
+// ========================================
+// Ang file na ito ay naghahandle ng admin reservations management
+// May comprehensive features: view, filter, approve/decline, payment management
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at custom components
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -13,6 +21,11 @@ import { calculateDownPayment, isPaymentRequired } from '../services/paymentServ
 import { getUserReservations, updateAdminReservationPaymentStatus, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the reservations screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -24,7 +37,12 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Helper function to get service type display name
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+// Utility functions para sa reservations management
+
+// Helper function para sa pag-convert ng service type sa display name
 const getServiceTypeDisplayName = (serviceType: string) => {
   switch (serviceType) {
     case 'apartment':
@@ -38,16 +56,24 @@ const getServiceTypeDisplayName = (serviceType: string) => {
   }
 };
 
+// ========================================
+// ADMIN RESERVATIONS SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng admin reservations management
+// May comprehensive features para sa reservation management
 export default function ReservationsScreen() {
-  const { colorScheme } = useColorScheme();
-  const { width, height } = useWindowDimensions();
-  const isPortrait = height > width;
-  const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error } = useAdminReservation();
-  const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all');
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const { width, height } = useWindowDimensions(); // Screen dimensions
+  const isPortrait = height > width; // Check kung portrait orientation
+  const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error } = useAdminReservation(); // Admin reservation context
+  const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation(); // Reservation context
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all'); // Status filter state
+  const [filterVisible, setFilterVisible] = useState(false); // Filter modal visibility
+  const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false); // Payment settings modal visibility
+  const [searchQuery, setSearchQuery] = useState(''); // Search query state
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';

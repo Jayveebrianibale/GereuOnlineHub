@@ -1,3 +1,11 @@
+// ========================================
+// HOME SCREEN - MAIN LANDING PAGE
+// ========================================
+// Ang file na ito ay naghahandle ng main home screen
+// Default Expo template home screen na may welcome message
+// Ginagamit sa main tab navigation
+
+// Import ng React Native components at custom components
 import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
@@ -7,6 +15,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// ========================================
+// HOME SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng home screen
+// May parallax scroll view at welcome message
 export default function HomeScreen() {
   return (
     <SafeAreaView>

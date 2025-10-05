@@ -1,3 +1,11 @@
+// ========================================
+// AUTH UTILITIES - PAMAMAHALA NG AUTHENTICATION
+// ========================================
+// Ang file na ito ay naghahandle ng authentication operations
+// May functions para sa sign up, sign in, sign out, at error handling
+// Ginagamit sa buong app para sa user authentication
+
+// Import ng Firebase Auth functions
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -10,41 +18,55 @@ import { isAdminEmail } from '../app/config/adminConfig';
 import { auth } from '../app/firebaseConfig';
 import { setUserInactive, storeUserData, updateUserLastActive } from './userUtils';
 
+// ========================================
+// INTERFACE DEFINITIONS
+// ========================================
+// Mga interface para sa type safety sa authentication operations
+
+// Interface para sa authentication errors
 export interface AuthError {
-  code: string;
-  message: string;
+  code: string; // Error code mula sa Firebase
+  message: string; // Human-readable error message
 }
 
+// Interface para sa sign up data
 export interface SignUpData {
-  email: string;
-  password: string;
-  fullName: string;
+  email: string; // User email address
+  password: string; // User password
+  fullName: string; // User's full name
 }
 
+// Interface para sa sign in data
 export interface SignInData {
-  email: string;
-  password: string;
+  email: string; // User email address
+  password: string; // User password
 }
 
-// Sign up function
+// ========================================
+// FUNCTION: SIGN UP
+// ========================================
+// Ang function na ito ay naghahandle ng user registration
+// Gumagawa ng bagong user account sa Firebase Auth at Realtime Database
 export const signUp = async (data: SignUpData): Promise<User> => {
   try {
+    // I-create ang user account sa Firebase Auth
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
       auth, 
       data.email, 
       data.password
     );
     
-    // Update user profile with display name
+    // I-update ang user profile gamit ang display name
     await updateProfile(userCredential.user, { 
       displayName: data.fullName 
     });
     
-    // Store user data in Firebase Realtime Database
+    // I-store ang user data sa Firebase Realtime Database
     await storeUserData(userCredential.user, data.fullName);
     
     return userCredential.user;
   } catch (error: any) {
+    // I-throw ang error na may proper formatting
     throw {
       code: error.code || 'unknown',
       message: getErrorMessage(error.code)

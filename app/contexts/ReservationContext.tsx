@@ -1,53 +1,79 @@
+// ========================================
+// RESERVATION CONTEXT - PAMAMAHALA NG RESERVATIONS
+// ========================================
+// Ang file na ito ay naghahandle ng reservation state sa buong app
+// Ginagamit ang React Context API para sa global reservation management
+// Nagpo-provide ng reservation functions at data sa lahat ng components
+
+// Import ng React hooks at services
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { notifyAdmins } from '../services/notificationService';
 import {
-  getUserReservations,
-  listenToUserReservations,
-  removeUserReservation,
-  saveUserReservation,
-  updateUserReservationStatus
+    getUserReservations,
+    listenToUserReservations,
+    removeUserReservation,
+    saveUserReservation,
+    updateUserReservationStatus
 } from '../services/reservationService';
 import { mapServiceToReservation, parsePrice } from '../utils/reservationUtils';
 import { useAuthContext } from './AuthContext';
 
+// ========================================
+// TYPE DEFINITIONS - RESERVATION TYPES
+// ========================================
+// Mga type definitions para sa different reservation types
+// Ginagamit para sa type safety at consistency sa buong app
+
+// ========================================
+// APARTMENT RESERVATION TYPE
+// ========================================
+// Type para sa apartment reservations
 export type Apartment = {
-  id: string;
-  title: string;
-  price: number;
-  location: string;
-  image: any;
-  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
+  id: string; // Unique identifier ng apartment
+  title: string; // Title o name ng apartment
+  price: number; // Monthly rent price
+  location: string; // Location ng apartment
+  image: any; // Image data (base64 o URL)
+  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled'; // Reservation status
   // Add other apartment properties as needed
-  [key: string]: any;
+  [key: string]: any; // Allow additional properties
 };
 
+// ========================================
+// LAUNDRY SERVICE RESERVATION TYPE
+// ========================================
+// Type para sa laundry service reservations
 export type LaundryService = {
-  id: string;
-  title: string;
-  price: number;
-  image: any;
-  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
-  shippingInfo?: {
-    deliveryType: 'pickup' | 'dropoff';
-    address?: string;
+  id: string; // Unique identifier ng laundry service
+  title: string; // Name ng laundry service
+  price: number; // Service price
+  image: any; // Image data (base64 o URL)
+  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled'; // Reservation status
+  shippingInfo?: { // Shipping/delivery information
+    deliveryType: 'pickup' | 'dropoff'; // Type ng delivery
+    address?: string; // Delivery address
   };
   // Add other laundry properties as needed
-  [key: string]: any;
+  [key: string]: any; // Allow additional properties
 };
 
+// ========================================
+// AUTO SERVICE RESERVATION TYPE
+// ========================================
+// Type para sa auto service reservations
 export type AutoService = {
-  id: string;
-  title: string;
-  price: number;
-  image: any;
-  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled';
+  id: string; // Unique identifier ng auto service
+  title: string; // Name ng auto service
+  price: number; // Service price
+  image: any; // Image data (base64 o URL)
+  status?: 'pending' | 'confirmed' | 'declined' | 'completed' | 'cancelled'; // Reservation status
   // Home service specific properties (only present for home services)
-  homeService?: boolean;
-  shopService?: boolean;
-  problemDescription?: string;
-  address?: string;
-  contactNumber?: string;
-  preferredTime?: string;
+  homeService?: boolean; // Kung home service ba
+  shopService?: boolean; // Kung shop service ba
+  problemDescription?: string; // Description ng problem
+  address?: string; // Service address
+  contactNumber?: string; // Contact number
+  preferredTime?: string; // Preferred time ng service
   // Add other auto properties as needed
   [key: string]: any;
 };

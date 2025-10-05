@@ -1,19 +1,30 @@
+// ========================================
+// ADMIN SETTINGS TAB - PAMAMAHALA NG SETTINGS
+// ========================================
+// Ang file na ito ay naghahandle ng admin settings management
+// May comprehensive features: profile management, password change, notifications, app info
+// Admin-specific settings na may profile photo management
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-// removed email notifications persistence
-import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
-// removed user/db usage for email notifications
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
+import { useEffect, useState } from 'react';
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the admin settings screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -25,28 +36,40 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
+// ========================================
+// ADMIN SETTINGS SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng admin settings management
+// May comprehensive features para sa admin settings
 export default function SettingsScreen() {
-  const { colorScheme, toggleColorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const router = useRouter();
-  const { user } = useAuthContext();
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme, toggleColorScheme } = useColorScheme(); // Theme management
+  const isDark = colorScheme === 'dark'; // Check kung dark mode
+  const router = useRouter(); // Navigation router
+  const { user } = useAuthContext(); // Current authenticated user
   
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [currentVersion] = useState('1.2.3');
-  const [helpModalVisible, setHelpModalVisible] = useState(false);
-  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [photoModalVisible, setPhotoModalVisible] = useState(false);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState<{strength: string, color: string}>({strength: '', color: ''});
-  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+  // ========================================
+  // STATE VARIABLES
+  // ========================================
+  // State para sa settings management
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true); // Notification settings
+  const [currentVersion] = useState('1.2.3'); // App version
+  const [helpModalVisible, setHelpModalVisible] = useState(false); // Help modal visibility
+  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false); // Password change modal
+  const [currentPassword, setCurrentPassword] = useState(''); // Current password input
+  const [newPassword, setNewPassword] = useState(''); // New password input
+  const [confirmPassword, setConfirmPassword] = useState(''); // Confirm password input
+  const [isChangingPassword, setIsChangingPassword] = useState(false); // Password change loading state
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null); // Profile photo state
+  const [photoModalVisible, setPhotoModalVisible] = useState(false); // Photo modal visibility
+  const [isProcessingImage, setIsProcessingImage] = useState(false); // Image processing state
+  const [passwordStrength, setPasswordStrength] = useState<{strength: string, color: string}>({strength: '', color: ''}); // Password strength indicator
+  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false); // Personal info modal
   const [personalInfo, setPersonalInfo] = useState({
-    fullName: user?.displayName || '',
-    email: user?.email || '',
+    fullName: user?.displayName || '', // User's full name
+    email: user?.email || '', // User's email
   });
   const [isSavingPersonalInfo, setIsSavingPersonalInfo] = useState(false);
 

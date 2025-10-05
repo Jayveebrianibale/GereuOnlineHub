@@ -1,3 +1,11 @@
+// ========================================
+// SIGNUP SCREEN - PAG-REGISTER NG USER
+// ========================================
+// Ang file na ito ay naghahandle ng signup screen
+// May mga features na: email/password registration, password strength validation, admin detection
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at Firebase Auth
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';

@@ -1,3 +1,11 @@
+// ========================================
+// USER BOOKINGS TAB - PAMAMAHALA NG RESERVATIONS
+// ========================================
+// Ang file na ito ay naghahandle ng user bookings management
+// May comprehensive features: view reservations, bills, cancel bookings
+// Real-time reservation status updates at payment management
+
+// Import ng React Native components at custom components
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -16,7 +24,11 @@ import { calculateDownPayment, isPaymentRequired } from "../services/paymentServ
 import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
 
-
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the bookings screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -28,14 +40,25 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-
+// ========================================
+// USER BOOKINGS SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng user bookings management
+// May comprehensive features para sa reservation management
 export default function Bookings() {
-  const [activeTab, setActiveTab] = useState<'reservations' | 'bills'>('reservations');
-  const { colorScheme } = useColorScheme();
-  const router = useRouter();
-  const { reservedApartments, reservedLaundryServices, reservedAutoServices, removeReservation, removeLaundryReservation, removeAutoReservation, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation();
-  const { user } = useAuthContext();
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const [activeTab, setActiveTab] = useState<'reservations' | 'bills'>('reservations'); // Active tab state
+  const { colorScheme } = useColorScheme(); // Theme management
+  const router = useRouter(); // Navigation router
+  const { reservedApartments, reservedLaundryServices, reservedAutoServices, removeReservation, removeLaundryReservation, removeAutoReservation, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation(); // Reservation context
+  const { user } = useAuthContext(); // Current authenticated user
 
+  // ========================================
+  // THEME COLORS
+  // ========================================
+  // Dynamic colors based on theme
   const isDark = colorScheme === "dark";
   const bgColor = isDark ? "#121212" : "#fff";
   const cardBgColor = isDark ? "#1E1E1E" : "#fff";

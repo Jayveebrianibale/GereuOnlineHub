@@ -1,3 +1,12 @@
+// ========================================
+// ADMIN TAB LAYOUT - ADMIN PANEL NAVIGATION
+// ========================================
+// Ang file na ito ay naghahandle ng admin tab navigation
+// May 5 main tabs: Home, Reservations, Users, Messages, Settings
+// May real-time badge notifications para sa unread messages at pending reservations
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
@@ -8,6 +17,11 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { isSmallScreen, isTablet, responsiveValues } from '../utils/responsiveUtils';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the admin tab navigation for active/inactive states
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -19,14 +33,26 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
+// ========================================
+// ADMIN TAB LAYOUT COMPONENT
+// ========================================
+// Main component na naghahandle ng admin tab navigation
+// May real-time badge notifications para sa unread messages at pending reservations
 export default function AdminTabLayout() {
-  const { colorScheme } = useColorScheme();
-  const { user } = useAuthContext();
-  const isDark = colorScheme === 'dark';
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [pendingReservationCount, setPendingReservationCount] = useState(0);
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const { user } = useAuthContext(); // Current authenticated user
+  const isDark = colorScheme === 'dark'; // Check kung dark mode
+  const [unreadCount, setUnreadCount] = useState(0); // Count ng unread messages
+  const [pendingReservationCount, setPendingReservationCount] = useState(0); // Count ng pending reservations
 
-  // Listen for unread messages
+  // ========================================
+  // USEEFFECT: LISTEN FOR UNREAD MESSAGES
+  // ========================================
+  // Real-time listener para sa unread messages
+  // I-update ang badge count kapag may bagong unread messages
   useEffect(() => {
     if (!user?.email) return;
 
@@ -36,24 +62,24 @@ export default function AdminTabLayout() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         
-        // Count unread messages where admin is the recipient
+        // I-count ang unread messages kung saan ang admin ay recipient
         const unreadMessages = Object.keys(data)
           .map((key) => ({
             id: key,
             ...data[key],
           }))
           .filter((msg: any) => {
-            // Only count messages where admin is recipient (receiving messages)
+            // I-count lang ang messages kung saan ang admin ay recipient (receiving messages)
             const isAdminRecipient = msg.recipientEmail === user.email;
             const isDeletedForAdmin = (msg.deletedFor || []).includes(user.email);
             
-            // Check if admin has read this message
+            // I-check kung nabasa na ng admin ang message na ito
             const readBy = msg.readBy || [];
             const isReadByAdmin = readBy.includes(user.email);
             
             const isUnread = isAdminRecipient && !isDeletedForAdmin && !isReadByAdmin;
             
-            // Debug logging
+            // Debug logging para sa troubleshooting
             if (isAdminRecipient) {
               console.log('Badge Debug - Message:', {
                 id: msg.id,
@@ -81,7 +107,11 @@ export default function AdminTabLayout() {
     return () => unsubscribe();
   }, [user?.email]);
 
-  // Listen for pending reservations
+  // ========================================
+  // USEEFFECT: LISTEN FOR PENDING RESERVATIONS
+  // ========================================
+  // Real-time listener para sa pending reservations
+  // I-update ang badge count kapag may bagong pending reservations
   useEffect(() => {
     if (!user?.email) return;
 
@@ -91,7 +121,7 @@ export default function AdminTabLayout() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         
-        // Count pending reservations
+        // I-count ang pending reservations
         const pendingReservations = Object.keys(data)
           .map((key) => ({
             id: key,
@@ -111,10 +141,17 @@ export default function AdminTabLayout() {
     return () => unsubscribe();
   }, [user?.email]);
 
-  // Custom icon component with badge
+  // ========================================
+  // CUSTOM ICON COMPONENTS WITH BADGES
+  // ========================================
+  // Custom icon components na may badge notifications
+  // I-display ang unread count sa tab icons
+
+  // Custom messages icon component na may unread count badge
   const MessagesIcon = ({ color, size }: { color: string; size: number }) => (
     <View style={styles.iconContainer}>
       <MaterialIcons name="message" size={responsiveValues.tabBar.iconSize} color={color} />
+      {/* I-show ang unread count badge kung may unread messages */}
       {unreadCount > 0 && (
         <View style={[styles.badge, { backgroundColor: '#FF4444' }]}>
           <Text style={[styles.badgeText, { fontSize: responsiveValues.tabBar.badgeFontSize }]}>
@@ -125,10 +162,11 @@ export default function AdminTabLayout() {
     </View>
   );
 
-  // Custom reservations icon component with badge
+  // Custom reservations icon component na may pending count badge
   const ReservationsIcon = ({ color, size }: { color: string; size: number }) => (
     <View style={styles.iconContainer}>
       <MaterialIcons name="receipt" size={responsiveValues.tabBar.iconSize} color={color} />
+      {/* I-show ang pending count badge kung may pending reservations */}
       {pendingReservationCount > 0 && (
         <View style={[styles.badge, { backgroundColor: '#F59E0B' }]}>
           <Text style={[styles.badgeText, { fontSize: responsiveValues.tabBar.badgeFontSize }]}>
@@ -142,27 +180,33 @@ export default function AdminTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: isDark ? colorPalette.primaryLight : colorPalette.primary,
-        tabBarInactiveTintColor: isDark ? colorPalette.lightest : colorPalette.dark,
-        headerShown: false,
+        // ========================================
+        // TAB BAR STYLING
+        // ========================================
+        tabBarActiveTintColor: isDark ? colorPalette.primaryLight : colorPalette.primary, // Color ng active tab
+        tabBarInactiveTintColor: isDark ? colorPalette.lightest : colorPalette.dark, // Color ng inactive tab
+        headerShown: false, // Hide header sa lahat ng tabs
         tabBarStyle: {
-          backgroundColor: isDark ? '#000' : '#fff',
-          borderTopWidth: 1,
-          borderTopColor: isDark ? '#222' : '#e5e7eb',
-          height: responsiveValues.tabBar.height,
-          paddingBottom: responsiveValues.tabBar.paddingVertical,
-          paddingTop: responsiveValues.tabBar.paddingVertical,
-          paddingHorizontal: responsiveValues.tabBar.paddingHorizontal,
+          backgroundColor: isDark ? '#000' : '#fff', // Background color ng tab bar
+          borderTopWidth: 1, // Top border
+          borderTopColor: isDark ? '#222' : '#e5e7eb', // Border color
+          height: responsiveValues.tabBar.height, // Responsive height
+          paddingBottom: responsiveValues.tabBar.paddingVertical, // Bottom padding
+          paddingTop: responsiveValues.tabBar.paddingVertical, // Top padding
+          paddingHorizontal: responsiveValues.tabBar.paddingHorizontal, // Horizontal padding
         },
         tabBarLabelStyle: {
-          fontSize: responsiveValues.tabBar.fontSize,
-          fontWeight: '500',
-          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
+          fontSize: responsiveValues.tabBar.fontSize, // Responsive font size
+          fontWeight: '500', // Font weight
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3, // Responsive margin
         },
         tabBarIconStyle: {
-          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3,
+          marginTop: isSmallScreen ? 2 : isTablet ? 4 : 3, // Responsive icon margin
         },
       }}>
+      {/* ========================================
+          HOME TAB (DASHBOARD)
+          ======================================== */}
       <Tabs.Screen
         name="index"
         options={{
@@ -170,6 +214,10 @@ export default function AdminTabLayout() {
           tabBarIcon: ({ color, size }) => <MaterialIcons name="dashboard" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
+      
+      {/* ========================================
+          RESERVATIONS TAB (WITH BADGE)
+          ======================================== */}
       <Tabs.Screen
         name="reservations"
         options={{
@@ -177,6 +225,10 @@ export default function AdminTabLayout() {
           tabBarIcon: ({ color, size }) => <ReservationsIcon color={color} size={size} />,
         }}
       />
+      
+      {/* ========================================
+          USERS TAB
+          ======================================== */}
       <Tabs.Screen
         name="users"
         options={{
@@ -184,6 +236,10 @@ export default function AdminTabLayout() {
           tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
+      
+      {/* ========================================
+          MESSAGES TAB (WITH BADGE)
+          ======================================== */}
        <Tabs.Screen
         name="messages"
         options={{
@@ -191,6 +247,10 @@ export default function AdminTabLayout() {
           tabBarIcon: ({ color, size }) => <MessagesIcon color={color} size={size} />,
         }}
       />
+      
+      {/* ========================================
+          SETTINGS TAB
+          ======================================== */}
       <Tabs.Screen
         name="settings"
         options={{

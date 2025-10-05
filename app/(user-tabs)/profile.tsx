@@ -1,3 +1,16 @@
+// ========================================
+// PROFILE SCREEN - PAMAMAHALA NG USER PROFILE
+// ========================================
+// Ang file na ito ay naghahandle ng user profile screen na may mga sumusunod na features:
+// - Upload at pamamahala ng profile photo gamit ang Firebase Storage
+// - Pag-edit at pag-save ng personal information
+// - Pag-switch ng theme (dark/light mode)
+// - Pamamahala ng notification settings
+// - Help & support system na may FAQ
+// - Information tungkol sa app
+// - Live chat integration kasama ang admin support
+
+// Import ng React Native core components at hooks
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -7,11 +20,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
-// Storage upload removed; we will store data URL directly in Realtime Database
+// Tinanggal ang Storage upload; mag-save tayo ng data URL directly sa Realtime Database
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Nagde-define ng color scheme ng app para sa consistent theming
+// Ginagamit sa buong profile screen para sa UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -23,13 +41,22 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Sample user data
+// ========================================
+// SAMPLE USER DATA (FALLBACK)
+// ========================================
+// Default user data na ginagamit kapag walang Firebase data
+// Sinisiguro nito na hindi masisira ang UI during loading states
 const userData = {
   name: 'John Doe',
   email: 'john.doe@example.com',
-  avatar: require('@/assets/images/logo.png'), // Using logo as placeholder avatar
+  avatar: require('@/assets/images/logo.png'), // Ginagamit ang logo bilang placeholder avatar
 };
 
+// ========================================
+// PROFILE MENU CONFIGURATION
+// ========================================
+// Nagde-define ng menu items na ipinapakita sa profile screen
+// Bawat item ay may action na nag-trigger ng specific modals o functions
 const profileMenuItems = [
   {
     id: '1',
@@ -61,23 +88,43 @@ const profileMenuItems = [
   },
 ];
 
+// ========================================
+// MAIN PROFILE COMPONENT
+// ========================================
+// Ito ang main component na naghahandle ng buong profile screen
 export default function Profile() {
-  const { colorScheme, toggleColorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const router = useRouter();
+  // ========================================
+  // HOOKS AT ROUTER SETUP
+  // ========================================
+  const { colorScheme, toggleColorScheme } = useColorScheme(); // Para sa theme switching
+  const isDark = colorScheme === 'dark'; // Check kung dark mode ang current theme
+  const router = useRouter(); // Para sa navigation
 
-   const [userData, setUserData] = useState({
+  // ========================================
+  // STATE VARIABLES - USER DATA
+  // ========================================
+  // State para sa user information na naka-display sa UI
+  const [userData, setUserData] = useState({
     name: "",
     email: "",
     avatar: null,
   });
+  
+  // State para sa profile photo URI (URL ng image)
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [photoModalVisible, setPhotoModalVisible] = useState(false);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [aboutModalVisible, setAboutModalVisible] = useState(false);
-  const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
-  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+  
+  // ========================================
+  // STATE VARIABLES - MODAL VISIBILITY
+  // ========================================
+  // Mga state para sa pag-control ng visibility ng different modals
+  const [photoModalVisible, setPhotoModalVisible] = useState(false); // Modal para sa photo selection
+  const [isProcessingImage, setIsProcessingImage] = useState(false); // Loading state para sa image processing
+  const [aboutModalVisible, setAboutModalVisible] = useState(false); // Modal para sa about app
+  const [supportModalVisible, setSupportModalVisible] = useState(false); // Modal para sa help & support
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false); // Modal para sa notification settings
+  const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false); // Modal para sa personal info editing
+  
+  // State para sa expandable sections sa about modal
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     services: false,
     mission: false,
@@ -85,17 +132,23 @@ export default function Profile() {
     appInfo: false,
   });
   
-  // Notification settings state
+  // ========================================
+  // STATE VARIABLES - NOTIFICATION SETTINGS
+  // ========================================
+  // State para sa notification preferences ng user
   const [notificationSettings, setNotificationSettings] = useState({
-    pushNotifications: true,
-    reservationUpdates: true,
-    serviceAvailability: true,
-    adminMessages: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
+    pushNotifications: true, // Main toggle para sa lahat ng notifications
+    reservationUpdates: true, // Notifications para sa reservations
+    serviceAvailability: true, // Notifications para sa new services
+    adminMessages: true, // Notifications para sa admin messages
+    soundEnabled: true, // Sound effect para sa notifications
+    vibrationEnabled: true, // Vibration para sa notifications
   });
 
-  // Personal information state
+  // ========================================
+  // STATE VARIABLES - PERSONAL INFORMATION
+  // ========================================
+  // State para sa personal information ng user
   const [personalInfo, setPersonalInfo] = useState({
     fullName: '',
     email: '',
@@ -112,10 +165,18 @@ export default function Profile() {
       notifications: true,
     }
   });
+  
+  // State para sa pag-track kung nag-e-edit ang user ng personal info
   const [isEditingPersonalInfo, setIsEditingPersonalInfo] = useState(false);
 
+  // ========================================
+  // FUNCTION: UPLOAD AT SAVE NG PROFILE PHOTO
+  // ========================================
+  // Ang function na ito ay naghahandle ng pag-upload at pag-save ng profile photo
+  // Ginagamit ang ImageManipulator para sa image processing at Firebase para sa storage
   const uploadAndSaveProfilePhoto = async (localUri: string) => {
     try {
+      // Kunin ang current authenticated user
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) {
@@ -123,7 +184,7 @@ export default function Profile() {
         return;
       }
 
-      // Generate base64 using ImageManipulator (avoids deprecated FileSystem API)
+      // I-convert ang image to base64 gamit ang ImageManipulator (para iwasan ang deprecated FileSystem API)
       const base64Result = await ImageManipulator.manipulateAsync(
         localUri,
         [],
@@ -135,20 +196,20 @@ export default function Profile() {
       }
       const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-      // Optionally update Firebase Auth profile (data URLs may be large; safe to skip)
+      // Optionally i-update ang Firebase Auth profile (data URLs ay maaaring malaki; safe na i-skip)
       try { await updateProfile(user, { photoURL: dataUrl }); } catch {}
 
-      // Save to Realtime Database (legacy path for compatibility)
+      // I-save sa Realtime Database (legacy path para sa compatibility)
       await set(dbRef(db, `users/${user.uid}/avatar`), dataUrl);
       await set(dbRef(db, `users/${user.uid}/updatedAt`), new Date().toISOString());
 
-      // Save to separate profile image table
+      // I-save sa separate profile image table
       await set(dbRef(db, `userProfileImages/${user.uid}`), {
         url: dataUrl,
         updatedAt: new Date().toISOString(),
       });
 
-      // Update local state
+      // I-update ang local state
       setAvatarUri(dataUrl);
       Alert.alert('Success', 'Profile photo saved.');
     } catch (error) {
@@ -157,28 +218,35 @@ export default function Profile() {
     }
   };
 
+  // ========================================
+  // USEEFFECT: LOAD USER DATA FROM FIREBASE
+  // ========================================
+  // Ang useEffect na ito ay naglo-load ng user data mula sa Firebase
+  // Kapag nag-login ang user, automatic na ma-load ang profile information
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // I-set ang basic user data mula sa Firebase Auth
         setUserData({
           name: user.displayName || "No Name",
           email: user.email || "No Email",
           avatar: require('@/assets/images/logo.png'),
         });
         
-        // Load personal information from database
+        // I-load ang personal information mula sa database
         const personalInfoRef = dbRef(db, `users/${user.uid}/personalInfo`);
         const personalInfoUnsubscribe = onValue(personalInfoRef, (snap) => {
           const data = snap.val();
           if (data) {
+            // Kung may existing personal info, i-merge sa current state
             setPersonalInfo(prev => ({
               ...prev,
               ...data,
               email: user.email || data.email || '',
             }));
           } else {
-            // Initialize with user data if no personal info exists
+            // Kung walang personal info, i-initialize gamit ang user data
             setPersonalInfo(prev => ({
               ...prev,
               fullName: user.displayName || '',
@@ -187,7 +255,7 @@ export default function Profile() {
           }
         });
         
-        // Prefer separate table value; fallback to Auth photoURL
+        // I-load ang profile image - prefer separate table value; fallback to Auth photoURL
         const imageRef = dbRef(db, `userProfileImages/${user.uid}/url`);
         const off = onValue(imageRef, (snap) => {
           const url = snap.val();
@@ -200,6 +268,7 @@ export default function Profile() {
           }
         });
         
+        // Cleanup function para sa real-time listeners
         return () => {
           personalInfoUnsubscribe();
           off();
@@ -207,19 +276,28 @@ export default function Profile() {
       }
     });
 
-    return unsubscribe; // cleanup
+    return unsubscribe; // cleanup ng main auth listener
   }, []);
   
-  const bgColor = isDark ? '#121212' : '#fff';
-  const cardBgColor = isDark ? '#1E1E1E' : '#fff';
-  const textColor = isDark ? '#fff' : colorPalette.darkest;
-  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
-  const borderColor = isDark ? '#333' : '#eee';
+  // ========================================
+  // THEME COLORS CONFIGURATION
+  // ========================================
+  // Dynamic colors na nagba-base sa current theme (dark/light)
+  const bgColor = isDark ? '#121212' : '#fff'; // Background color ng main container
+  const cardBgColor = isDark ? '#1E1E1E' : '#fff'; // Background color ng cards
+  const textColor = isDark ? '#fff' : colorPalette.darkest; // Main text color
+  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark; // Subtitle text color
+  const borderColor = isDark ? '#333' : '#eee'; // Border color para sa cards
 
+  // ========================================
+  // FUNCTION: HANDLE LOGOUT
+  // ========================================
+  // Ang function na ito ay naghahandle ng user logout
+  // Nag-navigate back sa signin screen pagkatapos mag-logout
   const handleLogout = () => {
     console.log('Logout button pressed');
     
-    // Navigate back to signin screen
+    // Mag-navigate back sa signin screen
     console.log('Navigating to signin');
     try {
       router.replace('/signin' as any);
@@ -229,33 +307,45 @@ export default function Profile() {
     }
   };
 
+  // ========================================
+  // FUNCTION: PROCESS IMAGE
+  // ========================================
+  // Ang function na ito ay nagpo-process ng image bago i-upload
+  // Nag-resize at nag-compress ng image para sa better performance
   const processImage = async (uri: string) => {
     try {
-      setIsProcessingImage(true);
+      setIsProcessingImage(true); // I-set ang loading state
       const manipResult = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 300 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 300 } }], // I-resize ang image sa 300px width
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG } // I-compress sa 80% quality
       );
       return manipResult.uri;
     } finally {
-      setIsProcessingImage(false);
+      setIsProcessingImage(false); // I-reset ang loading state
     }
   };
 
+  // ========================================
+  // FUNCTION: PICK IMAGE FROM DEVICE
+  // ========================================
+  // Ang function na ito ay naghahandle ng pag-pick ng image mula sa device gallery
+  // Nag-request ng permission at nag-launch ng image picker
   const pickImageFromDevice = async () => {
     try {
+      // Mag-request ng permission para sa photo library access
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert('Permission required', 'Please allow photo library access to choose an image.');
         return;
       }
 
+      // I-launch ang image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 1,
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: [1, 1], // Square aspect ratio para sa profile photo
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -269,18 +359,25 @@ export default function Profile() {
     }
   };
 
+  // ========================================
+  // FUNCTION: TAKE PHOTO WITH CAMERA
+  // ========================================
+  // Ang function na ito ay naghahandle ng pag-take ng photo gamit ang camera
+  // Nag-request ng camera permission at nag-launch ng camera
   const takePhotoWithCamera = async () => {
     try {
+      // Mag-request ng permission para sa camera access
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
         Alert.alert('Permission required', 'Please allow camera access to take a photo.');
         return;
       }
 
+      // I-launch ang camera
       const result = await ImagePicker.launchCameraAsync({
         quality: 1,
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: [1, 1], // Square aspect ratio para sa profile photo
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {

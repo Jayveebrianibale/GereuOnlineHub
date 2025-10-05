@@ -1,3 +1,11 @@
+// ========================================
+// ADMIN DASHBOARD - PAMAMAHALA NG ADMIN PANEL
+// ========================================
+// Ang file na ito ay naghahandle ng admin dashboard screen
+// May comprehensive admin features: statistics, module management, real-time data
+// Responsive design na nag-a-adapt sa different screen sizes
+
+// Import ng React Native components at Firebase
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -10,6 +18,11 @@ import { useColorScheme } from '../components/ColorSchemeContext';
 import { RobustImage } from './components/RobustImage';
 import { db } from './firebaseConfig';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the admin dashboard for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -21,7 +34,11 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// Initialize modules with placeholder stats
+// ========================================
+// ADMIN MODULES CONFIGURATION
+// ========================================
+// Initial modules na ipinapakita sa admin dashboard
+// Bawat module ay may stats na na-update real-time mula sa database
 const initialModules = [
   {
     key: 'apartment',

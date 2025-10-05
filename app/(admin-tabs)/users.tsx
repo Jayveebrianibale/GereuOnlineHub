@@ -1,3 +1,11 @@
+// ========================================
+// ADMIN USERS TAB - PAMAMAHALA NG USERS
+// ========================================
+// Ang file na ito ay naghahandle ng admin users management
+// May comprehensive features: view, search, filter, delete users
+// Real-time user data monitoring at status management
+
+// Import ng React Native components at Firebase
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -12,6 +20,11 @@ import { autoUpdateUserStatus, deleteUser, formatLastActive, listenToUsers, User
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
+// ========================================
+// COLOR PALETTE CONFIGURATION
+// ========================================
+// Defines the app's color scheme for consistent theming
+// Used throughout the users screen for UI elements
 const colorPalette = {
   lightest: '#C3F5FF',
   light: '#7FE6FF',
@@ -23,15 +36,25 @@ const colorPalette = {
   darkest: '#001A5C',
 };
 
-// User data will be fetched from Firebase
-
+// ========================================
+// ADMIN USERS SCREEN COMPONENT
+// ========================================
+// Main component na naghahandle ng admin users management
+// May comprehensive features para sa user management
 export default function UsersScreen() {
-  const { colorScheme } = useColorScheme();
-  const { width } = Dimensions.get('window');
-  const isDark = colorScheme === 'dark';
-  const router = useRouter();
-  const { user } = useAuthContext();
+  // ========================================
+  // HOOKS AT STATE
+  // ========================================
+  const { colorScheme } = useColorScheme(); // Theme management
+  const { width } = Dimensions.get('window'); // Screen width
+  const isDark = colorScheme === 'dark'; // Check kung dark mode
+  const router = useRouter(); // Navigation router
+  const { user } = useAuthContext(); // Current authenticated user
 
+  // ========================================
+  // THEME COLORS
+  // ========================================
+  // Dynamic colors based on theme
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
   const textColor = isDark ? '#fff' : colorPalette.darkest;
@@ -39,13 +62,16 @@ export default function UsersScreen() {
   const borderColor = isDark ? '#333' : '#eee';
   const inputBgColor = isDark ? '#2A2A2A' : '#f8f8f8';
 
-  // State for users data and UI
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [userProfilePictures, setUserProfilePictures] = useState<{[key: string]: string}>({});
+  // ========================================
+  // STATE VARIABLES
+  // ========================================
+  // State para sa users data at UI management
+  const [users, setUsers] = useState<UserData[]>([]); // List ng users
+  const [loading, setLoading] = useState(true); // Loading state
+  const [error, setError] = useState<string | null>(null); // Error state
+  const [search, setSearch] = useState(''); // Search query
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all'); // Status filter
+  const [userProfilePictures, setUserProfilePictures] = useState<{[key: string]: string}>({}); // Profile pictures cache
 
   // Fetch users from Firebase on component mount
   useEffect(() => {
