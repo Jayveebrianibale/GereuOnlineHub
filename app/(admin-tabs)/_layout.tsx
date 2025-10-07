@@ -249,6 +249,17 @@ export default function AdminTabLayout() {
       />
       
       {/* ========================================
+          LOGS TAB
+          ======================================== */}
+      <Tabs.Screen
+        name="logs"
+        options={{
+          title: 'Logs',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="history" size={responsiveValues.tabBar.iconSize} color={color} />,
+        }}
+      />
+      
+      {/* ========================================
           SETTINGS TAB
           ======================================== */}
       <Tabs.Screen

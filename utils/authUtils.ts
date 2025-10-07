@@ -16,6 +16,7 @@ import {
 } from 'firebase/auth';
 import { isAdminEmail } from '../app/config/adminConfig';
 import { auth } from '../app/firebaseConfig';
+import { logUserLogin, logUserLogout } from '../app/utils/loggingUtils';
 import { setUserInactive, storeUserData, updateUserLastActive } from './userUtils';
 
 // ========================================
@@ -86,6 +87,14 @@ export const signIn = async (data: SignInData): Promise<User> => {
     // Update user's last active time
     await updateUserLastActive(userCredential.user.uid, userCredential.user.email || '', userCredential.user.displayName || undefined);
     
+    // Log login activity
+    const userRole = getUserRole(userCredential.user);
+    await logUserLogin(
+      userCredential.user.uid,
+      userCredential.user.email || '',
+      userRole
+    );
+    
     return userCredential.user;
   } catch (error: any) {
     throw {
@@ -99,12 +108,31 @@ export const signIn = async (data: SignInData): Promise<User> => {
 export const signOutUser = async (): Promise<void> => {
   try {
     const currentUser = auth.currentUser;
+    console.log('=== SIGNOUT DEBUG ===');
+    console.log('Current user:', currentUser ? 'Found' : 'Not found');
+    
     if (currentUser) {
+      console.log('User email:', currentUser.email);
+      console.log('User ID:', currentUser.uid);
+      
+      // Log logout activity before signing out
+      const userRole = getUserRole(currentUser);
+      console.log('User role:', userRole);
+      
+      await logUserLogout(
+        currentUser.uid,
+        currentUser.email || '',
+        userRole
+      );
+      
       // Set user status to inactive before signing out
       await setUserInactive(currentUser.uid);
     }
+    
     await signOut(auth);
+    console.log('=== SIGNOUT COMPLETE ===');
   } catch (error: any) {
+    console.error('Signout error:', error);
     throw {
       code: error.code || 'unknown',
       message: 'Sign out failed. Please try again.'

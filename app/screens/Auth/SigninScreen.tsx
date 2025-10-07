@@ -10,26 +10,26 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
+import { signIn } from '../../../utils/authUtils';
+import PrivacyPolicyModal from '../../components/PrivacyPolicyModal';
 import { isAdminEmail } from '../../config/adminConfig';
-import { auth } from '../../firebaseConfig';
 
 // ========================================
 // SCREEN DIMENSIONS AT RESPONSIVE CONFIGURATION
@@ -86,6 +86,8 @@ export default function SigninScreen() {
   const [showPassword, setShowPassword] = useState(false); // Toggle para sa password visibility
   const [isLoading, setIsLoading] = useState(false); // Loading state para sa authentication
   const [rememberMe, setRememberMe] = useState(false); // Remember me checkbox state
+  const [privacyAccepted, setPrivacyAccepted] = useState(false); // Privacy policy acceptance state
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false); // Privacy policy modal visibility
   
   // ========================================
   // STATE VARIABLES - ERROR HANDLING
@@ -95,6 +97,7 @@ export default function SigninScreen() {
   const [emailError, setEmailError] = useState(false); // Email validation error state
   const [passwordError, setPasswordError] = useState(false); // Password validation error state
   const [generalError, setGeneralError] = useState(false); // General error state
+  const [privacyError, setPrivacyError] = useState(false); // Privacy policy acceptance error state
   
   // ========================================
   // ROUTER SETUP
@@ -189,6 +192,7 @@ export default function SigninScreen() {
     setEmailError(false);
     setPasswordError(false);
     setGeneralError(false);
+    setPrivacyError(false);
   };
 
   const handleSignIn = async () => {
@@ -203,10 +207,15 @@ export default function SigninScreen() {
       return;
     }
 
+    if (!privacyAccepted) {
+      setToast({ visible: true, message: 'Please accept the Privacy Policy to continue', type: 'error' });
+      setPrivacyError(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const user = await signIn({ email, password });
 
       // Handle remember me functionality
       if (rememberMe) {
@@ -261,7 +270,8 @@ export default function SigninScreen() {
         setEmailError(true);
         setPasswordError(true);
       } else {
-        // Fallback for any other errors
+        // Use the error message from our custom auth function
+        errorMessage = error.message || 'Sign in failed. Please try again.';
         setGeneralError(true);
         setEmailError(false);
         setPasswordError(false);
@@ -289,6 +299,17 @@ export default function SigninScreen() {
   const handlePasswordChange = (text: string) => {
     setPassword(text);
     if (passwordError) setPasswordError(false);
+  };
+
+  const handlePrivacyAccept = () => {
+    setPrivacyAccepted(true);
+    setPrivacyError(false);
+    setShowPrivacyModal(false);
+    setToast({ visible: true, message: 'Privacy Policy accepted', type: 'success' });
+  };
+
+  const handlePrivacyModalOpen = () => {
+    setShowPrivacyModal(true);
   };
 
   return (
@@ -462,18 +483,78 @@ export default function SigninScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* Privacy Policy Acceptance */}
+              <View style={[
+                styles.privacyContainer, 
+                privacyError && styles.privacyError,
+                !privacyAccepted && styles.privacyRequired
+              ]}>
+                <TouchableOpacity 
+                  style={styles.checkboxContainer}
+                  onPress={() => setPrivacyAccepted(!privacyAccepted)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    privacyAccepted && styles.checkboxChecked,
+                    !privacyAccepted && styles.checkboxRequired
+                  ]}>
+                    {privacyAccepted && (
+                      <Ionicons name="checkmark" size={16} color="white" />
+                    )}
+                    {!privacyAccepted && (
+                      <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                    )}
+                  </View>
+                  <View style={styles.privacyTextContainer}>
+                    <Text style={[
+                      styles.privacyText,
+                      !privacyAccepted && styles.privacyTextRequired
+                    ]}>
+                      I agree to the{' '}
+                      <Text 
+                        style={[
+                          styles.privacyLink,
+                          !privacyAccepted && styles.privacyLinkRequired
+                        ]}
+                        onPress={() => router.push('/privacy-policy')}
+                      >
+                        Privacy Policy
+                      </Text>
+                      {' '}and{' '}
+                      <Text 
+                        style={[
+                          styles.privacyLink,
+                          !privacyAccepted && styles.privacyLinkRequired
+                        ]}
+                        onPress={() => router.push('/terms')}
+                      >
+                        Terms of Service
+                      </Text>
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.signInButton, isLoading && styles.disabledButton]} 
+                style={[
+                  styles.signInButton, 
+                  (isLoading || !privacyAccepted) && styles.disabledButton
+                ]} 
                 onPress={handleSignIn} 
                 activeOpacity={0.8}
-                disabled={isLoading}
+                disabled={isLoading || !privacyAccepted}
               >
                 <LinearGradient
-                  colors={['#00B2FF', '#007BE5', '#002F87']}
+                  colors={
+                    !privacyAccepted 
+                      ? ['#9CA3AF', '#6B7280', '#4B5563'] 
+                      : ['#00B2FF', '#007BE5', '#002F87']
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.buttonGradient, { height: responsiveValues.buttonHeight }]}
@@ -520,6 +601,18 @@ export default function SigninScreen() {
                 <Text style={styles.signUpText}>Sign Up</Text>
               </TouchableOpacity>
             </View>
+            
+            <View style={styles.privacyFooter}>
+              <TouchableOpacity onPress={() => router.push('/privacy-policy')} style={styles.privacyFooterLink}>
+                <Ionicons name="shield-checkmark" size={14} color="#00B2FF" />
+                <Text style={styles.privacyFooterText}>Privacy Policy</Text>
+              </TouchableOpacity>
+              <Text style={styles.privacyFooterSeparator}>•</Text>
+              <TouchableOpacity onPress={() => router.push('/terms')} style={styles.privacyFooterLink}>
+                <Ionicons name="document-text" size={14} color="#00B2FF" />
+                <Text style={styles.privacyFooterText}>Terms of Service</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -529,6 +622,12 @@ export default function SigninScreen() {
         message={toast.message}
         type={toast.type}
         onHide={() => setToast({ ...toast, visible: false })}
+      />
+      
+      <PrivacyPolicyModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        onAccept={handlePrivacyAccept}
       />
     </SafeAreaView>
   );
@@ -824,9 +923,77 @@ const styles = StyleSheet.create({
     backgroundColor: '#00B2FF',
     borderColor: '#00B2FF',
   },
+  checkboxRequired: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
   rememberMeText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
+  },
+  privacyContainer: {
+    marginBottom: 20,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  privacyError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  privacyRequired: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  privacyTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  privacyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#374151',
+  },
+  privacyLink: {
+    color: '#00B2FF',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  privacyTextRequired: {
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  privacyLinkRequired: {
+    color: '#F59E0B',
+    fontWeight: '700',
+  },
+  privacyFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  privacyFooterLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  privacyFooterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#00B2FF',
+    marginLeft: 4,
+  },
+  privacyFooterSeparator: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginHorizontal: 8,
   },
 });

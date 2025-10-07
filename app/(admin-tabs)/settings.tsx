@@ -17,6 +17,7 @@ import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { signOutUser } from '../../utils/authUtils';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
@@ -102,16 +103,20 @@ export default function SettingsScreen() {
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('Logout button pressed');
     
-    // Simple direct logout without confirmation for now
-    console.log('Directly navigating to signin');
     try {
+      // Use the signOutUser function to properly log out and create logs
+      await signOutUser();
+      console.log('Successfully signed out');
+      
+      // Navigate to signin screen after successful logout
       router.replace('/signin' as any);
     } catch (error) {
-      console.error('Navigation error:', error);
-      router.push('/signin' as any);
+      console.error('Logout error:', error);
+      // Still navigate even if logout fails
+      router.replace('/signin' as any);
     }
   };
 

@@ -1,0 +1,49 @@
+{
+  "rules": {
+    "logs": {
+      ".indexOn": ["timestamp"],
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "reservations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "apartments": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "laundry": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "auto": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "messages": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "adminReservations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "userReservations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "globalReservations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

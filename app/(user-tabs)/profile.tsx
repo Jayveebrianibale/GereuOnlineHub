@@ -23,6 +23,7 @@ import { ref as dbRef, onValue, set } from 'firebase/database';
 // Tinanggal ang Storage upload; mag-save tayo ng data URL directly sa Realtime Database
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { signOutUser } from '../../utils/authUtils';
 import { db } from '../firebaseConfig';
 
 // ========================================
@@ -294,16 +295,20 @@ export default function Profile() {
   // ========================================
   // Ang function na ito ay naghahandle ng user logout
   // Nag-navigate back sa signin screen pagkatapos mag-logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('Logout button pressed');
     
-    // Mag-navigate back sa signin screen
-    console.log('Navigating to signin');
     try {
+      // Use the signOutUser function to properly log out and create logs
+      await signOutUser();
+      console.log('Successfully signed out');
+      
+      // Navigate to signin screen after successful logout
       router.replace('/signin' as any);
     } catch (error) {
-      console.error('Navigation error:', error);
-      router.push('/signin' as any);
+      console.error('Logout error:', error);
+      // Still navigate even if logout fails
+      router.replace('/signin' as any);
     }
   };
 
