@@ -55,8 +55,8 @@ export const updateAdminPaymentSettings = async (settings: Partial<AdminPaymentS
     const currentSettings = await getAdminPaymentSettings();
     const updatedSettings: AdminPaymentSettings = {
       gcashNumber: settings.gcashNumber !== undefined ? settings.gcashNumber : (currentSettings?.gcashNumber || '09123456789'),
-      qrCodeImageUrl: settings.qrCodeImageUrl !== undefined ? settings.qrCodeImageUrl : currentSettings?.qrCodeImageUrl,
-      qrCodeBase64: settings.qrCodeBase64 !== undefined ? settings.qrCodeBase64 : currentSettings?.qrCodeBase64,
+      qrCodeImageUrl: settings.qrCodeImageUrl !== undefined ? settings.qrCodeImageUrl : (currentSettings?.qrCodeImageUrl || ''),
+      qrCodeBase64: settings.qrCodeBase64 !== undefined ? settings.qrCodeBase64 : (currentSettings?.qrCodeBase64 || ''),
       updatedAt: Date.now(),
     };
 

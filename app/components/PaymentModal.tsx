@@ -11,13 +11,13 @@ import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { getAdminPaymentSettings } from '../services/adminPaymentService';
 import { PaymentData, createPayment, verifyPayment } from '../services/paymentService';
@@ -69,6 +69,7 @@ export function PaymentModal({
   const [verifying, setVerifying] = useState(false); // Verification state
   const [step, setStep] = useState<'payment' | 'verification' | 'success'>('payment'); // Current step
   const [adminPaymentSettings, setAdminPaymentSettings] = useState<any>(null); // Admin payment settings
+  const [showPayMongoOption, setShowPayMongoOption] = useState(true); // Show PayMongo option
 
   // ========================================
   // PAYMENT CALCULATIONS
@@ -206,6 +207,37 @@ export function PaymentModal({
   };
 
   // ========================================
+  // HANDLE DIRECT GCASH PAYMENT FUNCTION
+  // ========================================
+  // I-handle ang direct GCash payment process
+  // I-show ang QR code para sa direct payment
+  const handleDirectGCashPayment = () => {
+    if (!payment) {
+      Alert.alert('Error', 'Payment information not available. Please try again.');
+      return;
+    }
+
+    try {
+      console.log('🔄 Showing direct GCash payment QR code');
+      
+      // I-show ang instruction sa user na i-scan ang QR code
+      Alert.alert(
+        'GCash Payment',
+        'Please scan the QR code below using your GCash app to complete the payment.',
+        [
+          { text: 'OK', style: 'default' }
+        ]
+      );
+      
+      // I-show ang verification step para sa manual verification
+      setStep('verification');
+    } catch (error) {
+      console.error('❌ Failed to show GCash payment:', error);
+      Alert.alert('Error', 'Failed to show GCash payment. Please try again.');
+    }
+  };
+
+  // ========================================
   // HANDLE SKIP PAYMENT FUNCTION
   // ========================================
   // I-handle ang skip payment action
@@ -283,14 +315,67 @@ export function PaymentModal({
       </View>
 
       {payment && (
-        <QRCodeDisplay
-          qrCode={payment.qrCode || ''}
-          amount={payment.amount}
-          referenceNumber={payment.referenceNumber || ''}
-          gcashNumber={payment.gcashNumber || ''}
-          dueDate={payment.dueDate}
-          adminQRCode={adminPaymentSettings?.qrCodeBase64}
-        />
+        <>
+          {/* Direct GCash Payment Option */}
+          {payment.qrCode && showPayMongoOption && (
+            <View style={[styles.paymongoContainer, { backgroundColor: isDark ? '#2A2A2A' : '#f8f9fa' }]}>
+              <View style={styles.paymongoHeader}>
+                <MaterialIcons name="account-balance-wallet" size={24} color="#00B2FF" />
+                <ThemedText style={[styles.paymongoTitle, { color: textColor }]}>
+                  Pay with GCash
+                </ThemedText>
+              </View>
+              <ThemedText style={[styles.paymongoDescription, { color: subtitleColor }]}>
+                Direct payment to our GCash number. Click below to view QR code for payment.
+              </ThemedText>
+              
+              <TouchableOpacity
+                style={[styles.paymongoButton, { backgroundColor: '#00B2FF' }]}
+                onPress={handleDirectGCashPayment}
+                disabled={!payment}
+              >
+                <MaterialIcons name="qr-code" size={20} color="#fff" />
+                <ThemedText style={styles.paymongoButtonText}>
+                  Pay with GCash
+                </ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.paymongoToggle}
+                onPress={() => setShowPayMongoOption(false)}
+              >
+                <ThemedText style={[styles.paymongoToggleText, { color: subtitleColor }]}>
+                  Use QR Code instead
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Traditional QR Code Display */}
+          {(!payment.checkoutUrl || !showPayMongoOption) && (
+            <>
+              <QRCodeDisplay
+                qrCode={payment.qrCode || ''}
+                amount={payment.amount}
+                referenceNumber={payment.referenceNumber || ''}
+                gcashNumber={payment.gcashNumber || ''}
+                dueDate={payment.dueDate}
+                adminQRCode={adminPaymentSettings?.qrCodeBase64}
+              />
+              
+              {payment.checkoutUrl && (
+                <TouchableOpacity
+                  style={styles.paymongoToggle}
+                  onPress={() => setShowPayMongoOption(true)}
+                >
+                  <ThemedText style={[styles.paymongoToggleText, { color: subtitleColor }]}>
+                    Use PayMongo GCash instead
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </>
       )}
 
       <View style={styles.actionButtons}>
@@ -321,13 +406,28 @@ export function PaymentModal({
 
   const renderVerificationStep = () => (
     <View style={styles.verificationContainer}>
-      <ActivityIndicator size="large" color="#00B2FF" />
+      <MaterialIcons name="payment" size={60} color="#00B2FF" />
       <ThemedText style={[styles.verificationTitle, { color: textColor }]}>
-        Verifying Payment...
+        Payment Verification
       </ThemedText>
       <ThemedText style={[styles.verificationSubtitle, { color: subtitleColor }]}>
-        Please wait while we verify your payment
+        After completing your payment in GCash, click the button below to verify your payment status.
       </ThemedText>
+      
+      <TouchableOpacity
+        style={[styles.verifyButton, { backgroundColor: '#00B2FF' }]}
+        onPress={handleVerifyPayment}
+        disabled={verifying}
+      >
+        <MaterialIcons name="verified" size={20} color="#fff" />
+        <ThemedText style={styles.verifyButtonText}>
+          {verifying ? 'Verifying...' : 'Verify Payment'}
+        </ThemedText>
+      </TouchableOpacity>
+      
+      {verifying && (
+        <ActivityIndicator size="small" color="#00B2FF" style={{ marginTop: 16 }} />
+      )}
     </View>
   );
 
@@ -517,5 +617,51 @@ const styles = StyleSheet.create({
   successSubtitle: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  // PayMongo Styles
+  paymongoContainer: {
+    margin: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.2)',
+  },
+  paymongoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  paymongoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  paymongoDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  paymongoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  paymongoButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  paymongoToggle: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  paymongoToggleText: {
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });
