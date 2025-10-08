@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Modal,
     ScrollView,
     StyleSheet,
@@ -207,33 +208,50 @@ export function PaymentModal({
   };
 
   // ========================================
-  // HANDLE DIRECT GCASH PAYMENT FUNCTION
+  // HANDLE PAYMONGO GCASH PAYMENT FUNCTION
   // ========================================
-  // I-handle ang direct GCash payment process
-  // I-show ang QR code para sa direct payment
-  const handleDirectGCashPayment = () => {
-    if (!payment) {
-      Alert.alert('Error', 'Payment information not available. Please try again.');
+  // I-handle ang PayMongo GCash payment process
+  // I-open ang GCash app or web browser para sa payment
+  const handlePayMongoGCashPayment = async () => {
+    if (!payment || !payment.checkoutUrl) {
+      Alert.alert('Error', 'Payment checkout URL not available. Please try again.');
       return;
     }
 
     try {
-      console.log('🔄 Showing direct GCash payment QR code');
+      console.log('🔄 Opening PayMongo GCash checkout:', payment.checkoutUrl);
       
-      // I-show ang instruction sa user na i-scan ang QR code
-      Alert.alert(
-        'GCash Payment',
-        'Please scan the QR code below using your GCash app to complete the payment.',
-        [
-          { text: 'OK', style: 'default' }
-        ]
-      );
+      // I-check kung supported ang deep linking sa platform
+      const supported = await Linking.canOpenURL(payment.checkoutUrl);
       
-      // I-show ang verification step para sa manual verification
-      setStep('verification');
+      if (supported) {
+        // I-open ang GCash app or web browser
+        await Linking.openURL(payment.checkoutUrl);
+        
+        // I-show ang instruction sa user na i-complete ang payment
+        Alert.alert(
+          'Complete Payment',
+          'Please complete your payment in the GCash app or browser. After payment, click "Verify Payment" to check the status.',
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
+        
+        // I-show ang verification step para sa manual verification
+        setStep('verification');
+      } else {
+        Alert.alert(
+          'Cannot Open GCash',
+          'Please install GCash app or use a web browser to complete the payment.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open in Browser', onPress: () => Linking.openURL(payment.checkoutUrl!) }
+          ]
+        );
+      }
     } catch (error) {
-      console.error('❌ Failed to show GCash payment:', error);
-      Alert.alert('Error', 'Failed to show GCash payment. Please try again.');
+      console.error('❌ Failed to open PayMongo GCash checkout:', error);
+      Alert.alert('Error', 'Failed to open GCash payment. Please try again.');
     }
   };
 
@@ -316,25 +334,25 @@ export function PaymentModal({
 
       {payment && (
         <>
-          {/* Direct GCash Payment Option */}
-          {payment.qrCode && showPayMongoOption && (
+          {/* PayMongo GCash Payment Option */}
+          {payment.checkoutUrl && showPayMongoOption && (
             <View style={[styles.paymongoContainer, { backgroundColor: isDark ? '#2A2A2A' : '#f8f9fa' }]}>
               <View style={styles.paymongoHeader}>
                 <MaterialIcons name="account-balance-wallet" size={24} color="#00B2FF" />
                 <ThemedText style={[styles.paymongoTitle, { color: textColor }]}>
-                  Pay with GCash
+                  Pay with GCash (PayMongo)
                 </ThemedText>
               </View>
               <ThemedText style={[styles.paymongoDescription, { color: subtitleColor }]}>
-                Direct payment to our GCash number. Click below to view QR code for payment.
+                Secure payment through PayMongo. Click below to open GCash app or web browser.
               </ThemedText>
               
               <TouchableOpacity
                 style={[styles.paymongoButton, { backgroundColor: '#00B2FF' }]}
-                onPress={handleDirectGCashPayment}
-                disabled={!payment}
+                onPress={handlePayMongoGCashPayment}
+                disabled={!payment.checkoutUrl}
               >
-                <MaterialIcons name="qr-code" size={20} color="#fff" />
+                <MaterialIcons name="payment" size={20} color="#fff" />
                 <ThemedText style={styles.paymongoButtonText}>
                   Pay with GCash
                 </ThemedText>
