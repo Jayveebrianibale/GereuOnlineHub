@@ -70,7 +70,7 @@ export default function ReservationsScreen() {
   const isPortrait = height > width; // Check kung portrait orientation
   const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error } = useAdminReservation(); // Admin reservation context
   const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation(); // Reservation context
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'cancelled' | 'declined'>('all'); // Status filter state
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'declined'>('all'); // Status filter state
   const [filterVisible, setFilterVisible] = useState(false); // Filter modal visibility
   const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false); // Payment settings modal visibility
   const [searchQuery, setSearchQuery] = useState(''); // Search query state
@@ -119,16 +119,6 @@ export default function ReservationsScreen() {
     return new Date(dateString!).toLocaleDateString();
   };
 
-  // Calculate simple reservation summary
-  const reservationSummary = useMemo(() => {
-    const validReservations = (adminReservations || []).filter(r => isValidDate(r.reservationDate));
-    return {
-      total: validReservations.length,
-      pending: validReservations.filter(r => (r.status || 'pending') === 'pending').length,
-      confirmed: validReservations.filter(r => r.status === 'confirmed').length,
-      completed: validReservations.filter(r => r.status === 'completed').length,
-    };
-  }, [adminReservations]);
 
   // Sort newest first and apply status filter and search, filtering out invalid dates
   const displayReservations = useMemo(() => {
@@ -154,6 +144,20 @@ export default function ReservationsScreen() {
         return bTime - aTime;
       });
   }, [adminReservations, searchQuery, statusFilter]);
+
+  // Calculate counts for each status
+  const statusCounts = useMemo(() => {
+    const validReservations = (adminReservations || []).filter(r => isValidDate(r.reservationDate));
+    
+    return {
+      all: validReservations.length,
+      pending: validReservations.filter(r => (r.status || 'pending') === 'pending').length,
+      confirmed: validReservations.filter(r => (r.status || 'pending') === 'confirmed').length,
+      completed: validReservations.filter(r => (r.status || 'pending') === 'completed').length,
+      cancelled: validReservations.filter(r => (r.status || 'pending') === 'cancelled').length,
+      declined: validReservations.filter(r => (r.status || 'pending') === 'declined').length,
+    };
+  }, [adminReservations]);
 
   const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
     const performUpdate = async () => {
@@ -358,44 +362,6 @@ export default function ReservationsScreen() {
           )}
         </View>
 
-        {/* Simple Summary Bar */}
-        <View style={[styles.summaryBar, { backgroundColor: cardBgColor, borderColor }]}>
-          <View style={styles.summaryItem}>
-            <ThemedText style={[styles.summaryNumber, { color: textColor }]}>
-              {reservationSummary.total}
-            </ThemedText>
-            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
-              Total
-            </ThemedText>
-          </View>
-          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
-          <View style={styles.summaryItem}>
-            <ThemedText style={[styles.summaryNumber, { color: '#F59E0B' }]}>
-              {reservationSummary.pending}
-            </ThemedText>
-            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
-              Pending
-            </ThemedText>
-          </View>
-          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
-          <View style={styles.summaryItem}>
-            <ThemedText style={[styles.summaryNumber, { color: '#10B981' }]}>
-              {reservationSummary.confirmed}
-            </ThemedText>
-            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
-              Confirmed
-            </ThemedText>
-          </View>
-          <View style={[styles.summaryDivider, { backgroundColor: borderColor }]} />
-          <View style={styles.summaryItem}>
-            <ThemedText style={[styles.summaryNumber, { color: '#3B82F6' }]}>
-              {reservationSummary.completed}
-            </ThemedText>
-            <ThemedText style={[styles.summaryLabel, { color: subtitleColor }]}>
-              Completed
-            </ThemedText>
-          </View>
-        </View>
 
         {/* Reservations List */}
         <View style={styles.reservationsContainer}>
@@ -415,10 +381,12 @@ export default function ReservationsScreen() {
                   </TouchableOpacity>
                 </View>
                 {[
-                  { id: 'all', label: 'All' },
-                  { id: 'pending', label: 'Pending' },
-                  { id: 'cancelled', label: 'Cancelled' },
-                  { id: 'declined', label: 'Declined' },
+                  { id: 'all', label: 'All', count: statusCounts.all },
+                  { id: 'pending', label: 'Pending', count: statusCounts.pending },
+                  { id: 'confirmed', label: 'Confirmed', count: statusCounts.confirmed },
+                  { id: 'completed', label: 'Completed', count: statusCounts.completed },
+                  { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
+                  { id: 'declined', label: 'Declined', count: statusCounts.declined },
                 ].map((opt: any) => {
                   const active = statusFilter === opt.id;
                   return (
@@ -433,9 +401,25 @@ export default function ReservationsScreen() {
                         setFilterVisible(false);
                       }}
                     >
-                      <ThemedText style={{ color: active ? colorPalette.primary : subtitleColor }}>
-                        {opt.label}
-                      </ThemedText>
+                      <View style={styles.filterOptionContent}>
+                        <ThemedText style={{ color: active ? colorPalette.primary : subtitleColor }}>
+                          {opt.label}
+                        </ThemedText>
+                        <View style={[
+                          styles.countBadge,
+                          { 
+                            backgroundColor: active ? colorPalette.primary + '20' : subtitleColor + '20',
+                            borderColor: active ? colorPalette.primary : subtitleColor
+                          }
+                        ]}>
+                          <ThemedText style={[
+                            styles.countText,
+                            { color: active ? colorPalette.primary : subtitleColor }
+                          ]}>
+                            {opt.count}
+                          </ThemedText>
+                        </View>
+                      </View>
                       {active && (
                         <MaterialIcons name="check" size={18} color={colorPalette.primary} />
                       )}
@@ -467,6 +451,19 @@ export default function ReservationsScreen() {
               </ThemedText>
               <ThemedText style={[styles.emptySubtext, { color: subtitleColor }]}>
                 Reservations will appear here when users book services
+              </ThemedText>
+            </View>
+          ) : displayReservations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="filter-list" size={48} color={subtitleColor} />
+              <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+                No {statusFilter === 'all' ? '' : statusFilter} reservations found
+              </ThemedText>
+              <ThemedText style={[styles.emptySubtext, { color: subtitleColor }]}>
+                {statusFilter === 'all' 
+                  ? 'Try adjusting your search or filter criteria'
+                  : `There are currently no ${statusFilter} reservations. Try selecting a different filter.`
+                }
               </ThemedText>
             </View>
           ) : (
@@ -848,77 +845,188 @@ export default function ReservationsScreen() {
                   )}
                 </View>
                 
-                  <View style={styles.reservationActions}>
+                  <View style={[
+                    styles.reservationActions,
+                    {
+                      gap: width < 400 ? 6 : 8,
+                    }
+                  ]}>
                     {(reservation.status || 'pending') === 'pending' && (
                       <>
                         <TouchableOpacity 
                           key="accept-button"
-                          style={[styles.actionButton, styles.acceptButton]}
+                          style={[
+                            styles.actionButton, 
+                            styles.acceptButton,
+                            {
+                              paddingHorizontal: width < 400 ? 8 : 12,
+                              paddingVertical: width < 400 ? 6 : 8,
+                              borderRadius: width < 400 ? 16 : 20,
+                              minWidth: width < 400 ? 60 : 70,
+                            }
+                          ]}
                           onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
-                          <MaterialIcons name="check" size={20} color="#10B981" />
+                          <ThemedText style={[
+                            styles.actionButtonText, 
+                            { 
+                              color: '#10B981',
+                              fontSize: width < 400 ? 11 : 12,
+                            }
+                          ]}>
+                            Accept
+                          </ThemedText>
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
                           key="decline-button"
-                          style={[styles.actionButton, styles.declineButton]}
+                          style={[
+                            styles.actionButton, 
+                            styles.declineButton,
+                            {
+                              paddingHorizontal: width < 400 ? 8 : 12,
+                              paddingVertical: width < 400 ? 6 : 8,
+                              borderRadius: width < 400 ? 16 : 20,
+                              minWidth: width < 400 ? 60 : 70,
+                            }
+                          ]}
                           onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
                         >
-                          <MaterialIcons name="close" size={20} color="#EF4444" />
+                          <ThemedText style={[
+                            styles.actionButtonText, 
+                            { 
+                              color: '#EF4444',
+                              fontSize: width < 400 ? 11 : 12,
+                            }
+                          ]}>
+                            Decline
+                          </ThemedText>
                         </TouchableOpacity>
                       </>
                     )}
                     
                     {(reservation.status || 'pending') === 'confirmed' && (
-                      <TouchableOpacity 
-                        key="complete-button"
-                        style={[styles.actionButton, styles.completeButton]}
-                        onPress={async () => {
-                          try {
-                            await updateReservationStatus(reservation.id, 'completed');
-                            if (reservation.serviceType === 'apartment') {
-                              await updateApartmentStatus(reservation.serviceId, 'completed');
-                            } else if (reservation.serviceType === 'laundry') {
-                              await updateLaundryStatus(reservation.serviceId, 'completed');
-                            } else if (reservation.serviceType === 'auto') {
-                              await updateAutoStatus(reservation.serviceId, 'completed');
-                            }
-                            try {
-                              await notifyUser(
-                                reservation.userId,
-                                'Reservation Completed',
-                                `Your ${getServiceTypeDisplayName(reservation.serviceType)} is marked completed.`,
-                                { serviceType: reservation.serviceType, serviceId: reservation.serviceId, action: 'completed' }
+                      <>
+                        {/* View Balance Button - Only for Apartment Reservations */}
+                        {reservation.serviceType === 'apartment' && (
+                          <TouchableOpacity 
+                            key="view-balance-button"
+                            style={[
+                              styles.actionButton, 
+                              styles.balanceButton,
+                              {
+                                paddingHorizontal: width < 400 ? 6 : 10,
+                                paddingVertical: width < 400 ? 6 : 8,
+                                borderRadius: width < 400 ? 16 : 20,
+                                minWidth: width < 400 ? 70 : 85,
+                              }
+                            ]}
+                            onPress={() => {
+                              const downPayment = calculateDownPayment(reservation.servicePrice, reservation.serviceType);
+                              const remainingBalance = reservation.servicePrice - downPayment;
+                              Alert.alert(
+                                'Remaining Balance',
+                                `Total Amount: ${formatPHP(reservation.servicePrice)}\nDown Payment: ${formatPHP(downPayment)}\n\nRemaining Balance: ${formatPHP(remainingBalance)}`,
+                                [{ text: 'OK' }]
                               );
-                            } catch {}
-                            // ========================================
-                            // SUCCESS ALERT - ADMIN RESERVATION COMPLETED
-                            // ========================================
-                            // I-display ang success alert pagkatapos ng successful completion
-                            // I-inform ang admin na successful ang completion ng reservation
-                            Alert.alert('Success', 'Reservation has been marked as completed!'); // Alert title at message - reservation completed successfully
-                          } catch (error) {
-                            console.error('Error marking reservation as completed:', error);
-                            // ========================================
-                            // ERROR ALERT - ADMIN RESERVATION COMPLETION FAILED
-                            // ========================================
-                            // I-display ang error alert kung nag-fail ang completion
-                            // I-inform ang admin na nag-fail ang completion ng reservation
-                            Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.'); // Alert title at message - completion failed, try again
-                          }
-                        }}
-                      >
-                        <MaterialIcons name="done-all" size={20} color="#3B82F6" />
-                      </TouchableOpacity>
+                            }}
+                          >
+                            <ThemedText style={[
+                              styles.actionButtonText, 
+                              { 
+                                color: '#F59E0B',
+                                fontSize: width < 400 ? 10 : 11,
+                              }
+                            ]}>
+                              View Balance
+                            </ThemedText>
+                          </TouchableOpacity>
+                        )}
+                        
+                        <TouchableOpacity 
+                          key="complete-button"
+                          style={[
+                            styles.actionButton, 
+                            styles.completeButton,
+                            {
+                              paddingHorizontal: width < 400 ? 8 : 12,
+                              paddingVertical: width < 400 ? 6 : 8,
+                              borderRadius: width < 400 ? 16 : 20,
+                              minWidth: width < 400 ? 60 : 70,
+                            }
+                          ]}
+                          onPress={async () => {
+                            try {
+                              await updateReservationStatus(reservation.id, 'completed');
+                              if (reservation.serviceType === 'apartment') {
+                                await updateApartmentStatus(reservation.serviceId, 'completed');
+                              } else if (reservation.serviceType === 'laundry') {
+                                await updateLaundryStatus(reservation.serviceId, 'completed');
+                              } else if (reservation.serviceType === 'auto') {
+                                await updateAutoStatus(reservation.serviceId, 'completed');
+                              }
+                              try {
+                                await notifyUser(
+                                  reservation.userId,
+                                  'Reservation Completed',
+                                  `Your ${getServiceTypeDisplayName(reservation.serviceType)} is marked completed.`,
+                                  { serviceType: reservation.serviceType, serviceId: reservation.serviceId, action: 'completed' }
+                                );
+                              } catch {}
+                              // ========================================
+                              // SUCCESS ALERT - ADMIN RESERVATION COMPLETED
+                              // ========================================
+                              // I-display ang success alert pagkatapos ng successful completion
+                              // I-inform ang admin na successful ang completion ng reservation
+                              Alert.alert('Success', 'Reservation has been marked as completed!'); // Alert title at message - reservation completed successfully
+                            } catch (error) {
+                              console.error('Error marking reservation as completed:', error);
+                              // ========================================
+                              // ERROR ALERT - ADMIN RESERVATION COMPLETION FAILED
+                              // ========================================
+                              // I-display ang error alert kung nag-fail ang completion
+                              // I-inform ang admin na nag-fail ang completion ng reservation
+                              Alert.alert('Error', 'Failed to mark reservation as completed. Please try again.'); // Alert title at message - completion failed, try again
+                            }
+                          }}
+                        >
+                          <ThemedText style={[
+                            styles.actionButtonText, 
+                            { 
+                              color: '#3B82F6',
+                              fontSize: width < 400 ? 11 : 12,
+                            }
+                          ]}>
+                            Complete
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </>
                     )}
                     
                     {/* Delete button - always visible */}
                     <TouchableOpacity 
                       key="delete-button"
-                      style={[styles.actionButton, styles.deleteButton]}
+                      style={[
+                        styles.actionButton, 
+                        styles.deleteButton,
+                        {
+                          paddingHorizontal: width < 400 ? 8 : 12,
+                          paddingVertical: width < 400 ? 6 : 8,
+                          borderRadius: width < 400 ? 16 : 20,
+                          minWidth: width < 400 ? 60 : 70,
+                        }
+                      ]}
                       onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle)}
                     >
-                      <MaterialIcons name="delete" size={20} color="#DC2626" />
+                      <ThemedText style={[
+                        styles.actionButtonText, 
+                        { 
+                          color: '#DC2626',
+                          fontSize: width < 400 ? 11 : 12,
+                        }
+                      ]}>
+                        Delete
+                      </ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1020,6 +1128,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 10,
   },
+  filterOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  countBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   reservationCard: {
     borderRadius: 16,
     marginBottom: 20,
@@ -1077,14 +1203,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     paddingTop: 16,
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   actionButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 70,
+    maxWidth: 90,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',
@@ -1139,6 +1273,11 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#DC262620',
     borderColor: '#DC2626',
+    borderWidth: 1,
+  },
+  balanceButton: {
+    backgroundColor: '#F59E0B20',
+    borderColor: '#F59E0B',
     borderWidth: 1,
   },
   paymentSection: {
@@ -1217,39 +1356,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 18,
-  },
-  summaryBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryDivider: {
-    width: 1,
-    height: 32,
-    marginHorizontal: 16,
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.7,
   },
   searchBar: {
     flexDirection: 'row',

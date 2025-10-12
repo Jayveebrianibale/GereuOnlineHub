@@ -39,6 +39,16 @@ export const getAdminPaymentSettings = async (): Promise<AdminPaymentSettings | 
       };
     }
 
+    // I-check kung may data sa Payment_Information path
+    if (gcashNumber || qrCodeUrl) {
+      return {
+        gcashNumber: gcashNumber || '',
+        qrCodeImageUrl: qrCodeUrl || '',
+        qrCodeBase64: qrCodeUrl ? qrCodeUrl.split(',')[1] : '',
+        updatedAt: Date.now()
+      };
+    }
+
     return null;
   } catch (error) {
     console.error('Error fetching admin payment settings:', error);
@@ -54,7 +64,7 @@ export const updateAdminPaymentSettings = async (settings: Partial<AdminPaymentS
     }
     const currentSettings = await getAdminPaymentSettings();
     const updatedSettings: AdminPaymentSettings = {
-      gcashNumber: settings.gcashNumber !== undefined ? settings.gcashNumber : (currentSettings?.gcashNumber || '09123456789'),
+      gcashNumber: settings.gcashNumber !== undefined ? settings.gcashNumber : (currentSettings?.gcashNumber || ''),
       qrCodeImageUrl: settings.qrCodeImageUrl !== undefined ? settings.qrCodeImageUrl : (currentSettings?.qrCodeImageUrl || ''),
       qrCodeBase64: settings.qrCodeBase64 !== undefined ? settings.qrCodeBase64 : (currentSettings?.qrCodeBase64 || ''),
       updatedAt: Date.now(),
@@ -113,5 +123,50 @@ export const uploadQRCodeImage = async (imageUri: string): Promise<{ url: string
   } catch (error) {
     console.error('Error uploading QR code image:', error);
     throw new Error('Failed to upload QR code image');
+  }
+};
+
+// ========================================
+// CLEAR DUMMY DATA FUNCTION
+// ========================================
+// I-clear ang any dummy data sa Payment_Information path
+export const clearDummyPaymentData = async (): Promise<boolean> => {
+  try {
+    if (!database) {
+      console.error('Firebase database not initialized');
+      return false;
+    }
+
+    // I-check kung may dummy data sa Payment_Information
+    const gcashSnapshot = await get(ref(database, 'Payment_Information/gcashNumber'));
+    const qrSnapshot = await get(ref(database, 'Payment_Information/qrCode'));
+    
+    const gcashNumber = gcashSnapshot.val();
+    const qrCode = qrSnapshot.val();
+    
+    // I-check kung dummy data ang naka-store
+    const isDummyGCash = gcashNumber && (
+      gcashNumber.includes('09123456789') || 
+      gcashNumber.includes('+639123456789') ||
+      gcashNumber.includes('639123456789')
+    );
+    
+    const isDummyQR = qrCode && qrCode.includes('dummy');
+    
+    // I-clear ang dummy data
+    if (isDummyGCash) {
+      await set(ref(database, 'Payment_Information/gcashNumber'), '');
+      console.log('✅ Cleared dummy GCash number');
+    }
+    
+    if (isDummyQR) {
+      await set(ref(database, 'Payment_Information/qrCode'), '');
+      console.log('✅ Cleared dummy QR code');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error clearing dummy payment data:', error);
+    return false;
   }
 };

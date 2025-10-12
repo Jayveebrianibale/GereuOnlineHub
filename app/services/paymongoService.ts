@@ -8,6 +8,9 @@
 // Import ng configuration
 import { paymongoConfig, validateAmount, validatePayMongoKeys } from '../config/paymongoConfig';
 
+// Import ng official PayMongo SDK (uncomment when installed)
+// import paymongo from '@api/paymongo';
+
 // ========================================
 // PAYMONGO CONFIGURATION
 // ========================================
@@ -260,7 +263,7 @@ export async function createPaymentIntent(amount: number, description: string, r
       return {
         success: true,
         sourceId: paymentIntent.id, // Using sourceId field for compatibility
-        checkoutUrl: `https://paymongo.com/payment_intents/${paymentIntent.id}`, // Generate checkout URL
+        checkoutUrl: '', // Payment Intents don't have direct checkout URLs
         status: paymentIntent.attributes.status,
         clientKey: paymentIntent.attributes.client_key,
       };
@@ -311,7 +314,7 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
           billing: {
             name: 'Customer',
             email: 'customer@example.com',
-            phone: '+639123456789',
+            phone: '+639000000000', // Placeholder - will be replaced with actual admin number
           },
           metadata: {
             reference_number: request.referenceNumber,
@@ -341,10 +344,16 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
       console.log('✅ GCash source created successfully:', source.id);
       console.log('🔍 Source attributes:', JSON.stringify(source.attributes, null, 2));
       console.log('🔍 Redirect object:', JSON.stringify(source.attributes.redirect, null, 2));
+      console.log('🔍 Full source response:', JSON.stringify(source, null, 2));
       
       // I-validate ang source ID
       if (!source.id || source.id.length < 10) {
         throw new Error('Invalid source ID received from PayMongo');
+      }
+      
+      // I-check kung may redirect URL na provided by PayMongo
+      if (!source.attributes.redirect) {
+        console.warn('⚠️ No redirect object in PayMongo source response - this might indicate GCash is not enabled for this account');
       }
       
       // I-extract ang checkout URL from different possible locations
@@ -356,6 +365,10 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
                      source.attributes.redirect.url || 
                      source.attributes.redirect.checkoutUrl ||
                      source.attributes.redirect.redirect_url;
+        
+        console.log('🔍 Redirect object found:', JSON.stringify(source.attributes.redirect, null, 2));
+      } else {
+        console.warn('⚠️ No redirect object in PayMongo response - this is why checkout URL is not working');
       }
       
       // I-fix ang checkout URL format - PayMongo uses paymongo.com, not secure-authentication.paymongo.com
@@ -374,12 +387,25 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
       
       // I-fallback sa PayMongo's official checkout URL format
       if (!checkoutUrl) {
-        checkoutUrl = `https://paymongo.com/sources/${source.id}`;
+        // Try different PayMongo checkout URL formats
+        console.warn('⚠️ No checkout URL provided by PayMongo - using fallback URL');
+        checkoutUrl = `https://checkout.paymongo.com/sources/${source.id}`;
+      }
+      
+      // I-fix ang URL format kung mali ang format
+      if (checkoutUrl.includes('paymongo.com/sources/')) {
+        console.log('🔧 Fixing URL format from paymongo.com to checkout.paymongo.com');
+        checkoutUrl = checkoutUrl.replace('paymongo.com/sources/', 'checkout.paymongo.com/sources/');
       }
       
       console.log('🔍 Final checkout URL:', checkoutUrl);
       console.log('🔍 Source ID used for URL:', source.id);
       
+      // I-check kung valid ang checkout URL
+      if (!checkoutUrl || checkoutUrl.includes('checkout.paymongo.com/sources/')) {
+        console.warn('⚠️ Using fallback checkout URL - this might not work if GCash is not enabled in PayMongo account');
+      }
+
       return {
         success: true,
         sourceId: source.id,
@@ -451,6 +477,42 @@ export async function createPaymentFromSource(sourceId: string, amount: number, 
     return {
       success: false,
       error: error.message || 'Failed to create payment',
+    };
+  }
+}
+
+// ========================================
+// GET PAYMENT INTENT STATUS FUNCTION
+// ========================================
+// I-check ang payment intent status para sa verification
+// I-verify kung ready na ang payment intent para sa payment
+export async function getPaymentIntentStatus(paymentIntentId: string): Promise<PayMongoPaymentResult> {
+  try {
+    console.log('🔄 Checking payment intent status:', paymentIntentId);
+
+    // I-retrieve ang payment intent details
+    const response = await paymongo.retrievePaymentIntent(paymentIntentId);
+    
+    if (response.data && response.data.attributes) {
+      const paymentIntent = response.data as PayMongoPaymentIntentData;
+      
+      console.log('✅ Payment intent status retrieved:', paymentIntent.attributes.status);
+      
+      return {
+        success: true,
+        sourceId: paymentIntent.id,
+        status: paymentIntent.attributes.status,
+        clientKey: paymentIntent.attributes.client_key,
+      };
+    } else {
+      throw new Error('Invalid response from PayMongo');
+    }
+  } catch (error: any) {
+    console.error('❌ Failed to get payment intent status:', error);
+    
+    return {
+      success: false,
+      error: error.message || 'Failed to get payment intent status',
     };
   }
 }
@@ -534,13 +596,41 @@ export async function verifyPayment(sourceId: string, paymentId?: string): Promi
   try {
     console.log('🔄 Verifying payment:', { sourceId, paymentId });
 
-    // I-check ang source status first
-    const sourceResult = await getSourceStatus(sourceId);
-    if (!sourceResult.success || sourceResult.status !== 'chargeable') {
+    // I-detect kung Payment Intent o Source ang ID
+    const isPaymentIntent = sourceId.startsWith('pi_');
+    const isSource = sourceId.startsWith('src_');
+    
+    let statusResult: PayMongoPaymentResult;
+    
+    if (isPaymentIntent) {
+      // I-check ang payment intent status
+      console.log('🔄 Detected Payment Intent, checking status...');
+      statusResult = await getPaymentIntentStatus(sourceId);
+      
+      // I-check kung ready na ang payment intent
+      if (!statusResult.success || statusResult.status !== 'succeeded') {
+        return {
+          success: false,
+          error: 'Payment intent is not succeeded yet',
+          status: statusResult.status,
+        };
+      }
+    } else if (isSource) {
+      // I-check ang source status
+      console.log('🔄 Detected Source, checking status...');
+      statusResult = await getSourceStatus(sourceId);
+      
+      if (!statusResult.success || statusResult.status !== 'chargeable') {
+        return {
+          success: false,
+          error: 'Source is not chargeable yet',
+          status: statusResult.status,
+        };
+      }
+    } else {
       return {
         success: false,
-        error: 'Source is not chargeable yet',
-        status: sourceResult.status,
+        error: 'Invalid ID format - must be Payment Intent (pi_) or Source (src_)',
       };
     }
 

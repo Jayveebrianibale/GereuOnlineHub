@@ -36,9 +36,11 @@ export interface PaymentData {
   paymentMethod: 'gcash' | 'cash' | 'bank_transfer'; // Payment method
   gcashNumber?: string; // GCash number (optional)
   qrCode?: string; // QR code data (optional)
+  qrCodeImageUrl?: string; // QR code image URL (optional)
   referenceNumber?: string; // Reference number (optional)
   paymongoSourceId?: string; // PayMongo source ID (optional)
   paymongoPaymentId?: string; // PayMongo payment ID (optional)
+  paymongoClientKey?: string; // PayMongo client key (optional)
   checkoutUrl?: string; // PayMongo checkout URL (optional)
   createdAt: string; // Creation timestamp
   updatedAt: string; // Last update timestamp
@@ -100,7 +102,8 @@ export async function createPayment(
   serviceType: 'apartment' | 'laundry' | 'auto', // Service type
   serviceId: string, // Service ID
   fullAmount: number, // Full payment amount
-  paymentMethod: 'gcash' | 'cash' | 'bank_transfer' = 'gcash' // Payment method (default: gcash)
+  paymentMethod: 'gcash' | 'cash' | 'bank_transfer' = 'gcash', // Payment method (default: gcash)
+  paymentType: 'qr_code' | 'paymongo' = 'qr_code' // Payment type: QR code or PayMongo (default: qr_code)
 ): Promise<PaymentData> {
   try {
     // ========================================
@@ -114,14 +117,18 @@ export async function createPayment(
     // ADMIN PAYMENT SETTINGS
     // ========================================
     // I-fetch ang admin's GCash information mula sa payment settings
-    let gcashNumber = '+639123456789'; // Default fallback number
+    let gcashNumber = ''; // Admin's GCash number (required)
+    let qrCodeImageUrl = ''; // QR code image URL (required)
     try {
       const adminSettings = await getAdminPaymentSettings(); // I-fetch ang admin settings
       if (adminSettings?.gcashNumber) {
         gcashNumber = adminSettings.gcashNumber; // I-use ang admin's GCash number
       }
+      if (adminSettings?.qrCodeImageUrl) {
+        qrCodeImageUrl = adminSettings.qrCodeImageUrl; // I-use ang admin's QR code image
+      }
     } catch (error) {
-      console.warn('Failed to fetch admin payment settings, using default GCash number:', error);
+      console.warn('Failed to fetch admin payment settings:', error);
     }
     
     const paymentData: PaymentData = {
@@ -136,6 +143,7 @@ export async function createPayment(
       status: 'pending',
       paymentMethod,
       gcashNumber,
+      qrCodeImageUrl, // I-add ang QR code image URL
       referenceNumber,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -143,21 +151,17 @@ export async function createPayment(
     };
 
     // ========================================
-    // PAYMONGO INTEGRATION FOR GCASH PAYMENTS
+    // PAYMENT FLOW BASED ON TYPE
     // ========================================
-    // I-integrate ang PayMongo para sa GCash payments
     if (paymentMethod === 'gcash') {
-      try {
-        // I-try ang Payment Intent first (modern approach)
-        let paymongoResult = await createPaymentIntent(
-          downPaymentAmount,
-          `Payment for ${serviceType} reservation - Ref: ${referenceNumber}`,
-          referenceNumber
-        );
+      if (paymentType === 'paymongo') {
+        // ========================================
+        // PAYMONGO GCASH PAYMENT FLOW
+        // ========================================
+        console.log('🔄 Setting up PayMongo GCash payment...');
         
-        // I-fallback sa GCash Source kung Payment Intent fails
-        if (!paymongoResult.success) {
-          console.log('🔄 Payment Intent failed, trying GCash Source...');
+        try {
+          // I-use GCash Source directly para sa PayMongo
           const gcashRequest = {
             amount: downPaymentAmount,
             description: `Payment for ${serviceType} reservation - Ref: ${referenceNumber}`,
@@ -166,45 +170,47 @@ export async function createPayment(
             referenceNumber: referenceNumber
           };
           
-          paymongoResult = await createGCashSource(gcashRequest);
+          const paymongoResult = await createGCashSource(gcashRequest);
+          
+          if (paymongoResult.success && paymongoResult.sourceId && paymongoResult.checkoutUrl) {
+            // I-update ang payment data with PayMongo information
+            paymentData.paymongoSourceId = paymongoResult.sourceId;
+            paymentData.checkoutUrl = paymongoResult.checkoutUrl;
+            
+            // I-save ang client key kung may available
+            if (paymongoResult.clientKey) {
+              paymentData.paymongoClientKey = paymongoResult.clientKey;
+            }
+            
+            // I-set ang payment status as paid since PayMongo is real payment
+            paymentData.status = 'paid';
+            
+            console.log('✅ PayMongo GCash payment setup completed');
+            console.log('🔍 Source ID:', paymongoResult.sourceId);
+            console.log('🔍 Checkout URL:', paymongoResult.checkoutUrl);
+            console.log('🔍 Payment status: paid (real payment via PayMongo)');
+          } else {
+            throw new Error('PayMongo GCash source creation failed');
+          }
+        } catch (paymongoError) {
+          console.error('❌ PayMongo integration failed:', paymongoError);
+          throw new Error('PayMongo GCash payment is not available. Please use QR code payment instead.');
+        }
+      } else {
+        // ========================================
+        // DIRECT QR CODE PAYMENT FLOW
+        // ========================================
+        console.log('🔄 Setting up direct QR code payment (bypassing PayMongo)...');
+        
+        // I-check kung may admin GCash information
+        if (!gcashNumber || gcashNumber.trim() === '' || !qrCodeImageUrl || qrCodeImageUrl.trim() === '') {
+          console.error('❌ Admin GCash information is not yet uploaded');
+          console.error('❌ Missing GCash number:', !gcashNumber || gcashNumber.trim() === '');
+          console.error('❌ Missing QR code image:', !qrCodeImageUrl || qrCodeImageUrl.trim() === '');
+          throw new Error('Admin GCash information is not yet uploaded. Please contact admin to set up GCash payment details (number and QR code image).');
         }
         
-        if (paymongoResult.success && paymongoResult.sourceId && paymongoResult.checkoutUrl) {
-          // I-update ang payment data with PayMongo information
-          paymentData.paymongoSourceId = paymongoResult.sourceId;
-          paymentData.checkoutUrl = paymongoResult.checkoutUrl;
-          
-          console.log('✅ PayMongo GCash source created successfully');
-          console.log('🔍 Source ID:', paymongoResult.sourceId);
-          console.log('🔍 Checkout URL:', paymongoResult.checkoutUrl);
-          console.log('🔍 Source Status:', paymongoResult.status);
-          
-          // I-generate ang QR code para sa fallback
-          const qrData: GCashPaymentData = {
-            amount: downPaymentAmount,
-            referenceNumber,
-            qrCode: '',
-            gcashNumber,
-            dueDate: paymentData.dueDate
-          };
-          paymentData.qrCode = generateGCashQRCode(qrData);
-          
-          console.log('✅ PayMongo GCash source created successfully:', paymongoResult.sourceId);
-        } else {
-          console.warn('⚠️ PayMongo source/intent creation failed, using fallback QR code:', paymongoResult.error);
-          // I-fallback sa traditional QR code kung nag-fail ang PayMongo
-          const qrData: GCashPaymentData = {
-            amount: downPaymentAmount,
-            referenceNumber,
-            qrCode: '',
-            gcashNumber,
-            dueDate: paymentData.dueDate
-          };
-          paymentData.qrCode = generateGCashQRCode(qrData);
-        }
-      } catch (paymongoError) {
-        console.error('❌ PayMongo integration failed, using fallback:', paymongoError);
-        // I-fallback sa traditional QR code kung may error sa PayMongo
+        // I-generate ang QR code para sa direct payment
         const qrData: GCashPaymentData = {
           amount: downPaymentAmount,
           referenceNumber,
@@ -213,11 +219,21 @@ export async function createPayment(
           dueDate: paymentData.dueDate
         };
         paymentData.qrCode = generateGCashQRCode(qrData);
+        
+        // I-set ang payment status as pending para sa admin confirmation
+        paymentData.status = 'pending';
+        
+        console.log('✅ Direct QR code payment setup completed');
+        console.log('🔍 QR Code data:', paymentData.qrCode);
+        console.log('🔍 Payment status: pending (awaiting admin confirmation)');
       }
     }
 
-    // Save to Firebase
-    await set(ref(db, `payments/${paymentData.id}`), paymentData);
+    // Save to Firebase - filter out undefined values
+    const firebaseData = Object.fromEntries(
+      Object.entries(paymentData).filter(([_, value]) => value !== undefined)
+    );
+    await set(ref(db, `payments/${paymentData.id}`), firebaseData);
     
     console.log('✅ Payment created successfully:', paymentData.id);
     return paymentData;
@@ -312,9 +328,109 @@ export async function verifyPayment(paymentId: string): Promise<boolean> {
     }
     
     // ========================================
-    // PAYMONGO VERIFICATION FOR GCASH PAYMENTS
+    // PAYMENT VERIFICATION BASED ON TYPE
     // ========================================
-    // I-verify ang payment using PayMongo kung GCash ang payment method
+    if (payment.paymentMethod === 'gcash') {
+      if (payment.paymongoSourceId && payment.checkoutUrl) {
+        // ========================================
+        // PAYMONGO GCASH PAYMENT VERIFICATION
+        // ========================================
+        console.log('🔄 Verifying PayMongo GCash payment...');
+        
+        try {
+          const paymongoResult = await paymongoVerifyPayment(payment.paymongoSourceId, payment.paymongoPaymentId);
+          
+          if (paymongoResult.success) {
+            // I-detect kung Payment Intent o Source
+            const isPaymentIntent = payment.paymongoSourceId.startsWith('pi_');
+            const isSource = payment.paymongoSourceId.startsWith('src_');
+            
+            if (isPaymentIntent) {
+              // Para sa Payment Intent, i-check lang ang status
+              if (paymongoResult.status === 'succeeded') {
+                await updatePaymentStatus(paymentId, 'paid');
+                console.log('✅ PayMongo Payment Intent verified and approved');
+                return true;
+              } else {
+                console.log('⚠️ PayMongo Payment Intent not yet succeeded:', paymongoResult.status);
+                return false;
+              }
+            } else if (isSource) {
+              // Para sa Source, i-create ang payment kung chargeable
+              if (!payment.paymongoPaymentId && paymongoResult.status === 'chargeable') {
+                console.log('🔄 Creating payment from source:', payment.paymongoSourceId);
+                
+                const paymentResult = await createPaymentFromSource(
+                  payment.paymongoSourceId,
+                  payment.amount,
+                  `Payment for ${payment.serviceType} reservation - Ref: ${payment.referenceNumber}`
+                );
+                
+                if (paymentResult.success && paymentResult.paymentId) {
+                  // I-update ang payment record with PayMongo payment ID
+                  await update(ref(db, `payments/${paymentId}`), {
+                    paymongoPaymentId: paymentResult.paymentId,
+                    updatedAt: new Date().toISOString()
+                  });
+                  
+                  // I-check ang final payment status
+                  const finalStatus = await getPaymentStatus(paymentResult.paymentId);
+                  if (finalStatus === 'paid') {
+                    await updatePaymentStatus(paymentId, 'paid');
+                    console.log('✅ PayMongo payment created and verified successfully');
+                    return true;
+                  } else {
+                    console.log('⚠️ PayMongo payment not yet paid:', finalStatus);
+                    return false;
+                  }
+                } else {
+                  console.log('❌ Failed to create payment from source');
+                  return false;
+                }
+              } else if (payment.paymongoPaymentId) {
+                // I-check ang existing payment status
+                const finalStatus = await getPaymentStatus(payment.paymongoPaymentId);
+                if (finalStatus === 'paid') {
+                  await updatePaymentStatus(paymentId, 'paid');
+                  console.log('✅ PayMongo payment verified successfully');
+                  return true;
+                } else {
+                  console.log('⚠️ PayMongo payment not yet paid:', finalStatus);
+                  return false;
+                }
+              } else {
+                console.log('⚠️ Source not yet chargeable:', paymongoResult.status);
+                return false;
+              }
+            }
+          } else {
+            console.log('❌ PayMongo verification failed:', paymongoResult.error);
+            return false;
+          }
+        } catch (paymongoError) {
+          console.error('❌ PayMongo verification error:', paymongoError);
+          return false;
+        }
+      } else if (payment.qrCode) {
+        // ========================================
+        // DIRECT QR CODE PAYMENT VERIFICATION
+        // ========================================
+        console.log('🔄 Verifying direct QR code payment (bypassing PayMongo)...');
+        
+        console.log('✅ Direct QR code payment found');
+        console.log('🔍 Payment status:', payment.status);
+        console.log('💡 Payment requires admin confirmation');
+        
+        // I-return true para sa direct QR code payments
+        // Admin ang mag-confirm kung successful ang payment
+        return true;
+      } else {
+        console.log('❌ No payment method found');
+        return false;
+      }
+    }
+    
+    // Legacy PayMongo verification (for existing payments)
     if (payment.paymentMethod === 'gcash' && payment.paymongoSourceId) {
       try {
         console.log('🔄 Verifying PayMongo payment:', payment.paymongoSourceId);
@@ -325,57 +441,79 @@ export async function verifyPayment(paymentId: string): Promise<boolean> {
         console.log('🔍 PayMongo verification result:', JSON.stringify(paymongoResult, null, 2));
         
         if (paymongoResult.success) {
-          // I-check kung may payment ID na, kung wala, i-create ang payment
-          if (!payment.paymongoPaymentId && paymongoResult.status === 'chargeable') {
-            console.log('🔄 Creating payment from source:', payment.paymongoSourceId);
+          // I-detect kung Payment Intent o Source
+          const isPaymentIntent = payment.paymongoSourceId.startsWith('pi_');
+          const isSource = payment.paymongoSourceId.startsWith('src_');
+          
+          if (isPaymentIntent) {
+            // Para sa Payment Intent, i-check lang ang status
+            console.log('🔄 Verifying Payment Intent:', payment.paymongoSourceId);
             
-            const paymentResult = await createPaymentFromSource(
-              payment.paymongoSourceId,
-              payment.amount,
-              `Payment for ${payment.serviceType} reservation - Ref: ${payment.referenceNumber}`
-            );
-            
-            if (paymentResult.success && paymentResult.paymentId) {
-              // I-update ang payment record with PayMongo payment ID
-              await update(ref(db, `payments/${paymentId}`), {
-                paymongoPaymentId: paymentResult.paymentId,
-                updatedAt: new Date().toISOString()
-              });
+            if (paymongoResult.status === 'succeeded') {
+              await updatePaymentStatus(paymentId, 'paid');
+              console.log(`✅ PayMongo Payment Intent ${paymentId} verified and approved`);
+              return true;
+            } else {
+              await updatePaymentStatus(paymentId, 'failed');
+              console.log(`❌ PayMongo Payment Intent ${paymentId} verification failed - status: ${paymongoResult.status}`);
+              return false;
+            }
+          } else if (isSource) {
+            // Para sa Source, i-create ang payment kung chargeable
+            if (!payment.paymongoPaymentId && paymongoResult.status === 'chargeable') {
+              console.log('🔄 Creating payment from source:', payment.paymongoSourceId);
               
-              // I-check ang final payment status
-              const finalResult = await paymongoVerifyPayment(payment.paymongoSourceId, paymentResult.paymentId);
+              const paymentResult = await createPaymentFromSource(
+                payment.paymongoSourceId,
+                payment.amount,
+                `Payment for ${payment.serviceType} reservation - Ref: ${payment.referenceNumber}`
+              );
               
-              if (finalResult.success && finalResult.status === 'paid') {
+              if (paymentResult.success && paymentResult.paymentId) {
+                // I-update ang payment record with PayMongo payment ID
+                await update(ref(db, `payments/${paymentId}`), {
+                  paymongoPaymentId: paymentResult.paymentId,
+                  updatedAt: new Date().toISOString()
+                });
+                
+                // I-check ang final payment status
+                const finalResult = await paymongoVerifyPayment(payment.paymongoSourceId, paymentResult.paymentId);
+                
+                if (finalResult.success && finalResult.status === 'paid') {
+                  await updatePaymentStatus(paymentId, 'paid');
+                  console.log(`✅ PayMongo payment ${paymentId} verified and approved`);
+                  return true;
+                } else {
+                  await updatePaymentStatus(paymentId, 'failed');
+                  console.log(`❌ PayMongo payment ${paymentId} verification failed`);
+                  return false;
+                }
+              } else {
+                await updatePaymentStatus(paymentId, 'failed');
+                console.log(`❌ Failed to create PayMongo payment:`, paymentResult.error);
+                return false;
+              }
+            } else if (payment.paymongoPaymentId) {
+              // I-check ang existing payment status
+              const paymentStatusResult = await getPaymentStatus(payment.paymongoPaymentId);
+              
+              if (paymentStatusResult.success && paymentStatusResult.status === 'paid') {
                 await updatePaymentStatus(paymentId, 'paid');
                 console.log(`✅ PayMongo payment ${paymentId} verified and approved`);
                 return true;
               } else {
                 await updatePaymentStatus(paymentId, 'failed');
-                console.log(`❌ PayMongo payment ${paymentId} verification failed`);
+                console.log(`❌ PayMongo payment ${paymentId} verification failed - Status: ${paymentStatusResult.status}`);
                 return false;
               }
             } else {
-              await updatePaymentStatus(paymentId, 'failed');
-              console.log(`❌ Failed to create PayMongo payment:`, paymentResult.error);
-              return false;
-            }
-          } else if (payment.paymongoPaymentId) {
-            // I-check ang existing payment status
-            // I-check ang payment status directly using the payment ID
-            const paymentStatusResult = await getPaymentStatus(payment.paymongoPaymentId);
-            
-            if (paymentStatusResult.success && paymentStatusResult.status === 'paid') {
-              await updatePaymentStatus(paymentId, 'paid');
-              console.log(`✅ PayMongo payment ${paymentId} verified and approved`);
-              return true;
-            } else {
-              await updatePaymentStatus(paymentId, 'failed');
-              console.log(`❌ PayMongo payment ${paymentId} verification failed - Status: ${paymentStatusResult.status}`);
+              // I-wait pa para sa source to become chargeable
+              console.log('⏳ Source not yet chargeable, status:', paymongoResult.status);
               return false;
             }
           } else {
-            // I-wait pa para sa source to become chargeable
-            console.log('⏳ Source not yet chargeable, status:', paymongoResult.status);
+            await updatePaymentStatus(paymentId, 'failed');
+            console.log(`❌ Invalid PayMongo ID format: ${payment.paymongoSourceId}`);
             return false;
           }
         } else {
