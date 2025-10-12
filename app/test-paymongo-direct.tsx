@@ -25,7 +25,7 @@ export default function DirectPayMongoTest() {
         headers: {
           'accept': 'application/json',
           'content-type': 'application/json',
-          'Authorization': 'Basic ' + btoa('sk_test_WL2guhaPujZZ5cw4ycEuyWue:')
+          'Authorization': 'Basic ' + btoa((process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder') + ':')
         },
         body: JSON.stringify({
           data: {
@@ -64,7 +64,7 @@ export default function DirectPayMongoTest() {
         headers: {
           'accept': 'application/json',
           'content-type': 'application/json',
-          'Authorization': 'Basic ' + btoa('sk_test_WL2guhaPujZZ5cw4ycEuyWue:')
+          'Authorization': 'Basic ' + btoa((process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder') + ':')
         },
         body: JSON.stringify({
           data: {

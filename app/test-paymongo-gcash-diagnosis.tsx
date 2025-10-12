@@ -59,7 +59,7 @@ export default function PayMongoGCashDiagnosis() {
       const response = await fetch(testUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${btoa('sk_test_WL2guhaPujZZ5cw4ycEuyWue:')}`,
+          'Authorization': `Basic ${btoa((process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder') + ':')}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -206,7 +206,7 @@ export default function PayMongoGCashDiagnosis() {
       const response = await fetch(testUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${btoa('sk_test_WL2guhaPujZZ5cw4ycEuyWue:')}`,
+          'Authorization': `Basic ${btoa((process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder') + ':')}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -241,7 +241,7 @@ export default function PayMongoGCashDiagnosis() {
       addResult('🚀 PAYMONGO GCASH DIAGNOSIS STARTED');
       addResult('=====================================');
       addResult(`Test API Keys:`);
-      addResult(`Secret: sk_test_WL2guhaPujZZ5cw4ycEuyWue`);
+      addResult(`Secret: ${process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder'}`);
       addResult(`Public: pk_test_unHcUNnqqxMZZyLwcn9omjPz`);
       addResult('');
       
