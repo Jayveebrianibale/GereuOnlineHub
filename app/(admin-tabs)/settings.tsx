@@ -16,10 +16,11 @@ import { useRouter } from 'expo-router';
 import { getAuth, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { ref as dbRef, onValue, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import { signOutUser } from '../../utils/authUtils';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
+import { clearOldLogs, deleteLog, getLogs, getLogStats, LOG_ACTIONS } from '../services/logsService';
 
 // ========================================
 // COLOR PALETTE CONFIGURATION
@@ -73,6 +74,15 @@ export default function SettingsScreen() {
     email: user?.email || '', // User's email
   });
   const [isSavingPersonalInfo, setIsSavingPersonalInfo] = useState(false);
+  
+  // Logs modal state
+  const [logsModalVisible, setLogsModalVisible] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
+  const [logsStats, setLogsStats] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'login' | 'logout'>('all');
 
   // Load admin profile photo from database
   useEffect(() => {
@@ -465,6 +475,99 @@ export default function SettingsScreen() {
     });
   };
 
+  // ========================================
+  // LOGS FUNCTIONALITY
+  // ========================================
+  // Functions para sa logs management
+
+  const handleViewLogs = () => {
+    setLogsModalVisible(true);
+    loadLogs();
+    loadLogsStats();
+  };
+
+  const loadLogs = async () => {
+    try {
+      setIsLoadingLogs(true);
+      const logsData = await getLogs({}, 100);
+      setLogs(logsData);
+    } catch (error) {
+      console.error('Error loading logs:', error);
+      Alert.alert('Error', 'Failed to load logs');
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const loadLogsStats = async () => {
+    try {
+      const statsData = await getLogStats();
+      setLogsStats(statsData);
+    } catch (error) {
+      console.error('Error loading logs stats:', error);
+    }
+  };
+
+  const onRefreshLogs = async () => {
+    setIsRefreshingLogs(true);
+    await Promise.all([loadLogs(), loadLogsStats()]);
+    setIsRefreshingLogs(false);
+  };
+
+  const handleClearOldLogs = async () => {
+    Alert.alert(
+      'Clear Old Logs',
+      'Delete logs older than 30 days?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const deletedCount = await clearOldLogs(30);
+              Alert.alert('Success', `Cleared ${deletedCount} old logs`);
+              await loadLogs();
+              await loadLogsStats();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear logs');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteLog = async (logId: string) => {
+    Alert.alert(
+      'Delete Log',
+      'Delete this log entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteLog(logId);
+              await loadLogs();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete log');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Filter logs based on search and filter
+  const filteredLogs = logs.filter(log => {
+    const matchesSearch = searchQuery === '' ||
+      log.userEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = selectedFilter === 'all' || log.action === selectedFilter;
+    return matchesSearch && matchesFilter;
+  });
+
   // removed email notifications preference logic
 
   const settingsSections = [
@@ -522,6 +625,11 @@ export default function SettingsScreen() {
         {
           title: "Change Password",
           icon: "lock",
+          action: <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />,
+        },
+        {
+          title: "View Logs",
+          icon: "history",
           action: <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />,
         },
       ],
@@ -617,6 +725,8 @@ export default function SettingsScreen() {
                       handleHelpSupport();
                     } else if (item.title === 'Change Password') {
                       handleChangePassword();
+                    } else if (item.title === 'View Logs') {
+                      handleViewLogs();
                     } else if (item.title === 'Edit Profile') {
                       handleEditPersonalInfo();
                     }
@@ -1049,6 +1159,183 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Logs Modal */}
+      <Modal
+        visible={logsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setLogsModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.logsModal, { backgroundColor: cardBgColor }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialIcons name="history" size={20} color={textColor} style={{ marginRight: 8 }} />
+                <ThemedText type="title" style={[styles.modalTitle, { color: textColor }]}>
+                  Admin Login Activity
+                </ThemedText>
+              </View>
+              <TouchableOpacity onPress={() => setLogsModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.logsContent}>
+              {/* Quick Stats */}
+              {logsStats && (
+                <View style={[styles.statsContainer, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                  <View style={styles.statRow}>
+                    <View style={styles.statItem}>
+                      <ThemedText style={[styles.statNumber, { color: textColor }]}>{logsStats.todayLogins}</ThemedText>
+                      <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>Today</ThemedText>
+                    </View>
+                    <View style={styles.statItem}>
+                      <ThemedText style={[styles.statNumber, { color: textColor }]}>{logsStats.loginCount}</ThemedText>
+                      <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>Total</ThemedText>
+                    </View>
+                    <View style={styles.statItem}>
+                      <ThemedText style={[styles.statNumber, { color: textColor }]}>{logsStats.adminLogins}</ThemedText>
+                      <ThemedText style={[styles.statLabel, { color: subtitleColor }]}>Admin Emails</ThemedText>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Search and Filters */}
+              <View style={[styles.controlsContainer, { backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA', borderColor }]}>
+                {/* Search Bar */}
+                <View style={[styles.searchContainer, { borderColor }]}>
+                  <MaterialIcons name="search" size={20} color={subtitleColor} />
+                  <TextInput
+                    style={[styles.searchInput, { color: textColor, backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF' }]}
+                    placeholder="Search admin emails..."
+                    placeholderTextColor={subtitleColor}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <MaterialIcons name="clear" size={18} color={subtitleColor} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Filter Buttons */}
+                <View style={styles.filterContainer}>
+                  {['all', 'login', 'logout'].map((filter) => (
+                    <TouchableOpacity
+                      key={filter}
+                      style={[
+                        styles.filterButton,
+                        selectedFilter === filter && styles.filterButtonActive,
+                        { 
+                          backgroundColor: selectedFilter === filter ? colorPalette.primary : 'transparent',
+                          borderColor: borderColor
+                        }
+                      ]}
+                      onPress={() => setSelectedFilter(filter as any)}
+                    >
+                      <ThemedText style={[
+                        styles.filterButtonText,
+                        { color: selectedFilter === filter ? '#FFFFFF' : subtitleColor }
+                      ]}>
+                        {filter.toUpperCase()}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Admin Actions */}
+                <TouchableOpacity
+                  style={[styles.adminButton, { backgroundColor: '#FF6B35' }]}
+                  onPress={handleClearOldLogs}
+                >
+                  <MaterialIcons name="delete-sweep" size={18} color="#FFFFFF" />
+                  <ThemedText style={styles.adminButtonText}>Clear Old Logs</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {/* Results Count */}
+              <View style={styles.resultsHeader}>
+                <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
+                  {filteredLogs.length} log{filteredLogs.length !== 1 ? 's' : ''} found
+                </ThemedText>
+              </View>
+
+              {/* Logs List */}
+              {isLoadingLogs ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colorPalette.primary} />
+                  <ThemedText style={[styles.loadingText, { color: textColor }]}>Loading logs...</ThemedText>
+                </View>
+              ) : (
+                <>
+                  {filteredLogs.map((log) => {
+                    const isLogin = log.action === LOG_ACTIONS.LOGIN;
+                    const isAdmin = log.userRole === 'admin';
+
+                    return (
+                      <View key={log.id} style={[styles.logCard, { backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF', borderColor }]}>
+                        <View style={styles.logHeader}>
+                          <View style={styles.userInfo}>
+                            <ThemedText style={[styles.userEmail, { color: textColor }]} numberOfLines={1}>
+                              {log.userEmail}
+                            </ThemedText>
+                            <View style={[styles.roleBadge, { backgroundColor: isAdmin ? '#F44336' : colorPalette.primary }]}>
+                              <ThemedText style={styles.roleText}>
+                                {isAdmin ? 'ADMIN' : 'USER'}
+                              </ThemedText>
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={() => handleDeleteLog(log.id)}
+                          >
+                            <MaterialIcons name="delete-outline" size={18} color="#F44336" />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.logDetails}>
+                          <View style={styles.actionBadge}>
+                            <MaterialIcons
+                              name={isLogin ? "login" : "logout"}
+                              size={14}
+                              color={isLogin ? '#4CAF50' : '#F44336'}
+                            />
+                            <ThemedText style={[styles.actionText, { color: isLogin ? '#4CAF50' : '#F44336' }]}>
+                              {isLogin ? 'LOGIN' : 'LOGOUT'}
+                            </ThemedText>
+                          </View>
+
+                          <View style={styles.timeInfo}>
+                            <ThemedText style={[styles.dateText, { color: subtitleColor }]}>
+                              {log.date}
+                            </ThemedText>
+                            <ThemedText style={[styles.timeText, { color: subtitleColor }]}>
+                              {log.time}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {filteredLogs.length === 0 && (
+                    <View style={styles.emptyContainer}>
+                      <MaterialIcons name="history" size={64} color={subtitleColor} />
+                      <ThemedText style={[styles.emptyText, { color: textColor }]}>No logs found</ThemedText>
+                      <ThemedText style={[styles.emptySubtext, { color: subtitleColor }]}>
+                        {searchQuery ? 'Try a different search' : 'No login activity yet'}
+                      </ThemedText>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1552,5 +1839,202 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  // Logs Modal Styles
+  logsModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  logsContent: {
+    padding: 20,
+  },
+  statsContainer: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  controlsContainer: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    gap: 8,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 4,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    borderColor: colorPalette.primary,
+  },
+  filterButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  adminButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  resultsHeader: {
+    paddingVertical: 12,
+  },
+  resultsText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  logCard: {
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  userInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userEmail: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  roleText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  deleteButton: {
+    padding: 4,
+  },
+  logDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  timeInfo: {
+    alignItems: 'flex-end',
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  timeText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 12,
   },
 });

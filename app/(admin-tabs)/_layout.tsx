@@ -13,6 +13,7 @@ import { Tabs } from 'expo-router';
 import { onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { getAccessibleModules, getAdminRole } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import { isSmallScreen, isTablet, responsiveValues } from '../utils/responsiveUtils';
@@ -47,6 +48,13 @@ export default function AdminTabLayout() {
   const isDark = colorScheme === 'dark'; // Check kung dark mode
   const [unreadCount, setUnreadCount] = useState(0); // Count ng unread messages
   const [pendingReservationCount, setPendingReservationCount] = useState(0); // Count ng pending reservations
+
+  // ========================================
+  // ROLE-BASED ACCESS CONTROL
+  // ========================================
+  const adminEmail = user?.email || '';
+  const adminRole = getAdminRole(adminEmail);
+  const accessibleModules = getAccessibleModules(adminEmail);
 
   // ========================================
   // USEEFFECT: LISTEN FOR UNREAD MESSAGES
@@ -216,7 +224,7 @@ export default function AdminTabLayout() {
       />
       
       {/* ========================================
-          RESERVATIONS TAB (WITH BADGE)
+          RESERVATIONS TAB (WITH BADGE) - ALL ADMINS
           ======================================== */}
       <Tabs.Screen
         name="reservations"
@@ -227,7 +235,7 @@ export default function AdminTabLayout() {
       />
       
       {/* ========================================
-          USERS TAB
+          USERS TAB - ALL ADMINS
           ======================================== */}
       <Tabs.Screen
         name="users"
@@ -238,24 +246,13 @@ export default function AdminTabLayout() {
       />
       
       {/* ========================================
-          MESSAGES TAB (WITH BADGE)
+          MESSAGES TAB (WITH BADGE) - ALL ADMINS
           ======================================== */}
        <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
           tabBarIcon: ({ color, size }) => <MessagesIcon color={color} size={size} />,
-        }}
-      />
-      
-      {/* ========================================
-          LOGS TAB
-          ======================================== */}
-      <Tabs.Screen
-        name="logs"
-        options={{
-          title: 'Logs',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="history" size={responsiveValues.tabBar.iconSize} color={color} />,
         }}
       />
       

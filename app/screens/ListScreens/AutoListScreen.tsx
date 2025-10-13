@@ -590,12 +590,6 @@ export default function AutoListScreen() {
         
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
-            <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}> 
-              {formatPHP(item.price)}
-            </ThemedText>
-          </View>
-          <View style={styles.detailItem}>
             <MaterialIcons name="category" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
               {item.category}
@@ -604,9 +598,6 @@ export default function AutoListScreen() {
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}> 
-            {formatPHP(item.price)}
-          </ThemedText>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
             onPress={() => {
@@ -853,25 +844,27 @@ export default function AutoListScreen() {
                   </TouchableOpacity>
                    
                    <View style={styles.detailContent}>
-                     <View style={styles.detailRatingRow}>
-                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
-                         {formatPHP(selectedAutoService?.price || selectedMotorPart?.price)}
-                       </ThemedText>
-                     </View>
+                     {selectedAutoService && (
+                       <View style={styles.detailRatingRow}>
+                         <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
+                           {formatPHP(selectedAutoService.price)}
+                         </ThemedText>
+                       </View>
+                     )}
                      
                      <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
                        {selectedAutoService?.description || selectedMotorPart?.description}
                      </ThemedText>
                      
                      <View style={styles.detailSpecs}>
-                       <View style={styles.detailItem}>
-                         <MaterialIcons name="attach-money" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                           {formatPHP(selectedAutoService?.price || selectedMotorPart?.price)}
-                         </ThemedText>
-                       </View>
                        {selectedAutoService && (
                          <>
+                           <View style={styles.detailItem}>
+                             <MaterialIcons name="attach-money" size={20} color={subtitleColor} />
+                             <ThemedText style={[styles.detailText, { color: textColor }]}> 
+                               {formatPHP(selectedAutoService.price)}
+                             </ThemedText>
+                           </View>
                            <View style={styles.detailItem}>
                              <Ionicons name="timer-outline" size={20} color={subtitleColor} />
                              <ThemedText style={[styles.detailText, { color: textColor }]}>

@@ -1,48 +1,67 @@
-# Environment Variables Setup
+# Environment Setup Guide
 
-## PayMongo API Keys
+## 🔐 API Keys Configuration
 
-To use the PayMongo integration, you need to set up your API keys as environment variables.
+This project uses environment variables to store sensitive API keys securely.
 
-### 1. Create a `.env` file in your project root
+### 📋 Setup Instructions
 
-```bash
-# PayMongo Test API Keys (for development)
-PAYMONGO_TEST_SECRET_KEY=sk_test_your_test_secret_key_here
-PAYMONGO_TEST_PUBLIC_KEY=pk_test_your_test_public_key_here
+1. **Copy the environment template:**
+   ```bash
+   cp .env.example .env
+   ```
 
-# PayMongo Live API Keys (for production)
-PAYMONGO_LIVE_SECRET_KEY=sk_live_your_live_secret_key_here
-PAYMONGO_LIVE_PUBLIC_KEY=pk_live_your_live_public_key_here
-```
+2. **Edit the `.env` file with your actual API keys:**
+   ```bash
+   # PayMongo API Configuration
+   EXPO_PUBLIC_PAYMONGO_SECRET_KEY=sk_test_your_actual_secret_key
+   EXPO_PUBLIC_PAYMONGO_PUBLIC_KEY=pk_test_your_actual_public_key
+   
+   # Environment
+   EXPO_PUBLIC_ENVIRONMENT=development
+   ```
 
-### 2. Get your PayMongo API Keys
+3. **Restart your development server:**
+   ```bash
+   npx expo start --clear
+   ```
 
-1. Go to [PayMongo Dashboard](https://dashboard.paymongo.com/)
-2. Sign in to your account
-3. Go to **API Keys** section
-4. Copy your test and live API keys
-5. Paste them into your `.env` file
+### 🔒 Security Notes
 
-### 3. Security Notes
+- ✅ **`.env` file is ignored by git** - Your API keys will NOT be committed
+- ✅ **`.env.example` is tracked** - Template for other developers
+- ✅ **Multiple fallback sources** - Keys can be loaded from:
+  - Environment variables (`.env` file)
+  - `app.json` extra section
+  - Hardcoded fallbacks (for development)
 
-- **Never commit `.env` files** to version control
-- **Use test keys** for development
-- **Use live keys** only for production
-- **Keep your secret keys secure**
+### 📁 Files Created/Modified
 
-### 4. For React Native
+- **`.env`** - Your actual API keys (ignored by git)
+- **`.env.example`** - Template for other developers
+- **`.gitignore`** - Updated to exclude sensitive files
+- **`app/config/paymongoConfig.ts`** - Configuration loader with fallbacks
 
-Make sure to install and configure `react-native-dotenv` or similar package to load environment variables.
+### 🚀 Current PayMongo Keys
 
-### 5. For Testing
+Your current PayMongo test keys are configured:
+- **Secret Key**: `sk_test_WL2guhaPujZZ5cw4ycEuyWue`
+- **Public Key**: `pk_test_unHcUNnqqxMZZyLwcn9omjPz`
 
-The test files will use placeholder values if environment variables are not set, but for actual testing, you should set up your `.env` file with real test API keys.
+### 🔧 Troubleshooting
 
-## Example Usage
+If you're getting "Invalid PayMongo configuration" errors:
 
-```typescript
-// This will use environment variables or fallback to placeholders
-const secretKey = process.env.PAYMONGO_TEST_SECRET_KEY || 'sk_test_placeholder';
-const publicKey = process.env.PAYMONGO_TEST_PUBLIC_KEY || 'pk_test_placeholder';
-```
+1. Check that your `.env` file exists and has the correct keys
+2. Restart your development server with `--clear` flag
+3. Check the console logs for detailed configuration information
+4. Verify the keys are valid in your PayMongo dashboard
+
+### 📝 Adding New API Keys
+
+To add new API keys:
+
+1. Add them to `.env.example` as a template
+2. Add them to your local `.env` file
+3. Update `app/config/paymongoConfig.ts` to load them
+4. Update this README with the new keys

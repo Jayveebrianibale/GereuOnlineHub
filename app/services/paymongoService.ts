@@ -20,8 +20,15 @@ const PAYMONGO_PUBLIC_KEY = paymongoConfig.publicKey;
 const PAYMONGO_API_BASE_URL = paymongoConfig.apiBaseUrl;
 
 // I-validate ang configuration before initializing
+console.log('🔍 PayMongo Service Initialization...');
+console.log('🔍 Secret Key:', PAYMONGO_SECRET_KEY ? `${PAYMONGO_SECRET_KEY.substring(0, 15)}...` : 'NOT SET');
+console.log('🔍 Public Key:', PAYMONGO_PUBLIC_KEY ? `${PAYMONGO_PUBLIC_KEY.substring(0, 15)}...` : 'NOT SET');
+console.log('🔍 API Base URL:', PAYMONGO_API_BASE_URL);
+
 if (!validatePayMongoKeys()) {
   console.error('❌ Invalid PayMongo configuration. Please check your API keys.');
+  console.error('❌ Secret Key:', PAYMONGO_SECRET_KEY);
+  console.error('❌ Public Key:', PAYMONGO_PUBLIC_KEY);
   throw new Error('Invalid PayMongo configuration');
 }
 

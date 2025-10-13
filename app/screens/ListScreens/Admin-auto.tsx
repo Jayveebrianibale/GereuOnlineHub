@@ -10,18 +10,18 @@ import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpa
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
-  createAutoService,
-  deleteAutoService,
-  getAutoServices,
-  updateAutoService,
-  type AutoService
+    createAutoService,
+    deleteAutoService,
+    getAutoServices,
+    updateAutoService,
+    type AutoService
 } from '../../services/autoService';
 import {
-  createMotorPart,
-  deleteMotorPart,
-  getMotorParts,
-  updateMotorPart,
-  type MotorPart
+    createMotorPart,
+    deleteMotorPart,
+    getMotorParts,
+    updateMotorPart,
+    type MotorPart
 } from '../../services/motorPartsService';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
@@ -286,10 +286,6 @@ export default function AdminAutoManagement() {
         errors.name = 'Part name is required';
       }
       
-      if (!currentPart.price || currentPart.price.trim() === '') {
-        errors.price = 'Price is required';
-      }
-      
       if (!currentPart.image || currentPart.image.trim() === '') {
         errors.image = 'Image is required';
       }
@@ -297,10 +293,6 @@ export default function AdminAutoManagement() {
       // Additional validations
       if (currentPart.name && currentPart.name.trim().length < 3) {
         errors.name = 'Part name must be at least 3 characters';
-      }
-      
-      if (currentPart.price && !currentPart.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
-        errors.price = 'Please enter a valid price (e.g., P300, 20,000)';
       }
     }
     
@@ -488,9 +480,9 @@ export default function AdminAutoManagement() {
         </ThemedText>
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
-            <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
+            <MaterialIcons name="category" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.price}
+              {item.category}
             </ThemedText>
           </View>
         </View>
@@ -692,42 +684,40 @@ export default function AdminAutoManagement() {
                 )}
               </View>
 
-              {/* Price Field */}
-              <View style={styles.formGroup}>
-                <ThemedText style={[styles.label, { color: textColor }]}>Price*</ThemedText>
-                <TextInput
-                  style={[
-                    styles.input, 
-                    { 
-                      color: textColor, 
-                      borderColor: fieldErrors.price ? dangerColor : borderColor,
-                      borderWidth: fieldErrors.price ? 2 : 1
-                    }
-                  ]}
-                  value={activeTab === 'services' ? currentService.price : currentPart.price}
-                  onChangeText={(text) => {
-                    if (activeTab === 'services') {
+              {/* Price Field - Only for Services */}
+              {activeTab === 'services' && (
+                <View style={styles.formGroup}>
+                  <ThemedText style={[styles.label, { color: textColor }]}>Price*</ThemedText>
+                  <TextInput
+                    style={[
+                      styles.input, 
+                      { 
+                        color: textColor, 
+                        borderColor: fieldErrors.price ? dangerColor : borderColor,
+                        borderWidth: fieldErrors.price ? 2 : 1
+                      }
+                    ]}
+                    value={currentService.price}
+                    onChangeText={(text) => {
                       setCurrentService({ ...currentService, price: text });
-                    } else {
-                      setCurrentPart({ ...currentPart, price: text });
-                    }
-                    if (fieldErrors.price) {
-                      setFieldErrors(prev => {
-                        const newErrors = { ...prev };
-                        delete newErrors.price;
-                        return newErrors;
-                      });
-                    }
-                  }}
-                  placeholder="e.g. P300 or From P200"
-                  placeholderTextColor={subtitleColor}
-                />
-                {fieldErrors.price && (
-                  <ThemedText style={[styles.errorText, { color: dangerColor }]}>
-                    {fieldErrors.price}
-                  </ThemedText>
-                )}
-              </View>
+                      if (fieldErrors.price) {
+                        setFieldErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.price;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    placeholder="e.g. P300 or From P200"
+                    placeholderTextColor={subtitleColor}
+                  />
+                  {fieldErrors.price && (
+                    <ThemedText style={[styles.errorText, { color: dangerColor }]}>
+                      {fieldErrors.price}
+                    </ThemedText>
+                  )}
+                </View>
+              )}
 
               {/* Description Field - Only for Parts */}
               {activeTab === 'parts' && (

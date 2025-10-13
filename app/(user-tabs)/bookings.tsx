@@ -707,15 +707,6 @@ export default function Bookings() {
                      </ThemedText>
                    </TouchableOpacity>
                  )}
-                 <TouchableOpacity 
-                   style={styles.deleteButton}
-                   onPress={() => handleDeleteReservation(svc, 'laundry')}
-                 >
-                   <MaterialIcons name="delete" size={16} color="#F44336" />
-                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                     Delete
-                   </ThemedText>
-                 </TouchableOpacity>
                </View>
              </View>
            </View>

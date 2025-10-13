@@ -16,6 +16,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useColorScheme } from '../components/ColorSchemeContext';
 import { RobustImage } from './components/RobustImage';
+import { getAccessibleModules, getAdminRole, hasModuleAccess, isSuperAdmin } from './config/adminConfig';
+import { useAuthContext } from './contexts/AuthContext';
 import { db } from './firebaseConfig';
 
 // ========================================
@@ -67,19 +69,11 @@ const initialModules = [
     icon: 'directions-car',
     color: colorPalette.dark,
   },
-  {
-    key: 'payments',
-    title: 'Payment Tracking',
-    image: require('@/assets/images/apartment1.webp'), // Using existing image as placeholder
-    description: 'Monitor payments, transactions, and GCash payments',
-    stats: '0 Payments',
-    icon: 'payment',
-    color: '#10B981',
-  },
 ];
 
 export default function AdminDashboard() {
   const { colorScheme, toggleColorScheme } = useColorScheme();
+  const { user } = useAuthContext();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
   const cardBackground = isDark ? '#181818' : '#fff';
@@ -87,6 +81,14 @@ export default function AdminDashboard() {
   const textColor = isDark ? '#fff' : colorPalette.darkest;
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const iconColor = isDark ? colorPalette.primaryLight : colorPalette.primaryDark;
+
+  // ========================================
+  // ROLE-BASED ACCESS CONTROL
+  // ========================================
+  const adminEmail = user?.email || '';
+  const adminRole = getAdminRole(adminEmail);
+  const accessibleModules = getAccessibleModules(adminEmail);
+  const isSuperAdminUser = isSuperAdmin(adminEmail);
 
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
@@ -283,30 +285,47 @@ export default function AdminDashboard() {
   };
   // Update modules and calculate totals whenever any service data changes
   useEffect(() => {
-    // Update modules with actual counts
-    setModules([
-      {
-        ...initialModules[0],
-        stats: `${apartments.length} ${apartments.length === 1 ? 'Listing' : 'Listings'}`
-      },
-      {
-        ...initialModules[1],
-        stats: `${laundryServices.length} ${laundryServices.length === 1 ? 'Service' : 'Services'}`
-      },
-      {
-        ...initialModules[2],
-        stats: `${autoServices.length} ${autoServices.length === 1 ? 'Service' : 'Services'}`
-      }
-    ]);
+    // Filter modules based on admin role and permissions
+    const filteredModules = initialModules.filter(module => {
+      return accessibleModules.includes(module.key);
+    });
 
-    // Calculate total services
-    const total = apartments.length + autoServices.length + laundryServices.length;
+    // Update modules with actual counts and role-based filtering
+    const updatedModules = filteredModules.map(module => {
+      switch (module.key) {
+        case 'apartment':
+          return {
+            ...module,
+            stats: `${apartments.length} ${apartments.length === 1 ? 'Listing' : 'Listings'}`
+          };
+        case 'laundry':
+          return {
+            ...module,
+            stats: `${laundryServices.length} ${laundryServices.length === 1 ? 'Service' : 'Services'}`
+          };
+        case 'car':
+          return {
+            ...module,
+            stats: `${autoServices.length} ${autoServices.length === 1 ? 'Service' : 'Services'}`
+          };
+        default:
+          return module;
+      }
+    });
+
+    setModules(updatedModules);
+
+    // Calculate total services based on accessible modules only
+    let total = 0;
+    if (accessibleModules.includes('apartment')) total += apartments.length;
+    if (accessibleModules.includes('laundry')) total += laundryServices.length;
+    if (accessibleModules.includes('car')) total += autoServices.length;
     setTotalServices(total);
 
-    // Calculate active reservations
+    // Calculate active reservations based on accessible modules
     const activeReservationsCount = calculateActiveReservations(apartments, autoServices, laundryServices);
     setActiveReservations(activeReservationsCount);
-  }, [apartments, autoServices, laundryServices]);
+  }, [apartments, autoServices, laundryServices, accessibleModules]);
 
   // Function to calculate active reservations (placeholder implementation)
   const calculateActiveReservations = (apartments: any[], autoServices: any[], laundryServices: any[]) => {
@@ -357,15 +376,12 @@ export default function AdminDashboard() {
       case 'car':
         router.push('/admin-auto');
         break;
-      case 'payments':
-        router.push('/admin-payments');
-        break;
       default:
         break;
     }
   };
 
-  // Search functionality
+  // Search functionality with role-based filtering
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     
@@ -378,53 +394,59 @@ export default function AdminDashboard() {
     setIsSearching(true);
     const results: any[] = [];
 
-    // Search in apartments
-    apartments.forEach(apartment => {
-      if (
-        apartment.name?.toLowerCase().includes(query.toLowerCase()) ||
-        apartment.description?.toLowerCase().includes(query.toLowerCase()) ||
-        apartment.location?.toLowerCase().includes(query.toLowerCase()) ||
-        apartment.type?.toLowerCase().includes(query.toLowerCase())
-      ) {
-        results.push({
-          ...apartment,
-          type: 'apartment',
-          category: 'Apartment Rentals'
-        });
-      }
-    });
+    // Search in apartments (only if admin has access)
+    if (hasModuleAccess(adminEmail, 'apartment')) {
+      apartments.forEach(apartment => {
+        if (
+          apartment.name?.toLowerCase().includes(query.toLowerCase()) ||
+          apartment.description?.toLowerCase().includes(query.toLowerCase()) ||
+          apartment.location?.toLowerCase().includes(query.toLowerCase()) ||
+          apartment.type?.toLowerCase().includes(query.toLowerCase())
+        ) {
+          results.push({
+            ...apartment,
+            type: 'apartment',
+            category: 'Apartment Rentals'
+          });
+        }
+      });
+    }
 
-    // Search in auto services
-    autoServices.forEach(auto => {
-      if (
-        auto.name?.toLowerCase().includes(query.toLowerCase()) ||
-        auto.description?.toLowerCase().includes(query.toLowerCase()) ||
-        auto.serviceType?.toLowerCase().includes(query.toLowerCase()) ||
-        auto.brand?.toLowerCase().includes(query.toLowerCase()) ||
-        auto.model?.toLowerCase().includes(query.toLowerCase())
-      ) {
-        results.push({
-          ...auto,
-          type: 'auto',
-          category: 'Car and Motor Parts'
-        });
-      }
-    });
+    // Search in auto services (only if admin has access)
+    if (hasModuleAccess(adminEmail, 'car')) {
+      autoServices.forEach(auto => {
+        if (
+          auto.name?.toLowerCase().includes(query.toLowerCase()) ||
+          auto.description?.toLowerCase().includes(query.toLowerCase()) ||
+          auto.serviceType?.toLowerCase().includes(query.toLowerCase()) ||
+          auto.brand?.toLowerCase().includes(query.toLowerCase()) ||
+          auto.model?.toLowerCase().includes(query.toLowerCase())
+        ) {
+          results.push({
+            ...auto,
+            type: 'auto',
+            category: 'Car and Motor Parts'
+          });
+        }
+      });
+    }
 
-    // Search in laundry services
-    laundryServices.forEach(laundry => {
-      if (
-        laundry.name?.toLowerCase().includes(query.toLowerCase()) ||
-        laundry.description?.toLowerCase().includes(query.toLowerCase()) ||
-        laundry.serviceType?.toLowerCase().includes(query.toLowerCase())
-      ) {
-        results.push({
-          ...laundry,
-          type: 'laundry',
-          category: 'Laundry Services'
-        });
-      }
-    });
+    // Search in laundry services (only if admin has access)
+    if (hasModuleAccess(adminEmail, 'laundry')) {
+      laundryServices.forEach(laundry => {
+        if (
+          laundry.name?.toLowerCase().includes(query.toLowerCase()) ||
+          laundry.description?.toLowerCase().includes(query.toLowerCase()) ||
+          laundry.serviceType?.toLowerCase().includes(query.toLowerCase())
+        ) {
+          results.push({
+            ...laundry,
+            type: 'laundry',
+            category: 'Laundry Services'
+          });
+        }
+      });
+    }
 
     setSearchResults(results);
   };
@@ -484,8 +506,13 @@ export default function AdminDashboard() {
               Dashboard
             </ThemedText>
             <ThemedText type="default" style={[styles.headerSubtitle, { color: subtitleColor }]}>
-              Welcome back, Admin
+              Welcome back, {isSuperAdminUser ? 'Super Admin' : adminRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </ThemedText>
+            {!isSuperAdminUser && (
+              <ThemedText type="default" style={[styles.roleIndicator, { color: colorPalette.primary }]}>
+                {accessibleModules.length === 1 ? 'Single Module Access' : `${accessibleModules.length} Modules Access`}
+              </ThemedText>
+            )}
           </View>
           <View style={styles.headerButtons}>
             {/* <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/push-debugger')}>
@@ -845,6 +872,12 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
+  },
+  roleIndicator: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   headerButtons: {
     flexDirection: 'row',
