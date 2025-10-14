@@ -13,6 +13,6 @@ config.resolver.assetExts.push(
 );
 
 // Add support for source maps
-config.serializer.customSerializer = require('metro/src/DeltaBundler/Serializers/baseJSBundle').baseJSBundle;
+// Note: Custom serializer removed due to Metro version compatibility issues
 
 module.exports = config;

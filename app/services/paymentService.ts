@@ -117,18 +117,23 @@ export async function createPayment(
     // ADMIN PAYMENT SETTINGS
     // ========================================
     // I-fetch ang admin's GCash information mula sa payment settings
-    let gcashNumber = ''; // Admin's GCash number (required)
-    let qrCodeImageUrl = ''; // QR code image URL (required)
-    try {
-      const adminSettings = await getAdminPaymentSettings(); // I-fetch ang admin settings
-      if (adminSettings?.gcashNumber) {
-        gcashNumber = adminSettings.gcashNumber; // I-use ang admin's GCash number
+    // Only needed for QR code payments, not for PayMongo
+    let gcashNumber = ''; // Admin's GCash number (required for QR code only)
+    let qrCodeImageUrl = ''; // QR code image URL (required for QR code only)
+    
+    // I-fetch admin settings only if using QR code payment
+    if (paymentType === 'qr_code') {
+      try {
+        const adminSettings = await getAdminPaymentSettings(); // I-fetch ang admin settings
+        if (adminSettings?.gcashNumber) {
+          gcashNumber = adminSettings.gcashNumber; // I-use ang admin's GCash number
+        }
+        if (adminSettings?.qrCodeImageUrl) {
+          qrCodeImageUrl = adminSettings.qrCodeImageUrl; // I-use ang admin's QR code image
+        }
+      } catch (error) {
+        console.warn('Failed to fetch admin payment settings:', error);
       }
-      if (adminSettings?.qrCodeImageUrl) {
-        qrCodeImageUrl = adminSettings.qrCodeImageUrl; // I-use ang admin's QR code image
-      }
-    } catch (error) {
-      console.warn('Failed to fetch admin payment settings:', error);
     }
     
     const paymentData: PaymentData = {
@@ -182,13 +187,22 @@ export async function createPayment(
               paymentData.paymongoClientKey = paymongoResult.clientKey;
             }
             
-            // I-set ang payment status as paid since PayMongo is real payment
-            paymentData.status = 'paid';
-            
-            console.log('✅ PayMongo GCash payment setup completed');
-            console.log('🔍 Source ID:', paymongoResult.sourceId);
-            console.log('🔍 Checkout URL:', paymongoResult.checkoutUrl);
-            console.log('🔍 Payment status: paid (real payment via PayMongo)');
+            // I-check kung test mode o real payment
+            if (paymongoResult.checkoutUrl.includes('test-checkout.paymongo.com')) {
+              // Test mode - set as pending para sa verification
+              paymentData.status = 'pending';
+              console.log('✅ PayMongo GCash payment setup completed (TEST MODE)');
+              console.log('🔍 Source ID:', paymongoResult.sourceId);
+              console.log('🔍 Checkout URL:', paymongoResult.checkoutUrl);
+              console.log('🔍 Payment status: pending (test mode - requires verification)');
+            } else {
+              // Real PayMongo - set as paid
+              paymentData.status = 'paid';
+              console.log('✅ PayMongo GCash payment setup completed (REAL MODE)');
+              console.log('🔍 Source ID:', paymongoResult.sourceId);
+              console.log('🔍 Checkout URL:', paymongoResult.checkoutUrl);
+              console.log('🔍 Payment status: paid (real payment via PayMongo)');
+            }
           } else {
             throw new Error('PayMongo GCash source creation failed');
           }
@@ -202,30 +216,37 @@ export async function createPayment(
         // ========================================
         console.log('🔄 Setting up direct QR code payment (bypassing PayMongo)...');
         
-        // I-check kung may admin GCash information
-        if (!gcashNumber || gcashNumber.trim() === '' || !qrCodeImageUrl || qrCodeImageUrl.trim() === '') {
+        // I-check kung may admin GCash information (only for QR code payments)
+        if (paymentType === 'qr_code' && (!gcashNumber || gcashNumber.trim() === '' || !qrCodeImageUrl || qrCodeImageUrl.trim() === '')) {
           console.error('❌ Admin GCash information is not yet uploaded');
           console.error('❌ Missing GCash number:', !gcashNumber || gcashNumber.trim() === '');
           console.error('❌ Missing QR code image:', !qrCodeImageUrl || qrCodeImageUrl.trim() === '');
           throw new Error('Admin GCash information is not yet uploaded. Please contact admin to set up GCash payment details (number and QR code image).');
         }
         
-        // I-generate ang QR code para sa direct payment
-        const qrData: GCashPaymentData = {
-          amount: downPaymentAmount,
-          referenceNumber,
-          qrCode: '',
-          gcashNumber,
-          dueDate: paymentData.dueDate
-        };
-        paymentData.qrCode = generateGCashQRCode(qrData);
+        // I-generate ang QR code para sa direct payment (only for QR code payments)
+        if (paymentType === 'qr_code') {
+          const qrData: GCashPaymentData = {
+            amount: downPaymentAmount,
+            referenceNumber,
+            qrCode: '',
+            gcashNumber,
+            dueDate: paymentData.dueDate
+          };
+          paymentData.qrCode = generateGCashQRCode(qrData);
+          
+          // I-set ang payment status as pending para sa admin confirmation
+          paymentData.status = 'pending';
+        }
         
-        // I-set ang payment status as pending para sa admin confirmation
-        paymentData.status = 'pending';
-        
-        console.log('✅ Direct QR code payment setup completed');
-        console.log('🔍 QR Code data:', paymentData.qrCode);
-        console.log('🔍 Payment status: pending (awaiting admin confirmation)');
+        if (paymentType === 'qr_code') {
+          console.log('✅ Direct QR code payment setup completed');
+          console.log('🔍 QR Code data:', paymentData.qrCode);
+          console.log('🔍 Payment status: pending (awaiting admin confirmation)');
+        } else {
+          console.log('✅ Payment setup completed (no QR code needed)');
+          console.log('🔍 Payment status: pending');
+        }
       }
     }
 

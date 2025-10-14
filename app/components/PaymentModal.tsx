@@ -130,6 +130,43 @@ export function PaymentModal({
       const settings = await getAdminPaymentSettings(); // I-fetch ang admin payment settings
       console.log('✅ Admin payment settings loaded:', settings);
       setAdminPaymentSettings(settings); // I-set ang settings sa state
+      
+      // ========================================
+      // CHECK ADMIN GCASH INFORMATION
+      // ========================================
+      // I-check kung may admin GCash information para sa QR code payment only
+      // PayMongo payments don't need admin GCash information
+      if (settings) {
+        const hasGCashNumber = settings.gcashNumber && settings.gcashNumber.trim() !== '';
+        const hasQRCode = settings.qrCodeImageUrl && settings.qrCodeImageUrl.trim() !== '';
+        
+        console.log('🔍 Admin GCash information check:', {
+          hasGCashNumber,
+          hasQRCode,
+          gcashNumber: settings.gcashNumber,
+          qrCodeImageUrl: settings.qrCodeImageUrl
+        });
+        
+        // I-show ang warning alert if admin GCash information is incomplete
+        if (!hasGCashNumber || !hasQRCode) {
+          console.warn('⚠️ Admin GCash information incomplete:', {
+            hasGCashNumber,
+            hasQRCode,
+            gcashNumber: settings.gcashNumber,
+            qrCodeImageUrl: settings.qrCodeImageUrl
+          });
+          
+          // I-show ang warning alert
+          Alert.alert(
+            'QR Code Payment Unavailable',
+            'Admin has not yet uploaded complete GCash payment information.\n\nTo use QR code payment, admin must upload:\n• GCash number\n• QR code image\n\nQR code payment is currently unavailable.\n\nPlease use PayMongo payment instead, or contact admin to complete the setup.',
+            [
+              { text: 'Use PayMongo', onPress: () => setSelectedPaymentType('paymongo') },
+              { text: 'OK', style: 'cancel' }
+            ]
+          );
+        }
+      }
     } catch (error) {
       console.error('❌ Failed to load admin payment settings:', error); // I-log ang error
     }
@@ -194,14 +231,31 @@ export function PaymentModal({
         selectedPaymentType // Payment type (QR code or PayMongo)
       );
       setPayment(newPayment); // I-set ang payment sa state
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create payment:', error); // I-log ang error
+      
       // ========================================
       // ERROR ALERT - PAYMENT INITIALIZATION FAILED
       // ========================================
-      // I-display ang error alert kung nag-fail ang payment initialization
-      Alert.alert('Error', 'Failed to initialize payment. Please try again.');
-      onClose(); // I-close ang modal
+      // I-check kung specific error about admin GCash information
+      if (error.message && error.message.includes('Admin GCash information is not yet uploaded')) {
+        Alert.alert(
+          'Payment Setup Required',
+          'Admin has not yet uploaded GCash payment information.\n\nTo complete your payment, please:\n\n1. Contact the admin to set up GCash details\n2. Ask admin to upload GCash number and QR code\n3. Try again once admin has completed the setup\n\nYou can also try using PayMongo payment if available.',
+          [
+            { text: 'OK', onPress: () => onClose() },
+            { text: 'Try PayMongo', onPress: () => {
+              // I-try ang PayMongo payment as alternative
+              setSelectedPaymentType('paymongo');
+              initializePayment();
+            }}
+          ]
+        );
+      } else {
+        // I-display ang generic error alert for other errors
+        Alert.alert('Error', 'Failed to initialize payment. Please try again.');
+        onClose(); // I-close ang modal
+      }
     } finally {
       setLoading(false); // I-clear ang loading state
     }
@@ -353,6 +407,25 @@ export function PaymentModal({
     try {
       console.log('🔄 Opening PayMongo GCash checkout:', payment.checkoutUrl);
       
+      // I-check kung test mode checkout URL
+      if (payment.checkoutUrl.includes('test-checkout.paymongo.com')) {
+        // I-simulate ang test mode payment process
+        Alert.alert(
+          'Test Mode Payment',
+          'This is a test payment simulation.\n\nIn test mode, the payment will be automatically processed successfully.\n\nClick "Verify Payment" to complete the test payment.',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                // I-show ang verification step para sa test mode
+                setStep('verification');
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
       // I-check kung supported ang deep linking sa platform
       const supported = await Linking.canOpenURL(payment.checkoutUrl);
       
@@ -475,10 +548,40 @@ export function PaymentModal({
             styles.paymentTypeOption,
             { 
               backgroundColor: selectedPaymentType === 'qr_code' ? '#00B2FF20' : 'transparent',
-              borderColor: selectedPaymentType === 'qr_code' ? '#00B2FF' : borderColor
+              borderColor: selectedPaymentType === 'qr_code' ? '#00B2FF' : borderColor,
+              opacity: (() => {
+                const hasGCashNumber = adminPaymentSettings?.gcashNumber && adminPaymentSettings.gcashNumber.trim() !== '';
+                const hasQRCode = adminPaymentSettings?.qrCodeImageUrl && adminPaymentSettings.qrCodeImageUrl.trim() !== '';
+                return (!hasGCashNumber || !hasQRCode) ? 0.5 : 1;
+              })()
             }
           ]}
-          onPress={() => handlePaymentMethodSelection('qr_code')}
+          onPress={() => {
+            // I-check kung may admin GCash information (only for QR code payments)
+            const hasGCashNumber = adminPaymentSettings?.gcashNumber && adminPaymentSettings.gcashNumber.trim() !== '';
+            const hasQRCode = adminPaymentSettings?.qrCodeImageUrl && adminPaymentSettings.qrCodeImageUrl.trim() !== '';
+            
+            console.log('🔍 QR Code payment check:', {
+              adminPaymentSettings: !!adminPaymentSettings,
+              hasGCashNumber,
+              hasQRCode,
+              gcashNumber: adminPaymentSettings?.gcashNumber,
+              qrCodeImageUrl: adminPaymentSettings?.qrCodeImageUrl
+            });
+            
+            if (!hasGCashNumber || !hasQRCode) {
+              Alert.alert(
+                'QR Code Payment Unavailable',
+                'Admin has not yet uploaded GCash payment information.\n\nTo use QR code payment, admin must upload:\n• GCash number\n• QR code image\n\nPlease use PayMongo payment instead, or contact admin to complete the setup.',
+                [
+                  { text: 'Switch to PayMongo', onPress: () => setSelectedPaymentType('paymongo') },
+                  { text: 'OK', style: 'cancel' }
+                ]
+              );
+            } else {
+              handlePaymentMethodSelection('qr_code');
+            }
+          }}
         >
           <MaterialIcons 
             name="qr-code" 
@@ -493,12 +596,29 @@ export function PaymentModal({
               QR Code Payment
             </ThemedText>
             <ThemedText style={[styles.paymentTypeDesc, { color: subtitleColor }]}>
-              Scan QR code to pay directly to admin's GCash
+              {(() => {
+                const hasGCashNumber = adminPaymentSettings?.gcashNumber && adminPaymentSettings.gcashNumber.trim() !== '';
+                const hasQRCode = adminPaymentSettings?.qrCodeImageUrl && adminPaymentSettings.qrCodeImageUrl.trim() !== '';
+                
+                if (!hasGCashNumber || !hasQRCode) {
+                  return 'Unavailable - Admin setup required';
+                }
+                return 'Scan QR code to pay directly to admin\'s GCash';
+              })()}
             </ThemedText>
           </View>
           {selectedPaymentType === 'qr_code' && (
             <MaterialIcons name="check-circle" size={20} color="#00B2FF" />
           )}
+          {(() => {
+            const hasGCashNumber = adminPaymentSettings?.gcashNumber && adminPaymentSettings.gcashNumber.trim() !== '';
+            const hasQRCode = adminPaymentSettings?.qrCodeImageUrl && adminPaymentSettings.qrCodeImageUrl.trim() !== '';
+            
+            if (!hasGCashNumber || !hasQRCode) {
+              return <MaterialIcons name="warning" size={20} color="#FF9800" />;
+            }
+            return null;
+          })()}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -560,13 +680,33 @@ export function PaymentModal({
                 />
               ) : (
                 <View style={[styles.qrCodeError, { backgroundColor: isDark ? '#3A3A3A' : '#f8f9fa' }]}>
-                  <MaterialIcons name="error-outline" size={48} color="#F44336" />
+                  <MaterialIcons name="warning" size={48} color="#FF9800" />
                   <ThemedText style={[styles.qrCodeErrorTitle, { color: textColor }]}>
-                    QR Code Not Available
+                    QR Code Payment Unavailable
                   </ThemedText>
                   <ThemedText style={[styles.qrCodeErrorText, { color: subtitleColor }]}>
-                    Admin has not set up GCash payment information yet. Please contact admin or use PayMongo payment instead.
+                    Admin has not yet uploaded GCash payment information (number and QR code).\n\nTo complete your payment:
                   </ThemedText>
+                  <View style={styles.qrCodeErrorSteps}>
+                    <ThemedText style={[styles.qrCodeErrorStep, { color: subtitleColor }]}>
+                      • Contact admin to set up GCash details
+                    </ThemedText>
+                    <ThemedText style={[styles.qrCodeErrorStep, { color: subtitleColor }]}>
+                      • Use PayMongo payment instead
+                    </ThemedText>
+                    <ThemedText style={[styles.qrCodeErrorStep, { color: subtitleColor }]}>
+                      • Try again once admin completes setup
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.switchToPayMongoButton, { backgroundColor: '#10B981' }]}
+                    onPress={() => setSelectedPaymentType('paymongo')}
+                  >
+                    <MaterialIcons name="account-balance-wallet" size={20} color="#fff" />
+                    <ThemedText style={styles.switchToPayMongoText}>
+                      Switch to PayMongo Payment
+                    </ThemedText>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -580,9 +720,17 @@ export function PaymentModal({
                 <ThemedText style={[styles.paymongoTitle, { color: textColor }]}>
                   Pay with PayMongo GCash
                 </ThemedText>
+                {payment.checkoutUrl.includes('test-checkout.paymongo.com') && (
+                  <View style={styles.testModeBadge}>
+                    <ThemedText style={styles.testModeText}>TEST MODE</ThemedText>
+                  </View>
+                )}
               </View>
               <ThemedText style={[styles.paymongoDescription, { color: subtitleColor }]}>
-                Click below to open PayMongo checkout and complete your payment securely.
+                {payment.checkoutUrl.includes('test-checkout.paymongo.com') 
+                  ? 'This is a test payment simulation. Click below to simulate the payment process.'
+                  : 'Click below to open PayMongo checkout and complete your payment securely.'
+                }
               </ThemedText>
               
               <TouchableOpacity
@@ -592,7 +740,10 @@ export function PaymentModal({
               >
                 <MaterialIcons name="payment" size={20} color="#fff" />
                 <ThemedText style={styles.paymongoButtonText}>
-                  Open PayMongo Checkout
+                  {payment.checkoutUrl.includes('test-checkout.paymongo.com') 
+                    ? 'Simulate Payment (Test Mode)'
+                    : 'Open PayMongo Checkout'
+                  }
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -951,5 +1102,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 16,
+  },
+  qrCodeErrorSteps: {
+    marginBottom: 20,
+    alignItems: 'flex-start',
+  },
+  qrCodeErrorStep: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  switchToPayMongoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  switchToPayMongoText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // Test Mode Badge Styles
+  testModeBadge: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  testModeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

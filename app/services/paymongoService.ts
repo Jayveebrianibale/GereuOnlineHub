@@ -19,13 +19,21 @@ const PAYMONGO_SECRET_KEY = paymongoConfig.secretKey;
 const PAYMONGO_PUBLIC_KEY = paymongoConfig.publicKey;
 const PAYMONGO_API_BASE_URL = paymongoConfig.apiBaseUrl;
 
+// ========================================
+// TEST MODE CONFIGURATION
+// ========================================
+// I-enable ang test mode para sa fake payment simulation
+const TEST_MODE = true; // Set to true for test mode, false for real PayMongo integration
+const TEST_MODE_SUCCESS_RATE = 0.9; // 90% success rate in test mode
+
 // I-validate ang configuration before initializing
 console.log('🔍 PayMongo Service Initialization...');
+console.log('🔍 Test Mode:', TEST_MODE ? 'ENABLED' : 'DISABLED');
 console.log('🔍 Secret Key:', PAYMONGO_SECRET_KEY ? `${PAYMONGO_SECRET_KEY.substring(0, 15)}...` : 'NOT SET');
 console.log('🔍 Public Key:', PAYMONGO_PUBLIC_KEY ? `${PAYMONGO_PUBLIC_KEY.substring(0, 15)}...` : 'NOT SET');
 console.log('🔍 API Base URL:', PAYMONGO_API_BASE_URL);
 
-if (!validatePayMongoKeys()) {
+if (!TEST_MODE && !validatePayMongoKeys()) {
   console.error('❌ Invalid PayMongo configuration. Please check your API keys.');
   console.error('❌ Secret Key:', PAYMONGO_SECRET_KEY);
   console.error('❌ Public Key:', PAYMONGO_PUBLIC_KEY);
@@ -223,6 +231,7 @@ export interface PayMongoPaymentResult {
   checkoutUrl?: string;
   error?: string;
   status?: string;
+  clientKey?: string;
 }
 
 // ========================================
@@ -288,6 +297,205 @@ export async function createPaymentIntent(amount: number, description: string, r
 }
 
 // ========================================
+// TEST MODE FUNCTIONS
+// ========================================
+// Functions para sa test mode simulation
+
+// I-simulate ang PayMongo API delay
+const simulateApiDelay = (): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000)); // 1-3 seconds delay
+};
+
+// I-generate ang fake source ID
+const generateFakeSourceId = (): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `src_${timestamp}_${random}`;
+};
+
+// I-generate ang fake payment ID
+const generateFakePaymentId = (): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `payment_${timestamp}_${random}`;
+};
+
+// I-simulate ang test mode GCash source creation
+const simulateGCashSourceCreation = async (request: GCashPaymentRequest): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating GCash source creation...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-generate ang fake source ID
+  const fakeSourceId = generateFakeSourceId();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating API failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated API failure',
+    };
+  }
+  
+  // I-generate ang fake checkout URL (working test URL)
+  const fakeCheckoutUrl = `https://test-checkout.paymongo.com/sources/${fakeSourceId}`;
+  
+  console.log('🧪 TEST MODE: GCash source created successfully:', fakeSourceId);
+  console.log('🧪 TEST MODE: Checkout URL:', fakeCheckoutUrl);
+  
+  return {
+    success: true,
+    sourceId: fakeSourceId,
+    checkoutUrl: fakeCheckoutUrl,
+    status: 'pending',
+  };
+};
+
+// I-simulate ang test mode payment creation
+const simulatePaymentCreation = async (sourceId: string, amount: number, description: string): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating payment creation...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-generate ang fake payment ID
+  const fakePaymentId = generateFakePaymentId();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating payment failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated payment failure',
+    };
+  }
+  
+  console.log('🧪 TEST MODE: Payment created successfully:', fakePaymentId);
+  
+  return {
+    success: true,
+    paymentId: fakePaymentId,
+    status: 'paid', // I-set as paid in test mode
+  };
+};
+
+// I-simulate ang test mode payment verification
+const simulatePaymentVerification = async (sourceId: string, paymentId?: string): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating payment verification...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating verification failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated verification failure',
+    };
+  }
+  
+  console.log('🧪 TEST MODE: Payment verified successfully');
+  
+  return {
+    success: true,
+    sourceId: sourceId,
+    paymentId: paymentId,
+    status: 'chargeable', // I-fix ang status para sa source verification
+  };
+};
+
+// I-simulate ang test mode payment status check
+const simulatePaymentStatusCheck = async (paymentId: string): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating payment status check...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating payment status check failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated payment status check failure',
+    };
+  }
+  
+  console.log('🧪 TEST MODE: Payment status retrieved successfully');
+  
+  return {
+    success: true,
+    paymentId: paymentId,
+    status: 'paid', // I-set as paid in test mode
+  };
+};
+
+// I-simulate ang test mode source status check
+const simulateSourceStatusCheck = async (sourceId: string): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating source status check...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating source status check failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated source status check failure',
+    };
+  }
+  
+  console.log('🧪 TEST MODE: Source status retrieved successfully');
+  
+  return {
+    success: true,
+    sourceId: sourceId,
+    status: 'chargeable', // I-set as chargeable in test mode
+  };
+};
+
+// I-simulate ang test mode payment intent status check
+const simulatePaymentIntentStatusCheck = async (paymentIntentId: string): Promise<PayMongoPaymentResult> => {
+  console.log('🧪 TEST MODE: Simulating payment intent status check...');
+  
+  // I-simulate ang API delay
+  await simulateApiDelay();
+  
+  // I-simulate ang success rate
+  const isSuccess = Math.random() < TEST_MODE_SUCCESS_RATE;
+  
+  if (!isSuccess) {
+    console.log('🧪 TEST MODE: Simulating payment intent status check failure');
+    return {
+      success: false,
+      error: 'Test mode: Simulated payment intent status check failure',
+    };
+  }
+  
+  console.log('🧪 TEST MODE: Payment intent status retrieved successfully');
+  
+  return {
+    success: true,
+    sourceId: paymentIntentId,
+    status: 'succeeded', // I-set as succeeded in test mode
+    clientKey: 'test_client_key_' + Date.now(),
+  };
+};
+
+// ========================================
 // CREATE GCASH SOURCE FUNCTION (LEGACY)
 // ========================================
 // I-create ang GCash source para sa payment authorization
@@ -305,6 +513,11 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
     // I-validate ang required fields
     if (!request.successUrl || !request.failedUrl) {
       throw new Error('Success and failed URLs are required');
+    }
+
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulateGCashSourceCreation(request);
     }
 
     // I-create ang source data with proper validation
@@ -368,10 +581,7 @@ export async function createGCashSource(request: GCashPaymentRequest): Promise<P
       
       if (source.attributes.redirect) {
         // I-check ang different possible properties
-        checkoutUrl = source.attributes.redirect.checkout_url || 
-                     source.attributes.redirect.url || 
-                     source.attributes.redirect.checkoutUrl ||
-                     source.attributes.redirect.redirect_url;
+        checkoutUrl = source.attributes.redirect.checkout_url;
         
         console.log('🔍 Redirect object found:', JSON.stringify(source.attributes.redirect, null, 2));
       } else {
@@ -442,25 +652,30 @@ export async function createPaymentFromSource(sourceId: string, amount: number, 
   try {
     console.log('🔄 Creating payment from source:', sourceId);
 
-        // I-validate ang amount
-        if (!validatePayMongoAmount(amount)) {
-          throw new Error(`Amount must be between ${paymongoConfig.minimumAmount} and ${paymongoConfig.maximumAmount} PHP`);
-        }
+    // I-validate ang amount
+    if (!validatePayMongoAmount(amount)) {
+      throw new Error(`Amount must be between ${paymongoConfig.minimumAmount} and ${paymongoConfig.maximumAmount} PHP`);
+    }
 
-        // I-create ang payment data
-        const paymentData = {
-          data: {
-            attributes: {
-              amount: amount * 100, // Convert to centavos
-              currency: paymongoConfig.currency,
-              description: description,
-              source: {
-                id: sourceId,
-                type: 'source',
-              },
-            },
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulatePaymentCreation(sourceId, amount, description);
+    }
+
+    // I-create ang payment data
+    const paymentData = {
+      data: {
+        attributes: {
+          amount: amount * 100, // Convert to centavos
+          currency: paymongoConfig.currency,
+          description: description,
+          source: {
+            id: sourceId,
+            type: 'source',
           },
-        };
+        },
+      },
+    };
 
     // I-create ang payment sa PayMongo
     const response = await paymongo.createPayment(paymentData);
@@ -496,6 +711,11 @@ export async function createPaymentFromSource(sourceId: string, amount: number, 
 export async function getPaymentIntentStatus(paymentIntentId: string): Promise<PayMongoPaymentResult> {
   try {
     console.log('🔄 Checking payment intent status:', paymentIntentId);
+
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulatePaymentIntentStatusCheck(paymentIntentId);
+    }
 
     // I-retrieve ang payment intent details
     const response = await paymongo.retrievePaymentIntent(paymentIntentId);
@@ -533,6 +753,11 @@ export async function getSourceStatus(sourceId: string): Promise<PayMongoPayment
   try {
     console.log('🔄 Checking source status:', sourceId);
 
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulateSourceStatusCheck(sourceId);
+    }
+
     // I-retrieve ang source details
     const response = await paymongo.retrieveSource(sourceId);
     
@@ -568,6 +793,11 @@ export async function getPaymentStatus(paymentId: string): Promise<PayMongoPayme
   try {
     console.log('🔄 Checking payment status:', paymentId);
 
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulatePaymentStatusCheck(paymentId);
+    }
+
     // I-retrieve ang payment details
     const response = await paymongo.retrievePayment(paymentId);
     
@@ -602,6 +832,11 @@ export async function getPaymentStatus(paymentId: string): Promise<PayMongoPayme
 export async function verifyPayment(sourceId: string, paymentId?: string): Promise<PayMongoPaymentResult> {
   try {
     console.log('🔄 Verifying payment:', { sourceId, paymentId });
+
+    // I-check kung test mode o real PayMongo
+    if (TEST_MODE) {
+      return await simulatePaymentVerification(sourceId, paymentId);
+    }
 
     // I-detect kung Payment Intent o Source ang ID
     const isPaymentIntent = sourceId.startsWith('pi_');
