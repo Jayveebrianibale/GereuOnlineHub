@@ -172,8 +172,17 @@ export default function AdminDashboard() {
         return;
       }
       const data = snapshot.val();
-      const count = Object.keys(data).length;
-      setReservationsCount(count);
+      // Count only valid reservations (filter out any invalid entries)
+      const validReservations = Object.values(data).filter((reservation: any) => 
+        reservation && 
+        reservation.id && 
+        (reservation.status === 'pending' || 
+         reservation.status === 'confirmed' || 
+         reservation.status === 'declined' || 
+         reservation.status === 'cancelled' || 
+         reservation.status === 'completed')
+      );
+      setReservationsCount(validReservations.length);
     });
 
     // Cleanup listeners when component unmounts
@@ -200,8 +209,13 @@ export default function AdminDashboard() {
         }
         const data = snapshot.val();
         const list = Object.values(data) as any[];
-        const relevant = list.filter(r => r.status === 'pending' || r.status === 'confirmed' || r.status === 'declined' || r.status === 'cancelled');
-        const count = relevant.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
+        // Filter for valid reservations with proper status
+        const validReservations = list.filter(r => 
+          r && 
+          r.id && 
+          (r.status === 'pending' || r.status === 'confirmed' || r.status === 'declined' || r.status === 'cancelled')
+        );
+        const count = validReservations.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
         setUnreadCount(count);
       } catch {
         setUnreadCount(0);
