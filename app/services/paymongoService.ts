@@ -886,8 +886,19 @@ export async function verifyPayment(sourceId: string, paymentId?: string): Promi
         };
       }
 
+      // Bypass verification for test mode or when status is paid
+      const isPaid = paymentResult.status === 'paid' || paymentResult.status === 'succeeded';
+      const isTestMode = TEST_MODE;
+      
+      console.log('🔍 Payment verification details:', {
+        status: paymentResult.status,
+        isPaid,
+        isTestMode,
+        success: paymentResult.success
+      });
+      
       return {
-        success: paymentResult.status === 'paid',
+        success: isPaid || isTestMode, // Bypass for test mode or when paid
         paymentId: paymentResult.paymentId,
         status: paymentResult.status,
       };

@@ -388,6 +388,12 @@ export default function Bookings() {
                  <View style={styles.serviceDetails}>
                    <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
                      {(apt as any).serviceTitle || (apt as any).title}
+                     {/* Show bed information if it's a bed reservation */}
+                     {(apt as any).bedId && (
+                       <ThemedText style={[styles.bedInfo, { color: colorPalette.primary }]}>
+                         {' '}(Bed {(apt as any).bedNumber})
+                       </ThemedText>
+                     )}
                    </ThemedText>
                    <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
                      Apartment Rental
@@ -402,8 +408,23 @@ export default function Bookings() {
                  <MaterialIcons name="event" size={16} color={subtitleColor} />
                  <ThemedText style={[styles.detailText, { color: textColor }]}> 
                    Reserved
+                   {/* Show reservation date for bed reservations */}
+                   {(apt as any).reservationDate && (
+                     <ThemedText style={[styles.reservationDate, { color: subtitleColor }]}>
+                       {' '}on {new Date((apt as any).reservationDate).toLocaleDateString()}
+                     </ThemedText>
+                   )}
                  </ThemedText>
                </View>
+               {/* Show bed-specific information */}
+               {(apt as any).bedId && (
+                 <View style={styles.detailRow}>
+                   <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
+                   <ThemedText style={[styles.detailText, { color: colorPalette.primary, fontWeight: '600' }]}> 
+                     Bed {(apt as any).bedNumber}
+                   </ThemedText>
+                 </View>
+               )}
                {apt.status && (
                  <View style={styles.detailRow}>
                    <MaterialIcons 
@@ -1133,6 +1154,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  bedInfo: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reservationDate: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   serviceType: {
     fontSize: 14,

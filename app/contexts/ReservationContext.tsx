@@ -155,7 +155,10 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
             reservationDate: r.reservationDate,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
-            shippingInfo: r.shippingInfo
+            shippingInfo: r.shippingInfo,
+            // Include bed-specific information
+            bedId: (r as any).bedId,
+            bedNumber: (r as any).bedNumber
           })) as Apartment[];
         
         const laundry = reservations
@@ -200,6 +203,14 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
           })) as AutoService[];
         
         console.log('🔄 Filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
+        console.log('🔄 Apartment reservations details:', apartments.map(a => ({ 
+          id: a.id, 
+          serviceTitle: a.serviceTitle, 
+          serviceType: a.serviceType,
+          serviceId: (a as any).serviceId,
+          bedId: (a as any).bedId,
+          bedNumber: (a as any).bedNumber
+        })));
         console.log('🔄 Auto reservations details:', auto.map(a => ({ 
           id: a.id, 
           serviceTitle: a.serviceTitle, 
@@ -246,7 +257,10 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
           reservationDate: r.reservationDate,
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
-          shippingInfo: r.shippingInfo
+          shippingInfo: r.shippingInfo,
+          // Include bed-specific information
+          bedId: (r as any).bedId,
+          bedNumber: (r as any).bedNumber
         })) as Apartment[];
       
       const laundry = reservations
@@ -291,6 +305,14 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
         })) as AutoService[];
       
       console.log('📡 Real-time filtered - Apartments:', apartments.length, 'Laundry:', laundry.length, 'Auto:', auto.length);
+      console.log('📡 Real-time apartment reservations details:', apartments.map(a => ({ 
+        id: a.id, 
+        serviceTitle: a.serviceTitle, 
+        serviceType: a.serviceType,
+        serviceId: (a as any).serviceId,
+        bedId: (a as any).bedId,
+        bedNumber: (a as any).bedNumber
+      })));
       console.log('📡 Real-time auto reservations details:', auto.map(a => ({ 
         id: a.id, 
         serviceTitle: a.serviceTitle, 

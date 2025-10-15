@@ -305,14 +305,14 @@ export default function UserHome() {
     const apartment = apartments.find(apt => apt.id === apartmentId);
     if (!apartment?.available) return false;
     
-    // Check if it's reserved by any user
-    if (isApartmentReserved(apartmentId)) return false;
-    
-    // For apartments with bed management, check if there are available beds
+    // For apartments with bed management, only check if there are available beds
     if (apartment.bedManagement) {
       const availableBeds = apartment.availableBeds || 0;
       return availableBeds > 0;
     }
+    
+    // For regular apartments (without bed management), check if it's reserved by any user
+    if (isApartmentReserved(apartmentId)) return false;
     
     return true;
   };

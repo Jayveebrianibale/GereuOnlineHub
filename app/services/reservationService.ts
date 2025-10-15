@@ -28,6 +28,9 @@ export type FirebaseAdminReservation = {
   address?: string;
   contactNumber?: string;
   preferredTime?: string;
+  // Additional properties for bed reservations
+  bedId?: string;
+  bedNumber?: number;
 };
 
 export type FirebaseUserReservation = {
@@ -54,6 +57,9 @@ export type FirebaseUserReservation = {
   address?: string;
   contactNumber?: string;
   preferredTime?: string;
+  // Additional properties for bed reservations
+  bedId?: string;
+  bedNumber?: number;
 };
 
 // Admin Reservation Functions
@@ -171,6 +177,7 @@ export const listenToAdminReservations = (callback: (reservations: FirebaseAdmin
 // User Reservation Functions
 export const saveUserReservation = async (userId: string, reservation: Omit<FirebaseUserReservation, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
+    console.log('💾 Saving user reservation:', { userId, reservation });
     const reservationRef = ref(db, `userReservations/${userId}`);
     const newReservationRef = push(reservationRef);
     const reservationId = newReservationRef.key!;
@@ -183,10 +190,12 @@ export const saveUserReservation = async (userId: string, reservation: Omit<Fire
       updatedAt: new Date().toISOString(),
     };
     
+    console.log('💾 Final reservation data to save:', reservationData);
     await set(newReservationRef, reservationData);
+    console.log('✅ User reservation saved successfully to Firebase with ID:', reservationId);
     return reservationId;
   } catch (error) {
-    console.error('Error saving user reservation:', error);
+    console.error('❌ Error saving user reservation:', error);
     throw error;
   }
 };

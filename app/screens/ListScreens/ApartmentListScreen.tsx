@@ -17,12 +17,12 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-    cacheApartments,
-    getCachedApartments
+  cacheApartments,
+  getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
-import { getAdminReservations } from '../../services/reservationService';
+import { getAdminReservations, saveUserReservation } from '../../services/reservationService';
 import { formatPHP } from '../../utils/currency';
 import { getImageSource } from '../../utils/imageUtils';
 import { mapServiceToAdminReservation, parsePrice } from '../../utils/reservationUtils';
@@ -236,28 +236,53 @@ export default function ApartmentListScreen() {
   };
 
   const handleReservation = async (apartment: any) => {
+    console.log('🏠 Starting reservation for apartment:', {
+      id: apartment.id,
+      title: apartment.title,
+      bedManagement: apartment.bedManagement,
+      beds: apartment.beds?.length || 0
+    });
+    
     // Check if apartment uses bed management
     if (apartment.bedManagement) {
-      // Load available beds for this apartment from embedded beds
+      console.log('🛏️ Apartment has bed management enabled');
+      // Load all beds for this apartment from embedded beds (both available and occupied)
       try {
-        const availableBeds = apartment.beds ? apartment.beds.filter((bed: Bed) => bed.status === 'available') : [];
-        if (availableBeds.length === 0) {
+        const allBeds = apartment.beds || [];
+        const availableBeds = allBeds.filter((bed: Bed) => bed.status === 'available');
+        const bedInfo = allBeds.map((bed: Bed) => ({ id: bed.id, bedNumber: bed.bedNumber, status: bed.status }));
+        console.log('🛏️ All beds found:', allBeds.length, bedInfo);
+        console.log('🛏️ Available beds:', availableBeds.length);
+        
+        if (allBeds.length === 0) {
+          console.log('❌ No beds found in apartment');
           Alert.alert(
-            'No Available Beds',
-            'This apartment has no available beds. Please choose another apartment or check back later.',
+            'No Beds Found',
+            'This apartment has no beds configured. Please contact the admin.',
             [{ text: 'OK' }]
           );
           return;
         }
         
-        // Show bed selection modal
+        if (availableBeds.length === 0) {
+          console.log('❌ No available beds found');
+          Alert.alert(
+            'No Available Beds',
+            'This apartment has no available beds. All beds are currently occupied. Please choose another apartment or check back later.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        console.log('✅ Showing bed selection modal with all beds');
+        // Show bed selection modal with all beds (available and occupied)
         setSelectedApartmentForBed(apartment);
-        setApartmentBeds(availableBeds);
+        setApartmentBeds(allBeds); // Show all beds, not just available ones
         setBedSelectionVisible(true);
         setDetailModalVisible(false);
         setSelectedApartment(null);
       } catch (error) {
-        console.error('Error loading beds:', error);
+        console.error('❌ Error loading beds:', error);
         Alert.alert('Error', 'Failed to load bed information. Please try again.');
       }
       return;
@@ -315,6 +340,7 @@ export default function ApartmentListScreen() {
 
   // Handle bed selection (shows date picker)
   const handleBedSelection = (bed: Bed) => {
+    console.log('🛏️ Bed selected:', bed);
     setSelectedBed(bed);
     setSelectedDate(new Date());
     setBedSelectionVisible(false);
@@ -333,10 +359,12 @@ export default function ApartmentListScreen() {
 
   // Handle bed reservation with date
   const handleBedReservation = async (bed: Bed, reservationDate: Date) => {
+    console.log('🛏️ Handling bed reservation:', { bed, reservationDate, user: !!user, selectedApartmentForBed: !!selectedApartmentForBed });
     if (!user || !selectedApartmentForBed) return;
 
     // Check if payment is required for apartment reservations
     if (isPaymentRequired('apartment')) {
+      console.log('💳 Payment required for bed reservation');
       // Store the bed and apartment data for payment flow
       const bedReservationData = {
         ...selectedApartmentForBed,
@@ -354,52 +382,97 @@ export default function ApartmentListScreen() {
       return;
     }
 
+    console.log('🛏️ Proceeding with direct bed reservation (no payment required)');
     // Proceed with direct reservation if payment not required
     await processBedReservation(bed, reservationDate);
   };
 
   // Process bed reservation (used for both payment and non-payment flows)
-  const processBedReservation = async (bed: Bed, reservationDate: Date) => {
-    if (!user || !selectedApartmentForBed) return;
+  const processBedReservation = async (bed: Bed, reservationDate: Date, apartment?: any) => {
+    const apartmentData = apartment || selectedApartmentForBed;
+    console.log('🛏️ Processing bed reservation:', {
+      bed: { id: bed.id, bedNumber: bed.bedNumber, price: bed.price },
+      apartment: { id: apartmentData?.id, title: apartmentData?.title },
+      user: { uid: user?.uid },
+      reservationDate: reservationDate.toISOString()
+    });
+    
+    if (!user || !apartmentData) {
+      console.log('❌ Missing user or apartment data:', { user: !!user, apartment: !!apartmentData });
+      return;
+    }
 
     try {
+      console.log('🛏️ Step 1: Reserving bed in apartment service...');
       // Reserve the bed using apartment service
-      await reserveBedInApartment(selectedApartmentForBed.id, bed.id, user.uid);
+      await reserveBedInApartment(apartmentData.id, bed.id, user.uid);
+      console.log('✅ Step 1: Bed reserved in apartment service');
       
+      // Create bed reservation data for user context
+      const bedReservationData = {
+        serviceType: 'apartment' as const,
+        serviceId: apartmentData.id,
+        serviceTitle: `${apartmentData.title} - Bed ${bed.bedNumber}`,
+        servicePrice: bed.price || apartmentData.price,
+        serviceImage: apartmentData.image,
+        serviceLocation: apartmentData.location,
+        status: 'pending' as const,
+        paymentStatus: 'unpaid' as const,
+        reservationDate: reservationDate.toISOString(),
+        bedId: bed.id,
+        bedNumber: bed.bedNumber
+      };
+      
+      console.log('🛏️ Step 2: Saving bed reservation to user context:', bedReservationData);
+      // Add to user reservations context directly
+      const reservationId = await saveUserReservation(user.uid, bedReservationData);
+      console.log('✅ Step 2: Bed reservation saved with ID:', reservationId);
+      
+      console.log('🛏️ Step 3: Creating admin reservation...');
       // Create admin reservation for the bed
       const adminReservationData = mapServiceToAdminReservation(
-        { ...selectedApartmentForBed, bedId: bed.id, bedNumber: bed.bedNumber, reservationDate: reservationDate.toISOString() },
+        { ...apartmentData, bedId: bed.id, bedNumber: bed.bedNumber, reservationDate: reservationDate.toISOString() },
         'apartment',
         user.uid,
         user.displayName || 'Unknown User',
         user.email || 'No email'
       );
+      console.log('🛏️ Admin reservation data:', adminReservationData);
       await addAdminReservation(adminReservationData);
+      console.log('✅ Step 3: Admin reservation created');
 
+      console.log('🛏️ Step 4: Notifying admins...');
       // Notify admins of new bed reservation
       await notifyAdmins(
         'New Bed Reservation',
-        `${user.displayName || 'A user'} reserved Bed ${bed.bedNumber} in ${selectedApartmentForBed.title}.`,
+        `${user.displayName || 'A user'} reserved Bed ${bed.bedNumber} in ${apartmentData.title}.`,
         {
           serviceType: 'apartment',
-          serviceId: selectedApartmentForBed.id,
+          serviceId: apartmentData.id,
           bedId: bed.id,
           userId: user.uid,
           action: 'reserved',
         }
       );
+      console.log('✅ Step 4: Admins notified');
 
+      console.log('🛏️ Step 5: Cleaning up UI state...');
       setBedSelectionVisible(false);
       setDateSelectionVisible(false);
-      setSelectedApartmentForBed(null);
+      // Only clear selectedApartmentForBed if not in payment flow
+      if (!pendingReservation?.bedId) {
+        setSelectedApartmentForBed(null);
+      }
       setApartmentBeds([]);
       setSelectedBed(null);
+      console.log('✅ Step 5: UI state cleaned up');
 
       // Show success message
       const formattedDate = reservationDate.toLocaleDateString();
+      console.log('🎉 Bed reservation completed successfully!');
       Alert.alert(
         'Bed Reservation Successful!',
-        `You have successfully reserved Bed ${bed.bedNumber} in ${selectedApartmentForBed.title} for ${formattedDate}. You can view your reservations in the Bookings tab.`,
+        `You have successfully reserved Bed ${bed.bedNumber} in ${apartmentData.title} for ${formattedDate}. You can view your reservations in the Bookings tab.`,
         [
           {
             text: 'View Bookings',
@@ -408,7 +481,7 @@ export default function ApartmentListScreen() {
         ]
       );
     } catch (error) {
-      console.error('Error reserving bed:', error);
+      console.error('❌ Error reserving bed:', error);
       Alert.alert(
         'Reservation Failed',
         'Sorry, we couldn\'t process your bed reservation. Please try again.',
@@ -474,6 +547,8 @@ export default function ApartmentListScreen() {
     try {
       // Check if this is a bed reservation or regular apartment reservation
       if (pendingReservation.bedId) {
+        console.log('💳 Processing bed reservation after payment success');
+        
         // Process bed reservation after successful payment
         await processBedReservation(
           {
@@ -485,9 +560,11 @@ export default function ApartmentListScreen() {
             description: '',
             amenities: []
           },
-          new Date(pendingReservation.reservationDate)
+          new Date(pendingReservation.reservationDate),
+          pendingReservation // Pass the apartment data
         );
       } else {
+        console.log('💳 Processing regular apartment reservation after payment success');
         // Process regular apartment reservation after successful payment
         await processReservation(pendingReservation);
       }
@@ -1133,7 +1210,10 @@ export default function ApartmentListScreen() {
           visible={bedSelectionVisible}
           animationType="slide"
           transparent={true}
-          onRequestClose={() => setBedSelectionVisible(false)}
+          onRequestClose={() => {
+            console.log('🛏️ Bed selection modal closed');
+            setBedSelectionVisible(false);
+          }}
         >
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
             <View style={[styles.bedSelectionModal, { backgroundColor: cardBgColor }]}>
@@ -1141,47 +1221,101 @@ export default function ApartmentListScreen() {
                 <ThemedText type="title" style={[styles.bedSelectionTitle, { color: textColor }]}>
                   Select a Bed
                 </ThemedText>
-                <TouchableOpacity onPress={() => setBedSelectionVisible(false)}>
+                <TouchableOpacity onPress={() => {
+                  console.log('🛏️ Bed selection modal close button pressed');
+                  setBedSelectionVisible(false);
+                }}>
                   <MaterialIcons name="close" size={24} color={textColor} />
                 </TouchableOpacity>
               </View>
               
               <ThemedText style={[styles.bedSelectionSubtitle, { color: subtitleColor }]}>
-                {selectedApartmentForBed?.title} - Choose an available bed
+                {selectedApartmentForBed?.title} - Select an available bed
               </ThemedText>
               
+              {/* Bed Status Summary */}
+              <View style={styles.bedStatusSummary}>
+                <View style={styles.bedStatusItem}>
+                  <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
+                  <ThemedText style={[styles.bedStatusText, { color: "#4CAF50" }]}>
+                    Available: {apartmentBeds.filter((bed: Bed) => bed.status === 'available').length}
+                  </ThemedText>
+                </View>
+                <View style={styles.bedStatusItem}>
+                  <MaterialIcons name="cancel" size={16} color="#F44336" />
+                  <ThemedText style={[styles.bedStatusText, { color: "#F44336" }]}>
+                    Occupied: {apartmentBeds.filter((bed: Bed) => bed.status === 'occupied').length}
+                  </ThemedText>
+                </View>
+              </View>
+              
               <ScrollView style={styles.bedSelectionList}>
-                {apartmentBeds.map((bed) => (
-                  <TouchableOpacity
-                    key={bed.id}
-                    style={[styles.bedSelectionCard, { backgroundColor: cardBgColor, borderColor }]}
-                    onPress={() => handleBedSelection(bed)}
-                  >
-                    <RobustImage source={bed.image} style={styles.bedSelectionImage} resizeMode="cover" />
-                    <View style={styles.bedSelectionContent}>
-                      <ThemedText type="subtitle" style={[styles.bedSelectionTitle, { color: textColor }]}>
-                        Bed {bed.bedNumber}
-                      </ThemedText>
-                      {bed.description && (
-                        <ThemedText style={[styles.bedSelectionDescription, { color: subtitleColor }]}>
-                          {bed.description}
-                        </ThemedText>
-                      )}
-                      {bed.price && (
-                        <ThemedText style={[styles.bedSelectionPrice, { color: colorPalette.primary }]}>
-                          {formatPHP(bed.price)}
-                        </ThemedText>
-                      )}
-                      <View style={styles.bedSelectionStatus}>
-                        <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
-                        <ThemedText style={[styles.bedSelectionStatusText, { color: "#4CAF50" }]}>
-                          Available
-                        </ThemedText>
-                      </View>
-                    </View>
-                    <MaterialIcons name="arrow-forward-ios" size={20} color={subtitleColor} />
-                  </TouchableOpacity>
-                ))}
+                {apartmentBeds.length > 0 ? (
+                  apartmentBeds.map((bed) => {
+                    const isAvailable = bed.status === 'available';
+                    return (
+                      <TouchableOpacity
+                        key={bed.id}
+                        style={[
+                          styles.bedSelectionCard, 
+                          { 
+                            backgroundColor: cardBgColor, 
+                            borderColor,
+                            opacity: isAvailable ? 1 : 0.6
+                          }
+                        ]}
+                        onPress={() => {
+                          if (isAvailable) {
+                            console.log('🛏️ Bed card pressed:', bed);
+                            handleBedSelection(bed);
+                          } else {
+                            console.log('🛏️ Bed is occupied, cannot select:', bed);
+                          }
+                        }}
+                        disabled={!isAvailable}
+                      >
+                        <RobustImage source={bed.image} style={styles.bedSelectionImage} resizeMode="cover" />
+                        <View style={styles.bedSelectionContent}>
+                          <ThemedText type="subtitle" style={[styles.bedSelectionTitle, { color: textColor }]}>
+                            Bed {bed.bedNumber}
+                          </ThemedText>
+                          {bed.description && (
+                            <ThemedText style={[styles.bedSelectionDescription, { color: subtitleColor }]}>
+                              {bed.description}
+                            </ThemedText>
+                          )}
+                          {bed.price && (
+                            <ThemedText style={[styles.bedSelectionPrice, { color: colorPalette.primary }]}>
+                              {formatPHP(bed.price)}
+                            </ThemedText>
+                          )}
+                          <View style={styles.bedSelectionStatus}>
+                            <MaterialIcons 
+                              name={isAvailable ? "check-circle" : "cancel"} 
+                              size={16} 
+                              color={isAvailable ? "#4CAF50" : "#F44336"} 
+                            />
+                            <ThemedText style={[
+                              styles.bedSelectionStatusText, 
+                              { color: isAvailable ? "#4CAF50" : "#F44336" }
+                            ]}>
+                              {isAvailable ? 'Available' : 'Occupied'}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        {isAvailable ? (
+                          <MaterialIcons name="arrow-forward-ios" size={20} color={subtitleColor} />
+                        ) : (
+                          <MaterialIcons name="block" size={20} color="#F44336" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ThemedText style={{ color: subtitleColor }}>No beds available</ThemedText>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1268,13 +1402,16 @@ export default function ApartmentListScreen() {
                   <TouchableOpacity
                     style={[styles.confirmDateButton, { backgroundColor: colorPalette.primary }]}
                     onPress={() => {
+                      console.log('📅 Date confirmation button pressed:', { selectedBed, selectedDate });
                       if (selectedBed) {
                         handleBedReservation(selectedBed, selectedDate);
+                      } else {
+                        console.log('❌ No bed selected for reservation');
                       }
                     }}
                   >
                     <ThemedText style={styles.confirmDateButtonText}>
-                      Confirm Reservation
+                      Confirm
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -1732,6 +1869,27 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Bed status summary styles
+  bedStatusSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  bedStatusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bedStatusText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Date selection modal styles
   dateSelectionModal: {

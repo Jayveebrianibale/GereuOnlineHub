@@ -49,6 +49,9 @@ export const mapServiceToReservation = (service: any, serviceType: 'apartment' |
     const result = {
       ...baseReservation,
       serviceLocation: service.location,
+      // Add bed information if present
+      ...(service.bedId && { bedId: service.bedId }),
+      ...(service.bedNumber && { bedNumber: service.bedNumber }),
     };
     console.log('Mapped apartment reservation:', result);
     return result;
@@ -88,6 +91,9 @@ export const mapServiceToAdminReservation = (
     const result = {
       ...baseReservation,
       serviceLocation: service.location,
+      // Add bed information if present
+      ...(service.bedId && { bedId: service.bedId }),
+      ...(service.bedNumber && { bedNumber: service.bedNumber }),
     };
     console.log('Mapped admin apartment reservation:', result);
     return result;
