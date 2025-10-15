@@ -132,7 +132,11 @@ export default function ReservationsScreen() {
             r.userName?.toLowerCase().includes(query) ||
             r.userEmail?.toLowerCase().includes(query) ||
             r.serviceTitle?.toLowerCase().includes(query) ||
-            getServiceTypeDisplayName(r.serviceType).toLowerCase().includes(query)
+            getServiceTypeDisplayName(r.serviceType).toLowerCase().includes(query) ||
+            // Include bed information in search
+            (r.serviceType === 'apartment' && (r as any).bedId && 
+              (`bed ${(r as any).bedNumber || ''}`.toLowerCase().includes(query) ||
+               `apartment bed ${(r as any).bedNumber || ''}`.toLowerCase().includes(query)))
           );
         }
         return true;
@@ -494,6 +498,15 @@ export default function ReservationsScreen() {
                       { color: textColor }
                     ]}>
                       {reservation.serviceTitle}
+                      {/* Show bed information in title for apartment reservations */}
+                      {reservation.serviceType === 'apartment' && (reservation as any).bedId && (
+                        <ThemedText style={[
+                          styles.bedTitleText, 
+                          { color: colorPalette.primary }
+                        ]}>
+                          {' '}(Bed {(reservation as any).bedNumber || 'N/A'})
+                        </ThemedText>
+                      )}
                     </ThemedText>
                     <View style={[
                       styles.statusBadge,
@@ -536,6 +549,15 @@ export default function ReservationsScreen() {
                       { color: textColor }
                     ]}>
                       {getServiceTypeDisplayName(reservation.serviceType)}
+                      {/* Show bed information for apartment reservations */}
+                      {reservation.serviceType === 'apartment' && (reservation as any).bedId && (
+                        <ThemedText style={[
+                          styles.bedInfoText, 
+                          { color: colorPalette.primary }
+                        ]}>
+                          {' '}- Bed {(reservation as any).bedNumber || 'N/A'}
+                        </ThemedText>
+                      )}
                     </ThemedText>
                   </View>
                   
@@ -812,6 +834,66 @@ export default function ReservationsScreen() {
                       {formatPHP(reservation.servicePrice)}
                     </ThemedText>
                   </View>
+
+                  {/* Bed Information for Apartment Reservations */}
+                  {reservation.serviceType === 'apartment' && (reservation as any).bedId && (
+                    <View style={[styles.bedInfoContainer, { backgroundColor: cardBgColor, borderColor }]}>
+                      <View style={styles.bedInfoHeader}>
+                        <View style={styles.bedInfoIconContainer}>
+                          <MaterialIcons name="bed" size={20} color={colorPalette.primary} />
+                        </View>
+                        <ThemedText style={[styles.bedInfoTitle, { color: colorPalette.primary }]}>
+                          Bed Reservation Details
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={styles.bedInfoDetails}>
+                        <View style={styles.bedInfoDetailItem}>
+                          <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                            <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
+                          </View>
+                          <View style={styles.bedInfoDetailContent}>
+                            <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
+                              Bed Number
+                            </ThemedText>
+                            <ThemedText style={[styles.bedInfoDetailValue, { color: textColor }]}> 
+                              Bed {(reservation as any).bedNumber || 'N/A'}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.bedInfoDetailItem}>
+                          <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                            <MaterialIcons name="check-circle" size={16} color="#10B981" />
+                          </View>
+                          <View style={styles.bedInfoDetailContent}>
+                            <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
+                              Bed Status
+                            </ThemedText>
+                            <ThemedText style={[styles.bedInfoDetailValue, { color: '#10B981' }]}> 
+                              Reserved
+                            </ThemedText>
+                          </View>
+                        </View>
+                        
+                        {(reservation as any).reservationDate && (
+                          <View style={styles.bedInfoDetailItem}>
+                            <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                              <MaterialIcons name="schedule" size={16} color="#F59E0B" />
+                            </View>
+                            <View style={styles.bedInfoDetailContent}>
+                              <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
+                                Reservation Date
+                              </ThemedText>
+                              <ThemedText style={[styles.bedInfoDetailValue, { color: textColor }]}> 
+                                {formatDate((reservation as any).reservationDate)}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
 
                   {/* Payment Information */}
                   {isPaymentRequired(reservation.serviceType) && (
@@ -1436,6 +1518,77 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   homeServiceDetailValue: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  // Bed Information Styles
+  bedInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bedTitleText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bedInfoContainer: {
+    marginTop: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  bedInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bedInfoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bedInfoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  bedInfoDetails: {
+    gap: 12,
+  },
+  bedInfoDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  bedInfoDetailIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  bedInfoDetailContent: {
+    flex: 1,
+  },
+  bedInfoDetailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bedInfoDetailValue: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',

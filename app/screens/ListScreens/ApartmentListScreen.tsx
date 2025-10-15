@@ -2,10 +2,11 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { PaymentModal } from '../../components/PaymentModal';
 import { RobustImage } from '../../components/RobustImage';
@@ -14,10 +15,10 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
-import { getApartments } from '../../services/apartmentService';
+import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-  cacheApartments,
-  getCachedApartments
+    cacheApartments,
+    getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -66,6 +67,13 @@ export default function ApartmentListScreen() {
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'dropoff' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [globalReservations, setGlobalReservations] = useState<any[]>([]);
+  const [apartmentBeds, setApartmentBeds] = useState<Bed[]>([]);
+  const [bedSelectionVisible, setBedSelectionVisible] = useState(false);
+  const [selectedApartmentForBed, setSelectedApartmentForBed] = useState<any>(null);
+  const [dateSelectionVisible, setDateSelectionVisible] = useState(false);
+  const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
   const { user } = useAuthContext();
@@ -93,7 +101,7 @@ export default function ApartmentListScreen() {
         }
 
         console.log('📡 Fetching apartments from Firebase in apartment list...');
-        const apartmentsData = await getApartments();
+        const apartmentsData = await getApartmentsWithBedStats();
         setApartments(apartmentsData);
         
         // Cache the data for future use
@@ -156,6 +164,12 @@ export default function ApartmentListScreen() {
     
     // Check if it's reserved by another user
     if (isApartmentReservedByOtherUser(apartmentId)) return false;
+    
+    // For apartments with bed management, check if there are available beds
+    if (apartment.bedManagement) {
+      const availableBeds = apartment.availableBeds || 0;
+      return availableBeds > 0;
+    }
     
     return true;
   };
@@ -222,7 +236,34 @@ export default function ApartmentListScreen() {
   };
 
   const handleReservation = async (apartment: any) => {
-    // Check if apartment is available for reservation
+    // Check if apartment uses bed management
+    if (apartment.bedManagement) {
+      // Load available beds for this apartment from embedded beds
+      try {
+        const availableBeds = apartment.beds ? apartment.beds.filter((bed: Bed) => bed.status === 'available') : [];
+        if (availableBeds.length === 0) {
+          Alert.alert(
+            'No Available Beds',
+            'This apartment has no available beds. Please choose another apartment or check back later.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // Show bed selection modal
+        setSelectedApartmentForBed(apartment);
+        setApartmentBeds(availableBeds);
+        setBedSelectionVisible(true);
+        setDetailModalVisible(false);
+        setSelectedApartment(null);
+      } catch (error) {
+        console.error('Error loading beds:', error);
+        Alert.alert('Error', 'Failed to load bed information. Please try again.');
+      }
+      return;
+    }
+
+    // Check if apartment is available for reservation (non-bed management)
     if (!isApartmentAvailable(apartment.id)) {
       if (isApartmentReservedByOtherUser(apartment.id)) {
         Alert.alert(
@@ -269,6 +310,110 @@ export default function ApartmentListScreen() {
           [{ text: 'OK' }]
         );
       }
+    }
+  };
+
+  // Handle bed selection (shows date picker)
+  const handleBedSelection = (bed: Bed) => {
+    setSelectedBed(bed);
+    setSelectedDate(new Date());
+    setBedSelectionVisible(false);
+    setDateSelectionVisible(true);
+  };
+
+  // Handle date selection
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
+    }
+  };
+
+  // Handle bed reservation with date
+  const handleBedReservation = async (bed: Bed, reservationDate: Date) => {
+    if (!user || !selectedApartmentForBed) return;
+
+    // Check if payment is required for apartment reservations
+    if (isPaymentRequired('apartment')) {
+      // Store the bed and apartment data for payment flow
+      const bedReservationData = {
+        ...selectedApartmentForBed,
+        bedId: bed.id,
+        bedNumber: bed.bedNumber,
+        reservationDate: reservationDate.toISOString(),
+        bedPrice: bed.price || selectedApartmentForBed.price
+      };
+      setPendingReservation(bedReservationData);
+      setPaymentModalVisible(true);
+      setDateSelectionVisible(false);
+      setSelectedApartmentForBed(null);
+      setApartmentBeds([]);
+      setSelectedBed(null);
+      return;
+    }
+
+    // Proceed with direct reservation if payment not required
+    await processBedReservation(bed, reservationDate);
+  };
+
+  // Process bed reservation (used for both payment and non-payment flows)
+  const processBedReservation = async (bed: Bed, reservationDate: Date) => {
+    if (!user || !selectedApartmentForBed) return;
+
+    try {
+      // Reserve the bed using apartment service
+      await reserveBedInApartment(selectedApartmentForBed.id, bed.id, user.uid);
+      
+      // Create admin reservation for the bed
+      const adminReservationData = mapServiceToAdminReservation(
+        { ...selectedApartmentForBed, bedId: bed.id, bedNumber: bed.bedNumber, reservationDate: reservationDate.toISOString() },
+        'apartment',
+        user.uid,
+        user.displayName || 'Unknown User',
+        user.email || 'No email'
+      );
+      await addAdminReservation(adminReservationData);
+
+      // Notify admins of new bed reservation
+      await notifyAdmins(
+        'New Bed Reservation',
+        `${user.displayName || 'A user'} reserved Bed ${bed.bedNumber} in ${selectedApartmentForBed.title}.`,
+        {
+          serviceType: 'apartment',
+          serviceId: selectedApartmentForBed.id,
+          bedId: bed.id,
+          userId: user.uid,
+          action: 'reserved',
+        }
+      );
+
+      setBedSelectionVisible(false);
+      setDateSelectionVisible(false);
+      setSelectedApartmentForBed(null);
+      setApartmentBeds([]);
+      setSelectedBed(null);
+
+      // Show success message
+      const formattedDate = reservationDate.toLocaleDateString();
+      Alert.alert(
+        'Bed Reservation Successful!',
+        `You have successfully reserved Bed ${bed.bedNumber} in ${selectedApartmentForBed.title} for ${formattedDate}. You can view your reservations in the Bookings tab.`,
+        [
+          {
+            text: 'View Bookings',
+            onPress: () => router.push('/(user-tabs)/bookings')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error reserving bed:', error);
+      Alert.alert(
+        'Reservation Failed',
+        'Sorry, we couldn\'t process your bed reservation. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -327,21 +472,42 @@ export default function ApartmentListScreen() {
     if (!pendingReservation || !user) return;
 
     try {
-      // Process the reservation after successful payment
-      await processReservation(pendingReservation);
+      // Check if this is a bed reservation or regular apartment reservation
+      if (pendingReservation.bedId) {
+        // Process bed reservation after successful payment
+        await processBedReservation(
+          {
+            id: pendingReservation.bedId,
+            bedNumber: pendingReservation.bedNumber,
+            price: pendingReservation.bedPrice,
+            status: 'available',
+            image: '',
+            description: '',
+            amenities: []
+          },
+          new Date(pendingReservation.reservationDate)
+        );
+      } else {
+        // Process regular apartment reservation after successful payment
+        await processReservation(pendingReservation);
+      }
       
       // Reset payment modal state
       setPaymentModalVisible(false);
       setPendingReservation(null);
       
       // ========================================
-      // SUCCESS ALERT - APARTMENT RESERVATION
+      // SUCCESS ALERT - RESERVATION
       // ========================================
       // I-display ang success alert pagkatapos ng successful payment at reservation
       // I-inform ang user na successful ang payment at reservation
+      const isBedReservation = pendingReservation.bedId;
+      const reservationType = isBedReservation ? 'bed' : 'apartment';
+      const bedInfo = isBedReservation ? ` Bed ${pendingReservation.bedNumber}` : '';
+      
       Alert.alert(
         'Payment & Reservation Successful!', // Alert title - successful payment at reservation
-        'Your payment has been confirmed and your apartment reservation has been submitted! You can view your reservations in the Bookings tab.', // Alert message - confirmation ng payment at reservation
+        `Your payment has been confirmed and your${bedInfo} reservation has been submitted! You can view your reservations in the Bookings tab.`, // Alert message - confirmation ng payment at reservation
         [
           {
             text: 'View Bookings', // Button text - para sa pag-view ng bookings
@@ -472,57 +638,99 @@ export default function ApartmentListScreen() {
         {/* Availability Status */}
         <View style={styles.availabilityRow}>
           {(() => {
-            const isReservedByOther = isApartmentReservedByOtherUser(item.id);
-            const isAvailable = isApartmentAvailable(item.id);
-            
-            if (isReservedByOther) {
-              return (
-                <>
-                  <MaterialIcons 
-                    name="person-pin" 
-                    size={16} 
-                    color="#FF9800" 
-                  />
-                  <ThemedText style={[
-                    styles.availabilityText, 
-                    { color: "#FF9800" }
-                  ]}>
-                    Reserved
-                  </ThemedText>
-                </>
-              );
-            } else if (isAvailable) {
-              return (
-                <>
-                  <MaterialIcons 
-                    name="check-circle" 
-                    size={16} 
-                    color="#4CAF50" 
-                  />
-                  <ThemedText style={[
-                    styles.availabilityText, 
-                    { color: "#4CAF50" }
-                  ]}>
-                    Available
-                  </ThemedText>
-                </>
-              );
+            // Check if apartment uses bed management
+            if (item.bedManagement) {
+              const availableBeds = item.availableBeds || 0;
+              const totalBeds = item.totalBeds || 0;
+              const occupiedBeds = item.occupiedBeds || 0;
+              
+              if (availableBeds > 0) {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="bed" 
+                      size={16} 
+                      color="#4CAF50" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: "#4CAF50" }
+                    ]}>
+                      {availableBeds} of {totalBeds} beds available
+                    </ThemedText>
+                  </>
+                );
+              } else {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="bed" 
+                      size={16} 
+                      color="#F44336" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: "#F44336" }
+                    ]}>
+                      All beds occupied
+                    </ThemedText>
+                  </>
+                );
+              }
             } else {
-              return (
-                <>
-                  <MaterialIcons 
-                    name="cancel" 
-                    size={16} 
-                    color="#F44336" 
-                  />
-                  <ThemedText style={[
-                    styles.availabilityText, 
-                    { color: "#F44336" }
-                  ]}>
-                    Unavailable
-                  </ThemedText>
-                </>
-              );
+              // Regular apartment availability check
+              const isReservedByOther = isApartmentReservedByOtherUser(item.id);
+              const isAvailable = isApartmentAvailable(item.id);
+              
+              if (isReservedByOther) {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="person-pin" 
+                      size={16} 
+                      color="#FF9800" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: "#FF9800" }
+                    ]}>
+                      Reserved
+                    </ThemedText>
+                  </>
+                );
+              } else if (isAvailable) {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="check-circle" 
+                      size={16} 
+                      color="#4CAF50" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: "#4CAF50" }
+                    ]}>
+                      Available
+                    </ThemedText>
+                  </>
+                );
+              } else {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="cancel" 
+                      size={16} 
+                      color="#F44336" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: "#F44336" }
+                    ]}>
+                      Unavailable
+                    </ThemedText>
+                  </>
+                );
+              }
             }
           })()}
         </View>
@@ -573,7 +781,12 @@ export default function ApartmentListScreen() {
             style={[
               styles.viewButton, 
               { 
-                backgroundColor: isApartmentReservedByOtherUser(item.id) ? '#FF9800' : colorPalette.primary 
+                backgroundColor: (() => {
+                  if (isApartmentReservedByOtherUser(item.id)) return '#FF9800';
+                  if (item.bedManagement && (item.availableBeds || 0) === 0) return '#F44336';
+                  return colorPalette.primary;
+                })(),
+                opacity: (item.bedManagement && (item.availableBeds || 0) === 0) ? 0.7 : 1
               }
             ]}
             onPress={() => {
@@ -582,7 +795,11 @@ export default function ApartmentListScreen() {
             }}
           >
             <ThemedText style={styles.viewButtonText}>
-              {isApartmentReservedByOtherUser(item.id) ? 'View Info' : 'View Details'}
+              {(() => {
+                if (isApartmentReservedByOtherUser(item.id)) return 'View Info';
+                if (item.bedManagement && (item.availableBeds || 0) === 0) return 'Fully Occupied';
+                return 'View Details';
+              })()}
             </ThemedText>
           </TouchableOpacity>
         </View>
@@ -784,6 +1001,18 @@ export default function ApartmentListScreen() {
                               </ThemedText>
                             </View>
                           );
+                        } else if (selectedApartment.bedManagement && (selectedApartment.availableBeds || 0) === 0) {
+                          return (
+                            <View style={styles.reservedByOtherContainer}>
+                              <MaterialIcons name="bed" size={24} color="#F44336" />
+                              <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
+                                All beds in this apartment are currently occupied.
+                              </ThemedText>
+                              <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
+                                Please choose another apartment or check back later
+                              </ThemedText>
+                            </View>
+                          );
                         } else {
                           return (
                             <>
@@ -890,11 +1119,169 @@ export default function ApartmentListScreen() {
             reservationId={`reservation_${Date.now()}`}
             serviceType="apartment"
             serviceId={pendingReservation.id}
-            serviceTitle={pendingReservation.title}
-            fullAmount={parsePrice(pendingReservation.price)}
+            serviceTitle={pendingReservation.bedId ? 
+              `${pendingReservation.title} - Bed ${pendingReservation.bedNumber}` : 
+              pendingReservation.title
+            }
+            fullAmount={parsePrice(pendingReservation.bedPrice || pendingReservation.price)}
             isDark={isDark}
           />
         )}
+
+        {/* Bed Selection Modal */}
+        <Modal
+          visible={bedSelectionVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setBedSelectionVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.bedSelectionModal, { backgroundColor: cardBgColor }]}>
+              <View style={styles.bedSelectionHeader}>
+                <ThemedText type="title" style={[styles.bedSelectionTitle, { color: textColor }]}>
+                  Select a Bed
+                </ThemedText>
+                <TouchableOpacity onPress={() => setBedSelectionVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ThemedText style={[styles.bedSelectionSubtitle, { color: subtitleColor }]}>
+                {selectedApartmentForBed?.title} - Choose an available bed
+              </ThemedText>
+              
+              <ScrollView style={styles.bedSelectionList}>
+                {apartmentBeds.map((bed) => (
+                  <TouchableOpacity
+                    key={bed.id}
+                    style={[styles.bedSelectionCard, { backgroundColor: cardBgColor, borderColor }]}
+                    onPress={() => handleBedSelection(bed)}
+                  >
+                    <RobustImage source={bed.image} style={styles.bedSelectionImage} resizeMode="cover" />
+                    <View style={styles.bedSelectionContent}>
+                      <ThemedText type="subtitle" style={[styles.bedSelectionTitle, { color: textColor }]}>
+                        Bed {bed.bedNumber}
+                      </ThemedText>
+                      {bed.description && (
+                        <ThemedText style={[styles.bedSelectionDescription, { color: subtitleColor }]}>
+                          {bed.description}
+                        </ThemedText>
+                      )}
+                      {bed.price && (
+                        <ThemedText style={[styles.bedSelectionPrice, { color: colorPalette.primary }]}>
+                          {formatPHP(bed.price)}
+                        </ThemedText>
+                      )}
+                      <View style={styles.bedSelectionStatus}>
+                        <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
+                        <ThemedText style={[styles.bedSelectionStatusText, { color: "#4CAF50" }]}>
+                          Available
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <MaterialIcons name="arrow-forward-ios" size={20} color={subtitleColor} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Date Selection Modal */}
+        <Modal
+          visible={dateSelectionVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setDateSelectionVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.dateSelectionModal, { backgroundColor: cardBgColor }]}>
+              <View style={styles.dateSelectionHeader}>
+                <ThemedText type="title" style={[styles.dateSelectionTitle, { color: textColor }]}>
+                  Select Reservation Date
+                </ThemedText>
+                <TouchableOpacity onPress={() => setDateSelectionVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ThemedText style={[styles.dateSelectionSubtitle, { color: subtitleColor }]}>
+                {selectedBed && `Bed ${selectedBed.bedNumber} - ${selectedApartmentForBed?.title}`}
+              </ThemedText>
+
+              <View style={styles.dateSelectionContent}>
+                <View style={styles.selectedDateContainer}>
+                  <MaterialIcons name="calendar-today" size={24} color={colorPalette.primary} />
+                  <ThemedText style={[styles.selectedDateText, { color: textColor }]}>
+                    {selectedDate.toLocaleDateString()}
+                  </ThemedText>
+                </View>
+
+                <View style={styles.dateInputContainer}>
+                  <ThemedText style={[styles.dateInputLabel, { color: textColor }]}>
+                    Select Date:
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.dateInput, { borderColor }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <ThemedText style={[styles.dateInputText, { color: textColor }]}>
+                      {selectedDate.toLocaleDateString()}
+                    </ThemedText>
+                    <MaterialIcons name="calendar-today" size={20} color={subtitleColor} />
+                  </TouchableOpacity>
+                  
+                  {showDatePicker && (
+                    <View style={styles.datePickerContainer}>
+                      <DateTimePicker
+                        value={selectedDate}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={handleDateChange}
+                        minimumDate={new Date()}
+                        style={styles.datePicker}
+                      />
+                      {Platform.OS === 'ios' && (
+                        <TouchableOpacity
+                          style={[styles.datePickerDoneButton, { backgroundColor: colorPalette.primary }]}
+                          onPress={() => setShowDatePicker(false)}
+                        >
+                          <ThemedText style={styles.datePickerDoneButtonText}>Done</ThemedText>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.dateSelectionActions}>
+                  <TouchableOpacity
+                    style={[styles.cancelDateButton, { borderColor: borderColor }]}
+                    onPress={() => {
+                      setDateSelectionVisible(false);
+                      setBedSelectionVisible(true);
+                    }}
+                  >
+                    <ThemedText style={[styles.cancelDateButtonText, { color: textColor }]}>
+                      Back
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmDateButton, { backgroundColor: colorPalette.primary }]}
+                    onPress={() => {
+                      if (selectedBed) {
+                        handleBedReservation(selectedBed, selectedDate);
+                      }
+                    }}
+                  >
+                    <ThemedText style={styles.confirmDateButtonText}>
+                      Confirm Reservation
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ThemedView>
     );
   }
@@ -1284,5 +1671,178 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     opacity: 0.8,
+  },
+  // Bed selection modal styles
+  bedSelectionModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '80%',
+    padding: 20,
+  },
+  bedSelectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bedSelectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  bedSelectionSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  bedSelectionList: {
+    maxHeight: 400,
+  },
+  bedSelectionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  bedSelectionImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 16,
+  },
+  bedSelectionContent: {
+    flex: 1,
+  },
+  bedSelectionDescription: {
+    fontSize: 14,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  bedSelectionPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  bedSelectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bedSelectionStatusText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Date selection modal styles
+  dateSelectionModal: {
+    width: '100%',
+    borderRadius: 16,
+    maxHeight: '70%',
+    padding: 20,
+  },
+  dateSelectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dateSelectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  dateSelectionSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  dateSelectionContent: {
+    alignItems: 'center',
+  },
+  selectedDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.3)',
+  },
+  selectedDateText: {
+    marginLeft: 12,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  dateInputContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  dateInputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateInputText: {
+    fontSize: 16,
+  },
+  datePickerContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  datePicker: {
+    alignSelf: 'center',
+  },
+  datePickerDoneButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  datePickerDoneButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  dateSelectionActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  cancelDateButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  cancelDateButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmDateButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmDateButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

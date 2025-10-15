@@ -308,6 +308,12 @@ export default function UserHome() {
     // Check if it's reserved by any user
     if (isApartmentReserved(apartmentId)) return false;
     
+    // For apartments with bed management, check if there are available beds
+    if (apartment.bedManagement) {
+      const availableBeds = apartment.availableBeds || 0;
+      return availableBeds > 0;
+    }
+    
     return true;
   };
 
@@ -416,7 +422,18 @@ export default function UserHome() {
               fontWeight: '600',
             }
           ]}>
-            {isApartmentAvailable(item.id) ? 'Available' : 'Unavailable'}
+            {(() => {
+              if (item.bedManagement) {
+                const availableBeds = item.availableBeds || 0;
+                const totalBeds = item.totalBeds || 0;
+                if (availableBeds > 0) {
+                  return `${availableBeds}/${totalBeds} beds`;
+                } else {
+                  return 'All occupied';
+                }
+              }
+              return isApartmentAvailable(item.id) ? 'Available' : 'Unavailable';
+            })()}
           </ThemedText>
         </View>
         <View style={styles.priceTag}> 
