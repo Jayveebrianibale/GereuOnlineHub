@@ -1,7 +1,7 @@
 import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -10,11 +10,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from './components/RobustImage';
 import { useAuthContext } from './contexts/AuthContext';
+import { useReservation } from './contexts/ReservationContext';
 import { db } from './firebaseConfig';
 import {
-    cacheApartments,
-    cacheAutoServices,
-    cacheLaundryServices
+  cacheApartments,
+  cacheAutoServices,
+  cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -46,12 +47,14 @@ export default function UserHome() {
   const router = useRouter();
   const isDark = colorScheme === 'dark';
   const [unreadCount, setUnreadCount] = useState(0);
+  const { reservedApartments } = useReservation();
   const { user, isLoading } = useAuthContext();
 
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
   const [globalReservations, setGlobalReservations] = useState<any[]>([]);
+  const [laundryServicesLoaded, setLaundryServicesLoaded] = useState(false);
   
   // Search functionality
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,6 +193,41 @@ export default function UserHome() {
     }
   }, [apartments]);
 
+  // Real-time listener for admin reservations to update apartment availability
+  useEffect(() => {
+    if (!user || isLoading) return;
+
+    console.log('🔄 Setting up real-time listener for admin reservations...');
+    
+    const adminReservationsRef = ref(db, 'adminReservations');
+    const adminReservationsListener = onValue(adminReservationsRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setGlobalReservations([]);
+        return;
+      }
+      
+      const data = snapshot.val();
+      const reservationsList = Object.values(data) as any[];
+      
+      // Filter for active reservations (pending, confirmed, declined, cancelled)
+      const activeReservations = reservationsList.filter(reservation => 
+        reservation && 
+        reservation.id && 
+        (reservation.status === 'pending' || 
+         reservation.status === 'confirmed' || 
+         reservation.status === 'declined' || 
+         reservation.status === 'cancelled')
+      );
+      
+      console.log('📡 Real-time admin reservations update:', activeReservations.length, 'reservations');
+      setGlobalReservations(activeReservations);
+    });
+
+    return () => {
+      off(adminReservationsRef, 'value', adminReservationsListener);
+    };
+  }, [user, isLoading]);
+
   // Real-time listeners for all services
   useEffect(() => {
     // Only set up listeners if user is authenticated and not loading
@@ -238,7 +276,28 @@ export default function UserHome() {
       cacheAutoServices(autoServicesData);
     });
 
-    // Set up real-time listener for laundry services
+
+    // Cleanup listeners when component unmounts
+    return () => {
+      console.log('🧹 Cleaning up real-time listeners...');
+      off(apartmentsRef, 'value', apartmentsListener);
+      off(autoServicesRef, 'value', autoServicesListener);
+    };
+  }, [user, isLoading]); // Add both user and isLoading as dependencies
+
+  // Function to load laundry services when user interacts with laundry section
+  const loadLaundryServices = () => {
+    if (laundryServicesLoaded) return;
+    
+    console.log('🔄 Loading laundry services on demand...');
+    setLaundryServicesLoaded(true);
+  };
+
+  // Set up laundry listener when laundryServicesLoaded becomes true
+  useEffect(() => {
+    if (!laundryServicesLoaded || !user || isLoading) return;
+
+    console.log('🧺 Setting up laundry services listener...');
     const laundryServicesRef = ref(db, 'laundryServices');
     const laundryServicesListener = onValue(laundryServicesRef, (snapshot) => {
       const laundryServicesData: any[] = [];
@@ -254,14 +313,10 @@ export default function UserHome() {
       cacheLaundryServices(laundryServicesData);
     });
 
-    // Cleanup listeners when component unmounts
     return () => {
-      console.log('🧹 Cleaning up real-time listeners...');
-      off(apartmentsRef, 'value', apartmentsListener);
-      off(autoServicesRef, 'value', autoServicesListener);
       off(laundryServicesRef, 'value', laundryServicesListener);
     };
-  }, [user, isLoading]); // Add both user and isLoading as dependencies
+  }, [laundryServicesLoaded, user, isLoading]);
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -299,11 +354,19 @@ export default function UserHome() {
     return !!globalReservation;
   };
 
+  // Helper function to check if current user has reserved the apartment
+  const isApartmentReservedByCurrentUser = (apartmentId: string) => {
+    const userReservation = reservedApartments.find(apartment => 
+      (apartment as any).serviceId === apartmentId && 
+      (apartment.status === 'pending' || apartment.status === 'confirmed')
+    );
+    return !!userReservation;
+  };
+
   // Helper function to check if apartment is available for reservation
   const isApartmentAvailable = (apartmentId: string) => {
-    // Check if apartment is marked as unavailable
     const apartment = apartments.find(apt => apt.id === apartmentId);
-    if (!apartment?.available) return false;
+    if (!apartment) return false;
     
     // For apartments with bed management, only check if there are available beds
     if (apartment.bedManagement) {
@@ -314,7 +377,19 @@ export default function UserHome() {
     // For regular apartments (without bed management), check if it's reserved by any user
     if (isApartmentReserved(apartmentId)) return false;
     
+    // Check if apartment is marked as unavailable (this should be the last check)
+    if (!apartment.available) return false;
+    
     return true;
+  };
+
+  // Helper function to check if user can reserve more beds in a bed spacer apartment
+  const canReserveMoreBeds = (apartmentId: string) => {
+    const apartment = apartments.find(apt => apt.id === apartmentId);
+    if (!apartment || !apartment.bedManagement) return false;
+    
+    const availableBeds = apartment.availableBeds || 0;
+    return availableBeds > 0;
   };
 
   // Auto-slide functionality
@@ -400,10 +475,19 @@ export default function UserHome() {
         <View style={[
           styles.availabilityBadge, 
           { 
-            backgroundColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
+            backgroundColor: (() => {
+              if (isApartmentReservedByCurrentUser(item.id)) return '#3B82F6'; // Blue for reserved by current user
+              return isApartmentAvailable(item.id) ? '#10B981' : '#EF4444'; // Green for available, red for unavailable
+            })(),
             borderWidth: 1,
-            borderColor: isApartmentAvailable(item.id) ? '#059669' : '#DC2626',
-            shadowColor: isApartmentAvailable(item.id) ? '#10B981' : '#EF4444',
+            borderColor: (() => {
+              if (isApartmentReservedByCurrentUser(item.id)) return '#2563EB'; // Blue border for reserved
+              return isApartmentAvailable(item.id) ? '#059669' : '#DC2626'; // Green/red border
+            })(),
+            shadowColor: (() => {
+              if (isApartmentReservedByCurrentUser(item.id)) return '#3B82F6'; // Blue shadow for reserved
+              return isApartmentAvailable(item.id) ? '#10B981' : '#EF4444'; // Green/red shadow
+            })(),
             shadowOpacity: 0.2,
             shadowRadius: 2,
             shadowOffset: { width: 0, height: 1 },
@@ -411,7 +495,10 @@ export default function UserHome() {
           }
         ]}> 
           <MaterialIcons 
-            name={isApartmentAvailable(item.id) ? "check-circle" : "cancel"} 
+            name={(() => {
+              if (isApartmentReservedByCurrentUser(item.id)) return "bookmark"; // Bookmark icon for reserved
+              return isApartmentAvailable(item.id) ? "check-circle" : "cancel"; // Check for available, X for unavailable
+            })()} 
             size={14} 
             color="#fff" 
           />
@@ -432,6 +519,10 @@ export default function UserHome() {
                   return 'All occupied';
                 }
               }
+              // Check if current user has reserved this apartment
+              if (isApartmentReservedByCurrentUser(item.id)) {
+                return 'Reserved';
+              }
               return isApartmentAvailable(item.id) ? 'Available' : 'Unavailable';
             })()}
           </ThemedText>
@@ -444,84 +535,392 @@ export default function UserHome() {
         <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 16 : 18 }]}> 
           {item.title}
         </ThemedText>
-        <View style={styles.locationRow}> 
-          <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-          <ThemedText style={[styles.locationText, { color: subtitleColor }]}> 
-            {item.location}
+
+        {/* Description */}
+        {item.description && (
+          <ThemedText style={[styles.description, { color: isDark ? '#B0B0B0' : '#666' }]} numberOfLines={2}>
+            {item.description}
           </ThemedText>
+        )}
+
+        {/* Rating and Reviews */}
+        {(item.rating > 0 || item.reviews > 0) && (
+          <View style={styles.ratingContainer}>
+            <View style={styles.ratingRow}>
+              <MaterialIcons name="star" size={14} color="#FFD700" />
+              <ThemedText style={[styles.ratingText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                {item.rating.toFixed(1)}
+              </ThemedText>
+              <ThemedText style={[styles.reviewsText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                ({item.reviews} review{item.reviews !== 1 ? 's' : ''})
+              </ThemedText>
+            </View>
+          </View>
+        )}
+
+        {/* Location and Address */}
+        <View style={styles.locationContainer}>
+          <View style={styles.locationRow}> 
+            <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.locationText, { color: textColor }]}> 
+              {item.location}
+            </ThemedText>
+          </View>
+          {item.address && item.address !== item.location && (
+            <View style={styles.addressRow}>
+              <MaterialIcons name="place" size={12} color={isDark ? '#B0B0B0' : '#666'} />
+              <ThemedText style={[styles.addressText, { color: isDark ? '#B0B0B0' : '#666' }]} numberOfLines={1}>
+                {item.address}
+              </ThemedText>
+            </View>
+          )}
         </View>
+
+        {/* Apartment Details */}
+        <View style={styles.apartmentDetailsContainer}>
+          <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+            <MaterialIcons name="bed" size={14} color={isDark ? '#B0B0B0' : '#666'} />
+            <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+              {item.bedrooms} bed{item.bedrooms !== 1 ? 's' : ''}
+            </ThemedText>
+          </View>
+          <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+            <MaterialIcons name="bathtub" size={14} color={isDark ? '#B0B0B0' : '#666'} />
+            <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+              {item.bathrooms} bath{item.bathrooms !== 1 ? 's' : ''}
+            </ThemedText>
+          </View>
+          {item.size && (
+            <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+              <MaterialIcons name="straighten" size={14} color={isDark ? '#B0B0B0' : '#666'} />
+              <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                {item.size}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+
         <View style={styles.amenitiesContainer}> 
           {item.amenities?.slice(0, isLargeScreen ? 2 : isTablet ? 3 : 4).map((amenity: string, index: number) => (
             <View key={index} style={styles.amenityBadge}> 
-              <ThemedText style={styles.amenityText}>{amenity}</ThemedText>
+              <ThemedText style={[styles.amenityText, { color: textColor }]}>{amenity}</ThemedText>
             </View>
           ))}
         </View>
         <TouchableOpacity 
-          style={[styles.bookButton, { backgroundColor: colorPalette.primary }]} 
-          onPress={() => router.push({
-            pathname: '/apartment-list',
-            params: { selectedApartmentId: item.id }
-          })}
+          style={[
+            styles.bookButton, 
+            { 
+              backgroundColor: (() => {
+                // For bed spacer apartments, always allow interaction if beds are available
+                if (item.bedManagement) {
+                  return canReserveMoreBeds(item.id) ? colorPalette.primary : '#9CA3AF';
+                }
+                // For regular apartments, disable if reserved by current user
+                return isApartmentReservedByCurrentUser(item.id) ? '#9CA3AF' : colorPalette.primary;
+              })(),
+              opacity: (() => {
+                if (item.bedManagement) {
+                  return canReserveMoreBeds(item.id) ? 1 : 0.6;
+                }
+                return isApartmentReservedByCurrentUser(item.id) ? 0.6 : 1;
+              })()
+            }
+          ]} 
+          onPress={() => {
+            // For bed spacer apartments, always allow if beds are available
+            if (item.bedManagement) {
+              if (canReserveMoreBeds(item.id)) {
+                router.push({
+                  pathname: '/apartment-list',
+                  params: { selectedApartmentId: item.id }
+                });
+              }
+            } else {
+              // For regular apartments, only allow if not reserved by current user
+              if (!isApartmentReservedByCurrentUser(item.id)) {
+                router.push({
+                  pathname: '/apartment-list',
+                  params: { selectedApartmentId: item.id }
+                });
+              }
+            }
+          }}
+          disabled={(() => {
+            if (item.bedManagement) {
+              return !canReserveMoreBeds(item.id);
+            }
+            return isApartmentReservedByCurrentUser(item.id);
+          })()}
         >
-          <ThemedText style={styles.bookButtonText}>View Details</ThemedText>
+          <ThemedText style={styles.bookButtonText}>
+            {(() => {
+              if (item.bedManagement) {
+                return canReserveMoreBeds(item.id) ? 'View Details' : 'All Occupied';
+              }
+              return isApartmentReservedByCurrentUser(item.id) ? 'Reserved' : 'View Details';
+            })()}
+          </ThemedText>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderServiceItem = ({ item, serviceType }: { item: any, serviceType: string }) => (
-    <View style={[styles.serviceItem, { width: itemWidth, marginRight: itemSpacing, backgroundColor: cardBgColor }]}> 
-      <RobustImage 
-        source={item.image} 
-        style={[styles.serviceImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
-        resizeMode="cover"
-      />
-      <View style={styles.serviceContent}> 
-        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor, fontSize: isLargeScreen ? 14 : 16 }]}> 
-          {item.title}
-        </ThemedText>
-        <View style={styles.serviceDetails}> 
-          <View style={styles.detailRow}> 
-            <FontAwesome name="money" size={14} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}> 
-              {formatPHP(item.price)}
-            </ThemedText>
+  const renderServiceItem = ({ item, serviceType }: { item: any, serviceType: string }) => {
+    // Enhanced laundry service display with same appearance as apartment rentals
+    if (serviceType === 'laundry') {
+      return (
+        <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+          <RobustImage 
+            source={item.image} 
+            style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
+            resizeMode="cover"
+          />
+          <View style={styles.itemOverlay}> 
+            <View style={[
+              styles.availabilityBadge, 
+              { 
+                backgroundColor: item.available ? '#10B981' : '#EF4444',
+                borderWidth: 1,
+                borderColor: item.available ? '#059669' : '#DC2626',
+                shadowColor: item.available ? '#10B981' : '#EF4444',
+                shadowOpacity: 0.2,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 1 },
+                elevation: 2,
+              }
+            ]}> 
+              <MaterialIcons 
+                name={item.available ? "check-circle" : "cancel"} 
+                size={14} 
+                color="#fff" 
+              />
+              <ThemedText style={[
+                styles.availabilityText,
+                { 
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: isLargeScreen ? 12 : 14,
+                }
+              ]}>
+                {item.available ? 'Available' : 'Unavailable'}
+              </ThemedText>
+            </View>
+            <View style={styles.priceTag}> 
+              <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
+            </View>
           </View>
-          <View style={styles.detailRow}> 
-            <Ionicons 
-              name={serviceType === 'laundry' ? 'time-outline' : 'timer-outline'} 
-              size={14} 
-              color={subtitleColor} 
-            />
-            <ThemedText style={[styles.detailText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}> 
-              {serviceType === 'laundry' ? item.turnaround : item.duration}
+          <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
+            <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 18 : 20 }]}> 
+              {item.title}
             </ThemedText>
+
+            {/* Description */}
+            {item.description && (
+              <ThemedText style={[styles.description, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 14 : 16 }]} numberOfLines={2}>
+                {item.description}
+              </ThemedText>
+            )}
+
+            {/* Rating and Reviews */}
+            {(item.rating > 0 || item.reviews > 0) && (
+              <View style={styles.ratingContainer}>
+                <View style={styles.ratingRow}>
+                  <MaterialIcons name="star" size={16} color="#FFD700" />
+                  <ThemedText style={[styles.ratingText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 14 : 16 }]}>
+                    {item.rating.toFixed(1)}
+                  </ThemedText>
+                  <ThemedText style={[styles.reviewsText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 12 : 14 }]}>
+                    ({item.reviews} review{item.reviews !== 1 ? 's' : ''})
+                  </ThemedText>
+                </View>
+              </View>
+            )}
+
+            {/* Service Details */}
+            <View style={styles.serviceDetailsContainer}>
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <Ionicons name="time-outline" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                  {item.turnaround}
+                </ThemedText>
+              </View>
+              {item.pickup && (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                  <MaterialIcons name="local-shipping" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                  <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                    {item.pickup}
+                  </ThemedText>
+                </View>
+              )}
+              {item.delivery && (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                  <MaterialIcons name="delivery-dining" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                  <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                    {item.delivery}
+                  </ThemedText>
+                </View>
+              )}
+              {item.minOrder && (
+                <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                  <MaterialIcons name="scale" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                  <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                    Min: {item.minOrder}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+
+            {/* Services Offered as Amenities */}
+            <View style={styles.amenitiesContainer}> 
+              {item.services && item.services.length > 0 && item.services.slice(0, isLargeScreen ? 2 : isTablet ? 3 : 4).map((service: string, index: number) => (
+                <View key={index} style={styles.amenityBadge}> 
+                  <ThemedText style={[styles.amenityText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}>{service}</ThemedText>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity 
+              style={[styles.bookButton, { backgroundColor: colorPalette.primary }]} 
+              onPress={() => {
+                router.push({
+                  pathname: '/laundry-list',
+                  params: { selectedServiceId: item.id, serviceType: 'laundry' }
+                });
+              }}
+            >
+              <ThemedText style={[styles.bookButtonText, { fontSize: isLargeScreen ? 14 : 16 }]}>View Details</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
-        <TouchableOpacity 
-          style={[styles.serviceButton, { backgroundColor: colorPalette.primary }]} 
-          onPress={() => {
-            if (serviceType === 'laundry') {
-              router.push({
-                pathname: '/laundry-list',
-                params: { selectedServiceId: item.id, serviceType: 'laundry' }
-              });
-            } else {
+      );
+    }
+
+    // Enhanced auto service display with same appearance as apartment rentals
+    return (
+      <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+        <RobustImage 
+          source={item.image} 
+          style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
+          resizeMode="cover"
+        />
+        <View style={styles.itemOverlay}> 
+          <View style={[
+            styles.availabilityBadge, 
+            { 
+              backgroundColor: item.available ? '#10B981' : '#EF4444',
+              borderWidth: 1,
+              borderColor: item.available ? '#059669' : '#DC2626',
+              shadowColor: item.available ? '#10B981' : '#EF4444',
+              shadowOpacity: 0.2,
+              shadowRadius: 2,
+              shadowOffset: { width: 0, height: 1 },
+              elevation: 2,
+            }
+          ]}> 
+            <MaterialIcons 
+              name={item.available ? "check-circle" : "cancel"} 
+              size={14} 
+              color="#fff" 
+            />
+            <ThemedText style={[
+              styles.availabilityText,
+              { 
+                color: '#fff',
+                fontWeight: '600',
+                fontSize: isLargeScreen ? 12 : 14,
+              }
+            ]}>
+              {item.available ? 'Available' : 'Unavailable'}
+            </ThemedText>
+          </View>
+          <View style={styles.priceTag}> 
+            <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
+          </View>
+        </View>
+        <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
+          <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 18 : 20 }]}> 
+            {item.title}
+          </ThemedText>
+
+          {/* Description */}
+          {item.description && (
+            <ThemedText style={[styles.description, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 14 : 16 }]} numberOfLines={2}>
+              {item.description}
+            </ThemedText>
+          )}
+
+          {/* Rating and Reviews */}
+          {(item.rating > 0 || item.reviews > 0) && (
+            <View style={styles.ratingContainer}>
+              <View style={styles.ratingRow}>
+                <MaterialIcons name="star" size={16} color="#FFD700" />
+                <ThemedText style={[styles.ratingText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 14 : 16 }]}>
+                  {item.rating.toFixed(1)}
+                </ThemedText>
+                <ThemedText style={[styles.reviewsText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 12 : 14 }]}>
+                  ({item.reviews} review{item.reviews !== 1 ? 's' : ''})
+                </ThemedText>
+              </View>
+            </View>
+          )}
+
+          {/* Service Details */}
+          <View style={styles.serviceDetailsContainer}>
+            <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+              <Ionicons name="time-outline" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+              <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                {item.duration}
+              </ThemedText>
+            </View>
+            {item.location && (
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <MaterialIcons name="location-on" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                  {item.location}
+                </ThemedText>
+              </View>
+            )}
+            {item.serviceType && (
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <MaterialIcons name="build" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                  {item.serviceType}
+                </ThemedText>
+              </View>
+            )}
+            {item.vehicleType && (
+              <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <MaterialIcons name="directions-car" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666', fontSize: isLargeScreen ? 13 : 15 }]}>
+                  {item.vehicleType}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+
+          {/* Services Offered as Amenities */}
+          <View style={styles.amenitiesContainer}> 
+            {item.services && item.services.length > 0 && item.services.slice(0, isLargeScreen ? 2 : isTablet ? 3 : 4).map((service: string, index: number) => (
+              <View key={index} style={styles.amenityBadge}> 
+                <ThemedText style={[styles.amenityText, { color: textColor, fontSize: isLargeScreen ? 12 : 14 }]}>{service}</ThemedText>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity 
+            style={[styles.bookButton, { backgroundColor: colorPalette.primary }]} 
+            onPress={() => {
               router.push({
                 pathname: '/auto-list',
                 params: { selectedServiceId: item.id, serviceType: 'auto' }
               });
-            }
-          }}
-        >
-          <ThemedText style={[styles.serviceButtonText, { fontSize: isLargeScreen ? 12 : 14 }]}> 
-            View Details
-          </ThemedText>
-        </TouchableOpacity>
+            }}
+          >
+            <ThemedText style={[styles.bookButtonText, { fontSize: isLargeScreen ? 14 : 16 }]}>View Details</ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}> 
@@ -532,7 +931,7 @@ export default function UserHome() {
                 <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
                   {`Welcome${firstName ? `, ${firstName}` : ''}!`}
                 </ThemedText>
-                <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}> 
+                <ThemedText type="default" style={[styles.subtitle, { color: textColor }]}> 
                   Find the best services for your needs
                 </ThemedText>
               </View>
@@ -663,10 +1062,10 @@ export default function UserHome() {
                     style={styles.seeAllButton}
                     onPress={() => router.push('/apartment-list')}
                   >
-                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}> 
+                    <ThemedText style={[styles.seeAllText, { color: textColor }]}> 
                       See All
                     </ThemedText>
-                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                    <MaterialIcons name="chevron-right" size={20} color={textColor} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -755,15 +1154,28 @@ export default function UserHome() {
                     style={styles.seeAllButton}
                     onPress={() => router.push('/laundry-list')}
                   >
-                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
+                    <ThemedText style={[styles.seeAllText, { color: isDark ? '#fff' : '#000' }]}>
                       See All
                     </ThemedText>
-                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                    <MaterialIcons name="chevron-right" size={20} color={isDark ? '#fff' : '#000'} />
                   </TouchableOpacity>
                 )}
               </View>
               
-              {laundryServices.length > 0 ? (
+              {/* Trigger laundry services loading when user scrolls to this section */}
+              <View 
+                onLayout={() => loadLaundryServices()}
+                style={{ height: 1, width: '100%' }}
+              />
+              
+              {!laundryServicesLoaded ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                  <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
+                  <ThemedText style={{ color: subtitleColor, fontSize: 16, marginTop: 16 }}>
+                    Scroll down to load laundry services...
+                  </ThemedText>
+                </View>
+              ) : laundryServices.length > 0 ? (
                 <>
                   <FlatList
                     ref={laundryFlatListRef}
@@ -847,10 +1259,10 @@ export default function UserHome() {
                     style={styles.seeAllButton}
                     onPress={() => router.push('/auto-list')}
                   >
-                    <ThemedText style={[styles.seeAllText, { color: colorPalette.primary }]}>
+                    <ThemedText style={[styles.seeAllText, { color: isDark ? '#fff' : '#000' }]}>
                       See All
                     </ThemedText>
-                    <MaterialIcons name="chevron-right" size={20} color={colorPalette.primary} />
+                    <MaterialIcons name="chevron-right" size={20} color={isDark ? '#fff' : '#000'} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1060,7 +1472,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   carouselItem: {
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -1113,6 +1525,60 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 8,
   },
+  description: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  ratingContainer: {
+    marginBottom: 8,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 3,
+  },
+  reviewsText: {
+    fontSize: 10,
+    marginLeft: 3,
+  },
+  locationContainer: {
+    marginBottom: 8,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  addressText: {
+    fontSize: 10,
+    marginLeft: 3,
+    fontStyle: 'italic',
+  },
+  apartmentDetailsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+    gap: 4,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  detailText: {
+    marginLeft: 4,
+    fontSize: 10,
+    fontWeight: '500',
+  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1149,7 +1615,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   serviceItem: {
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -1176,10 +1642,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  detailText: {
-    marginLeft: 8,
-    fontSize: 14,
-  },
   serviceButton: {
     borderRadius: 12,
     paddingVertical: 10,
@@ -1201,5 +1663,12 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
+  },
+  // Enhanced laundry service styles
+  serviceDetailsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+    gap: 6,
   },
 });

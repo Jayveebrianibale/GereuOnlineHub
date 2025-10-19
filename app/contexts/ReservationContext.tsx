@@ -87,7 +87,7 @@ interface ReservationContextType {
   
   reserveApartment: (apartment: Apartment) => Promise<void>;
   removeReservation: (apartmentId: string) => Promise<void>;
-  updateApartmentStatus: (apartmentId: string, status: Apartment['status']) => Promise<void>;
+  updateApartmentStatus: (apartmentId: string, status: Apartment['status'], bedId?: string) => Promise<void>;
 
   reserveLaundryService: (service: LaundryService) => Promise<void>;
   removeLaundryReservation: (serviceId: string) => Promise<void>;
@@ -146,6 +146,7 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
             id: r.id,
             title: r.serviceTitle,
             price: r.servicePrice,
+            servicePrice: r.servicePrice, // Preserve servicePrice for down payment calculation
             location: r.serviceLocation || '',
             image: r.serviceImage || null,
             status: r.status,
@@ -367,6 +368,18 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
       const firebaseReservation = reservations.find(r => r.serviceId === apartmentId && r.serviceType === 'apartment');
       
       if (firebaseReservation) {
+        // If this is a bed reservation, cancel the specific bed first
+        if (firebaseReservation.bedId) {
+          try {
+            const { cancelBedReservation } = await import('../services/apartmentService');
+            await cancelBedReservation(apartmentId, firebaseReservation.bedId);
+            console.log('✅ Bed reservation cancelled successfully in context');
+          } catch (bedError) {
+            console.error('❌ Error cancelling bed reservation in context:', bedError);
+            // Continue with reservation removal even if bed cancellation fails
+          }
+        }
+        
         await removeUserReservation(user.uid, firebaseReservation.id);
         // Notify admins cancellation
         await notifyAdmins('Reservation cancelled', `Apartment reservation cancelled`, {
@@ -504,13 +517,18 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateApartmentStatus = async (apartmentId: string, status: Apartment['status']) => {
+  const updateApartmentStatus = async (apartmentId: string, status: Apartment['status'], bedId?: string) => {
     if (!user) return;
     
     try {
       setError(null);
       const reservations = await getUserReservations(user.uid);
-      const firebaseReservation = reservations.find(r => r.serviceId === apartmentId && r.serviceType === 'apartment');
+      
+      // If bedId is provided, find the specific bed reservation
+      // Otherwise, find the first apartment reservation (for non-bed reservations)
+      const firebaseReservation = bedId 
+        ? reservations.find(r => r.serviceId === apartmentId && r.serviceType === 'apartment' && (r as any).bedId === bedId)
+        : reservations.find(r => r.serviceId === apartmentId && r.serviceType === 'apartment' && !(r as any).bedId);
       
       if (firebaseReservation) {
         await updateUserReservationStatus(user.uid, firebaseReservation.id, status || 'pending');

@@ -12,7 +12,6 @@ import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     Animated,
     Dimensions,
     Image,
@@ -31,6 +30,7 @@ import Toast from '../../../components/Toast';
 import { Colors } from '../../../constants/Colors';
 import { storeUserData } from '../../../utils/userUtils';
 import PasswordStrengthIndicator from '../../components/PasswordStrengthIndicator';
+import TermsAndPrivacyModal from '../../components/TermsAndPrivacyModal';
 import { isAdminEmail } from '../../config/adminConfig';
 import { auth } from '../../firebaseConfig';
 import { PasswordStrength, validatePasswordStrength } from '../../utils/passwordStrength';
@@ -73,6 +73,7 @@ export default function SignupScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
   const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
@@ -301,18 +302,21 @@ export default function SignupScreen() {
   };
 
   const showTermsAndConditions = () => {
-    Alert.alert(
-      'Terms and Conditions',
-      'By using Gereu Smart Services, you agree to:\n\n' +
-      '• Provide accurate and complete information\n' +
-      '• Maintain the security of your account\n' +
-      '• Use the service for lawful purposes only\n' +
-      '• Respect other users and their privacy\n' +
-      '• Not share your account credentials\n\n' +
-      'We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of any changes.\n\n' +
-      'For the complete terms, please contact our support team.',
-      [{ text: 'OK' }]
-    );
+    setShowTermsModal(true);
+  };
+
+  const handleAcceptTerms = () => {
+    setAcceptedTerms(true);
+    setTouchedFields(prev => ({ ...prev, terms: true }));
+    // Clear any terms error
+    if (fieldErrors.terms) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.terms;
+        return newErrors;
+      });
+    }
+    setToast({ visible: true, message: 'Terms and Privacy Policy accepted', type: 'success' });
   };
 
   return (
@@ -609,15 +613,8 @@ export default function SignupScreen() {
                   <TouchableOpacity
                     style={styles.termsContainer}
                     onPress={() => {
-                      setAcceptedTerms(!acceptedTerms);
-                      setTouchedFields(prev => ({ ...prev, terms: true }));
-                      if (fieldErrors.terms) {
-                        setFieldErrors(prev => {
-                          const newErrors = { ...prev };
-                          delete newErrors.terms;
-                          return newErrors;
-                        });
-                      }
+                      // Show the Terms and Privacy modal when checkbox is clicked
+                      setShowTermsModal(true);
                     }}
                   >
                     <View style={[
@@ -637,7 +634,7 @@ export default function SignupScreen() {
                         style={styles.termsLink}
                         onPress={showTermsAndConditions}
                       >
-                        Terms and Conditions
+                        Terms and Conditions & Data Privacy Policy
                       </Text>
                     </Text>
                   </TouchableOpacity>
@@ -724,6 +721,12 @@ export default function SignupScreen() {
         message={toast.message}
         type={toast.type}
         onHide={() => setToast({ ...toast, visible: false })}
+      />
+      
+      <TermsAndPrivacyModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={handleAcceptTerms}
       />
     </SafeAreaView>
   );

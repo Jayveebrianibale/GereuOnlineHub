@@ -14,11 +14,13 @@ import { useMemo, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { AdminPaymentSettingsModal } from '../components/AdminPaymentSettings';
 import { RobustImage } from '../components/RobustImage';
+import { getAccessibleModules, getAdminRole, isSuperAdmin } from '../config/adminConfig';
 import { useAdminReservation } from '../contexts/AdminReservationContext';
+import { useAuthContext } from '../contexts/AuthContext';
 import { useReservation } from '../contexts/ReservationContext';
 import { notifyUser } from '../services/notificationService';
 import { calculateDownPayment, isPaymentRequired } from '../services/paymentService';
-import { getUserReservations, updateAdminReservationPaymentStatus, updateUserReservationStatus } from '../services/reservationService';
+import { getUserReservations, removeReservationCompletely, updateAdminReservationPaymentStatus, updateUserReservationStatus } from '../services/reservationService';
 import { formatPHP } from '../utils/currency';
 
 // ========================================
@@ -68,12 +70,24 @@ export default function ReservationsScreen() {
   const { colorScheme } = useColorScheme(); // Theme management
   const { width, height } = useWindowDimensions(); // Screen dimensions
   const isPortrait = height > width; // Check kung portrait orientation
-  const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error } = useAdminReservation(); // Admin reservation context
+  const { adminReservations, updateReservationStatus, removeAdminReservation, loading, error, getReservationsByModule } = useAdminReservation(); // Admin reservation context
   const { updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation(); // Reservation context
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'declined'>('all'); // Status filter state
   const [filterVisible, setFilterVisible] = useState(false); // Filter modal visibility
   const [paymentSettingsVisible, setPaymentSettingsVisible] = useState(false); // Payment settings modal visibility
   const [searchQuery, setSearchQuery] = useState(''); // Search query state
+  const [balanceModalVisible, setBalanceModalVisible] = useState(false); // Balance modal visibility
+  const [selectedReservation, setSelectedReservation] = useState<any>(null); // Selected reservation for balance view
+  
+  // ========================================
+  // ROLE-BASED ACCESS CONTROL
+  // ========================================
+  // Get admin role information for role-based filtering
+  const { user } = useAuthContext();
+  const adminEmail = user?.email || '';
+  const adminRole = getAdminRole(adminEmail);
+  const accessibleModules = getAccessibleModules(adminEmail);
+  const isSuperAdminUser = isSuperAdmin(adminEmail);
   
   const isDark = colorScheme === 'dark';
   const bgColor = isDark ? '#121212' : '#fff';
@@ -163,7 +177,7 @@ export default function ReservationsScreen() {
     };
   }, [adminReservations]);
 
-  const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
+  const handleAcceptReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, bedId?: string) => {
     const performUpdate = async () => {
       try {
         await updateReservationStatus(reservationId, 'confirmed');
@@ -173,7 +187,13 @@ export default function ReservationsScreen() {
         // Update corresponding user's reservation regardless of current auth context
         try {
           const userReservations = await getUserReservations(userId);
-          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+          
+          // If bedId is provided, find the specific bed reservation
+          // Otherwise, find the first reservation for that service
+          const target = bedId 
+            ? userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType && (r as any).bedId === bedId)
+            : userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+            
           if (target) {
             await updateUserReservationStatus(userId, target.id, 'confirmed');
           }
@@ -204,14 +224,20 @@ export default function ReservationsScreen() {
     );
   };
 
-  const handleDeclineReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string) => {
+  const handleDeclineReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, bedId?: string) => {
     const performUpdate = async () => {
       try {
         await updateReservationStatus(reservationId, 'declined');
         // Update corresponding user's reservation regardless of current auth context
         try {
           const userReservations = await getUserReservations(userId);
-          const target = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+          
+          // If bedId is provided, find the specific bed reservation
+          // Otherwise, find the first reservation for that service
+          const target = bedId 
+            ? userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType && (r as any).bedId === bedId)
+            : userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+            
           if (target) {
             await updateUserReservationStatus(userId, target.id, 'declined');
           }
@@ -241,17 +267,31 @@ export default function ReservationsScreen() {
     );
   };
 
-  const handleDeleteReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, serviceTitle: string) => {
+  const handleDeleteReservation = (reservationId: string, serviceType: string, serviceId: string, userId: string, serviceTitle: string, bedId?: string) => {
     const performDelete = async () => {
       try {
-        // Only delete admin reservation, leave user reservation intact
-        await removeAdminReservation(reservationId);
-        console.log('✅ Admin reservation deleted successfully');
+        // Delete both admin and user reservations completely
+        await removeReservationCompletely(
+          reservationId,
+          userId,
+          serviceType as 'apartment' | 'laundry' | 'auto',
+          serviceId
+        );
+        console.log('✅ Both admin and user reservations deleted successfully');
         
         // Update service status to pending (available for new reservations)
+        // For bed reservations, we need to handle bed-specific cancellation
         try {
           if (serviceType === 'apartment') {
-            await updateApartmentStatus(serviceId, 'pending');
+            if (bedId) {
+              // If this is a bed reservation, cancel the specific bed
+              const { cancelBedReservation } = await import('../services/apartmentService');
+              await cancelBedReservation(serviceId, bedId);
+              console.log('✅ Bed reservation cancelled successfully');
+            } else {
+              // For non-bed apartment reservations, update apartment status
+              await updateApartmentStatus(serviceId, 'pending');
+            }
           } else if (serviceType === 'laundry') {
             await updateLaundryStatus(serviceId, 'pending');
           } else if (serviceType === 'auto') {
@@ -261,19 +301,19 @@ export default function ReservationsScreen() {
           console.warn('Failed updating service status:', e);
         }
         
-        // Notify user about the admin action (optional)
+        // Notify user about the reservation deletion
         try {
           await notifyUser(
             userId,
-            'Admin Action Notice',
-            `Admin has processed your ${serviceTitle} reservation.`,
-            { serviceType, serviceId, action: 'admin_processed' }
+            'Reservation Deleted',
+            `Your ${serviceTitle} reservation has been deleted by admin.`,
+            { serviceType, serviceId, action: 'reservation_deleted' }
           );
         } catch {}
         
-        Alert.alert('Success', 'Reservation has been removed from admin panel!');
+        Alert.alert('Delete Success', 'Reservation has been deleted successfully!');
       } catch (error) {
-        console.error('Error deleting admin reservation:', error);
+        console.error('Error deleting reservation:', error);
         Alert.alert('Error', 'Failed to delete reservation. Please try again.');
       }
     };
@@ -284,11 +324,15 @@ export default function ReservationsScreen() {
     }
 
     Alert.alert(
-      'Remove from Admin Panel',
-      `Are you sure you want to remove this reservation for "${serviceTitle}" from the admin panel? The user's reservation will remain intact.`,
+      'Delete Reservation',
+      'Are you sure you want to delete?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: performDelete }
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes', 
+          onPress: performDelete,
+          style: 'destructive'
+        }
       ]
     );
   };
@@ -324,8 +368,23 @@ export default function ReservationsScreen() {
                 fontSize: subtitleSize 
               }
             ]}>
-              Manage all customer reservations
+              {isSuperAdminUser 
+                ? 'Manage all customer reservations' 
+                : `Manage ${adminRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} reservations`
+              }
             </ThemedText>
+            {!isSuperAdminUser && (
+              <ThemedText type="default" style={[
+                styles.roleIndicator, 
+                { 
+                  color: colorPalette.primary, 
+                  fontSize: subtitleSize - 2,
+                  marginTop: 4
+                }
+              ]}>
+                Access: {accessibleModules.join(', ').replace(/\b\w/g, l => l.toUpperCase())}
+              </ThemedText>
+            )}
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity style={[
@@ -508,423 +567,1031 @@ export default function ReservationsScreen() {
                         </ThemedText>
                       )}
                     </ThemedText>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(reservation.status) + '20' }
-                    ]}>
-                      <ThemedText style={[
-                        styles.statusText,
-                        { color: getStatusColor(reservation.status) }
-                      ]}>
-                        {(reservation.status || 'pending').charAt(0).toUpperCase() + (reservation.status || 'pending').slice(1)}
-                      </ThemedText>
-                    </View>
+                    {/* Status badge removed for laundry services */}
                   </View>
                 
                 <View style={styles.reservationDetails}>
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="person" size={16} color={subtitleColor} />
-                    <ThemedText style={[
-                      styles.detailText, 
-                      { color: textColor }
-                    ]}>
-                      {reservation.userName}
-                    </ThemedText>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="email" size={16} color={subtitleColor} />
-                    <ThemedText style={[
-                      styles.detailText, 
-                      { color: textColor }
-                    ]}>
-                      {reservation.userEmail}
-                    </ThemedText>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="category" size={16} color={subtitleColor} />
-                    <ThemedText style={[
-                      styles.detailText, 
-                      { color: textColor }
-                    ]}>
-                      {getServiceTypeDisplayName(reservation.serviceType)}
-                      {/* Show bed information for apartment reservations */}
-                      {reservation.serviceType === 'apartment' && (reservation as any).bedId && (
-                        <ThemedText style={[
-                          styles.bedInfoText, 
-                          { color: colorPalette.primary }
-                        ]}>
-                          {' '}- Bed {(reservation as any).bedNumber || 'N/A'}
+                  {/* Professional Laundry Service Summary */}
+                  {reservation.serviceType === 'laundry' && (
+                    <View style={[styles.laundrySummaryCard, { 
+                      backgroundColor: isDark ? '#1A1A1A' : '#F8FAFC',
+                      borderColor: isDark ? '#333' : '#E2E8F0'
+                    }]}>
+                      {/* Header with Status */}
+                      <View style={styles.laundrySummaryHeader}>
+                        <View style={styles.laundrySummaryTitleContainer}>
+                          <MaterialIcons name="local-laundry-service" size={20} color={textColor} />
+                          <ThemedText style={[styles.laundrySummaryTitle, { color: textColor }]}>
+                            Laundry Service
                         </ThemedText>
-                      )}
-                    </ThemedText>
+                      </View>
+                        <View style={[styles.laundryStatusIndicator, { 
+                          backgroundColor: getStatusColor(reservation.status) + '15',
+                          borderColor: getStatusColor(reservation.status) + '40'
+                        }]}>
+                          <ThemedText style={[styles.laundryStatusText, { 
+                            color: getStatusColor(reservation.status) 
+                          }]}>
+                            {(reservation.status || 'pending').toUpperCase()}
+                          </ThemedText>
+                        </View>
                   </View>
-                  
-                  {reservation.serviceLocation && (
-                    <View style={styles.detailRow}>
-                      <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                      <ThemedText style={[
-                        styles.detailText, 
-                        { color: textColor }
-                      ]}>
+                
+                      {/* Professional Information Grid */}
+                      <View style={[styles.laundryInfoGrid, { 
+                        flexDirection: width < 600 ? 'column' : 'row',
+                        gap: width < 400 ? 4 : 6
+                      }]}>
+                        {/* Service Type */}
+                        <View style={[styles.laundryInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.laundryInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                          }]}>
+                            <MaterialIcons name="category" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.laundryInfoContent}>
+                            <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                              Service Type
+                            </ThemedText>
+                            <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                        {getServiceTypeDisplayName(reservation.serviceType)}
+                      </ThemedText>
+                    </View>
+                        </View>
+
+                        {/* Service Location */}
+                        {reservation.serviceLocation && (
+                          <View style={[styles.laundryInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.laundryInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)'
+                            }]}>
+                              <MaterialIcons name="location-on" size={18} color={textColor} />
+                            </View>
+                            <View style={styles.laundryInfoContent}>
+                              <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                Service Location
+                              </ThemedText>
+                              <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                                {reservation.serviceLocation}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Customer Information */}
+                        <View style={[styles.laundryInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.laundryInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)'
+                          }]}>
+                            <MaterialIcons name="person" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.laundryInfoContent}>
+                            <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                              Customer Name
+                            </ThemedText>
+                            <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                              {reservation.userName || 'N/A'}
+                            </ThemedText>
+                          </View>
+                        </View>
+
+                        {/* Contact Email */}
+                        <View style={[styles.laundryInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.laundryInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.1)'
+                          }]}>
+                            <MaterialIcons name="email" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.laundryInfoContent}>
+                            <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                              Contact Email
+                            </ThemedText>
+                            <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                              {reservation.userEmail || 'N/A'}
+                            </ThemedText>
+                          </View>
+                        </View>
+
+                        {/* Service Price */}
+                        <View style={[styles.laundryInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.laundryInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
+                          }]}>
+                            <MaterialIcons name="attach-money" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.laundryInfoContent}>
+                            <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                              Service Price
+                            </ThemedText>
+                            <ThemedText style={[styles.laundryInfoValue, { color: '#10B981' }]}>
+                              {formatPHP(reservation.servicePrice)}
+                            </ThemedText>
+                          </View>
+                        </View>
+
+                        {/* Service Location */}
+                        {reservation.serviceLocation && (
+                          <View style={[styles.laundryInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.laundryInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)'
+                            }]}>
+                              <MaterialIcons name="location-on" size={18} color={textColor} />
+                            </View>
+                            <View style={styles.laundryInfoContent}>
+                              <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                Service Location
+                              </ThemedText>
+                              <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
                         {reservation.serviceLocation}
                       </ThemedText>
+                            </View>
                     </View>
                   )}
                   
-                  {/* Shipping Information for Laundry Services Only */}
-                  {reservation.serviceType === 'laundry' && (reservation as any).shippingInfo && (
-                    <>
-                      <View key="shipping-delivery-type" style={styles.detailRow}>
+                        {/* Reservation Date */}
+                        <View style={[styles.laundryInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.laundryInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)'
+                          }]}>
+                            <MaterialIcons name="calendar-today" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.laundryInfoContent}>
+                            <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                              Reservation Date
+                            </ThemedText>
+                            <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                              {formatDate(reservation.reservationDate)}
+                            </ThemedText>
+                          </View>
+                        </View>
+
+                        {/* Payment Information */}
+                        {isPaymentRequired(reservation.serviceType) && (
+                          <>
+                            <View style={[styles.laundryInfoItem, { 
+                              minWidth: width < 600 ? '100%' : '45%',
+                              backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                              borderColor: isDark ? '#404040' : '#E5E7EB',
+                              borderRadius: 12,
+                              padding: 16,
+                              borderWidth: 1,
+                              shadowColor: '#000',
+                              shadowOpacity: 0.04,
+                              shadowRadius: 4,
+                              shadowOffset: { width: 0, height: 2 },
+                              elevation: 2,
+                            }]}>
+                              <View style={[styles.laundryInfoIcon, { 
+                                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                              }]}>
+                                <MaterialIcons name="payment" size={18} color="#8B5CF6" />
+                              </View>
+                              <View style={styles.laundryInfoContent}>
+                                <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                  Service Fee
+                                </ThemedText>
+                                <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                                  {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
+                                </ThemedText>
+                              </View>
+                            </View>
+
+                            <View style={[styles.laundryInfoItem, { 
+                              minWidth: width < 600 ? '100%' : '45%',
+                              backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                              borderColor: isDark ? '#404040' : '#E5E7EB',
+                              borderRadius: 12,
+                              padding: 16,
+                              borderWidth: 1,
+                              shadowColor: '#000',
+                              shadowOpacity: 0.04,
+                              shadowRadius: 4,
+                              shadowOffset: { width: 0, height: 2 },
+                              elevation: 2,
+                            }]}>
+                              <View style={[styles.laundryInfoIcon, { 
+                                backgroundColor: (reservation as any).paymentStatus === 'paid' 
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                                  : (isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)')
+                              }]}>
+                                <MaterialIcons 
+                                  name={(reservation as any).paymentStatus === 'paid' ? 'check-circle' : 'pending'} 
+                                  size={18} 
+                                  color={(reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B'} 
+                                />
+                              </View>
+                              <View style={styles.laundryInfoContent}>
+                                <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                  Payment Status
+                                </ThemedText>
+                                <ThemedText style={[styles.laundryInfoValue, { 
+                                  color: (reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B' 
+                                }]}>
+                                  {(reservation as any).paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                                </ThemedText>
+                              </View>
+                            </View>
+                          </>
+                        )}
+                      </View>
+
+                      {/* Shipping Information for Laundry Services */}
+                      {(reservation as any).shippingInfo && (
+                        <View style={[styles.laundryInfoGrid, { 
+                          flexDirection: width < 600 ? 'column' : 'row',
+                          gap: width < 400 ? 4 : 6,
+                          marginTop: 12
+                        }]}>
+                          {/* Delivery Type */}
+                          <View style={[styles.laundryInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.laundryInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(0, 178, 255, 0.15)' : 'rgba(0, 178, 255, 0.1)'
+                            }]}>
                         <MaterialIcons 
                           name={(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                          size={16} 
-                          color={subtitleColor} 
-                        />
-                        <ThemedText style={[
-                          styles.detailText, 
-                          { color: textColor }
-                        ]}>
-                          Delivery: {(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                                size={18} 
+                                color={textColor} 
+                              />
+                            </View>
+                            <View style={styles.laundryInfoContent}>
+                              <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                Delivery Type
+                              </ThemedText>
+                              <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                                {(reservation as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
                         </ThemedText>
+                            </View>
                       </View>
                       
                       {/* Drop Off Address */}
                       {(reservation as any).shippingInfo.deliveryType === 'dropoff' && (reservation as any).shippingInfo.address && (
-                        <View key="shipping-dropoff-address" style={styles.detailRow}>
-                          <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                          <ThemedText style={[
-                            styles.detailText, 
-                            { color: textColor }
-                          ]}>
-                            Address: {(reservation as any).shippingInfo.address}
+                            <View style={[styles.laundryInfoItem, { 
+                              minWidth: width < 600 ? '100%' : '45%',
+                              backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                              borderColor: isDark ? '#404040' : '#E5E7EB',
+                              borderRadius: 12,
+                              padding: 16,
+                              borderWidth: 1,
+                              shadowColor: '#000',
+                              shadowOpacity: 0.04,
+                              shadowRadius: 4,
+                              shadowOffset: { width: 0, height: 2 },
+                              elevation: 2,
+                            }]}>
+                              <View style={[styles.laundryInfoIcon, { 
+                                backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)'
+                              }]}>
+                                <MaterialIcons name="location-on" size={18} color={textColor} />
+                              </View>
+                              <View style={styles.laundryInfoContent}>
+                                <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
+                                  Drop Off Address
+                                </ThemedText>
+                                <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                                  {(reservation as any).shippingInfo.address}
                           </ThemedText>
+                              </View>
                         </View>
                       )}
                       
                       {/* Pickup Details */}
                       {(reservation as any).shippingInfo.deliveryType === 'pickup' && (
-                        <View key="shipping-pickup-details" style={[
-                          styles.pickupDetailsContainer,
-                          {
-                            backgroundColor: isDark 
-                              ? 'rgba(0, 178, 255, 0.12)' 
-                              : 'rgba(0, 178, 255, 0.08)',
-                            borderColor: isDark 
-                              ? 'rgba(0, 178, 255, 0.3)' 
-                              : 'rgba(0, 178, 255, 0.2)',
-                          }
-                        ]}>
-                          <View style={styles.pickupDetailsHeader}>
-                            <MaterialIcons name="local-shipping" size={18} color={colorPalette.primary} />
-                            <ThemedText style={[styles.pickupDetailsTitle, { color: textColor }]}>
+                            <View style={[styles.laundryInfoItem, { 
+                              minWidth: width < 600 ? '100%' : '45%',
+                              backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                              borderColor: isDark ? '#404040' : '#E5E7EB',
+                              borderRadius: 12,
+                              padding: 16,
+                              borderWidth: 1,
+                              shadowColor: '#000',
+                              shadowOpacity: 0.04,
+                              shadowRadius: 4,
+                              shadowOffset: { width: 0, height: 2 },
+                              elevation: 2,
+                            }]}>
+                              <View style={[styles.laundryInfoIcon, { 
+                                backgroundColor: isDark ? 'rgba(0, 178, 255, 0.15)' : 'rgba(0, 178, 255, 0.1)'
+                              }]}>
+                                <MaterialIcons name="local-shipping" size={18} color={textColor} />
+                              </View>
+                              <View style={styles.laundryInfoContent}>
+                                <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
                               Pickup Details
                             </ThemedText>
-                          </View>
-                          
-                          <View style={styles.pickupDetailsContent}>
-                            {/* Date and Time Row */}
-                            <View style={styles.pickupDateTimeRow}>
-                              {(reservation as any).shippingInfo.pickupDate && (
-                                <View 
-                                  key="pickup-date"
-                                  style={[
-                                    styles.pickupDetailItem,
-                                    {
-                                      backgroundColor: isDark 
-                                        ? 'rgba(0, 178, 255, 0.15)' 
-                                        : 'rgba(0, 178, 255, 0.06)',
-                                    }
-                                  ]}>
-                                  <MaterialIcons name="event" size={16} color={colorPalette.primary} />
-                                  <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Date</ThemedText>
-                                  <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                    {(reservation as any).shippingInfo.pickupDate}
+                                <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
+                                  {`${(reservation as any).shippingInfo.pickupDate || 'N/A'} at ${(reservation as any).shippingInfo.pickupTime || 'N/A'}`}
                                   </ThemedText>
-                                </View>
-                              )}
-                              {(reservation as any).shippingInfo.pickupTime && (
-                                <View 
-                                  key="pickup-time"
-                                  style={[
-                                    styles.pickupDetailItem,
-                                    {
-                                      backgroundColor: isDark 
-                                        ? 'rgba(0, 178, 255, 0.15)' 
-                                        : 'rgba(0, 178, 255, 0.06)',
-                                    }
-                                  ]}>
-                                  <MaterialIcons name="schedule" size={16} color={colorPalette.primary} />
-                                  <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Time</ThemedText>
-                                  <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                    {(reservation as any).shippingInfo.pickupTime}
+                                {(reservation as any).shippingInfo.pickupAddress && (
+                                  <ThemedText style={[styles.laundryInfoValue, { color: textColor, marginTop: 4 }]}>
+                                    📍 {(reservation as any).shippingInfo.pickupAddress}
                                   </ThemedText>
+                                )}
+                                {(reservation as any).shippingInfo.pickupContactNumber && (
+                                  <ThemedText style={[styles.laundryInfoValue, { color: textColor, marginTop: 4 }]}>
+                                    📞 {(reservation as any).shippingInfo.pickupContactNumber}
+                                  </ThemedText>
+                                )}
+                              </View>
                                 </View>
                               )}
                             </View>
-                            
-                            {/* Address */}
-                            {(reservation as any).shippingInfo.pickupAddress && (
-                              <View 
-                                key="pickup-address"
-                                style={[
-                                  styles.pickupDetailItemFull,
-                                  {
-                                    backgroundColor: isDark 
-                                      ? 'rgba(0, 178, 255, 0.15)' 
-                                      : 'rgba(0, 178, 255, 0.06)',
-                                  }
-                                ]}>
-                                <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-                                <View style={styles.pickupDetailTextContainer}>
-                                  <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Pickup Address</ThemedText>
-                                  <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                    {(reservation as any).shippingInfo.pickupAddress}
-                                  </ThemedText>
-                                </View>
-                              </View>
-                            )}
-                            
-                            {/* Contact */}
-                            {(reservation as any).shippingInfo.pickupContactNumber && (
-                              <View 
-                                key="pickup-contact"
-                                style={[
-                                  styles.pickupDetailItemFull,
-                                  {
-                                    backgroundColor: isDark 
-                                      ? 'rgba(0, 178, 255, 0.15)' 
-                                      : 'rgba(0, 178, 255, 0.06)',
-                                  }
-                                ]}>
-                                <MaterialIcons name="phone" size={16} color={colorPalette.primary} />
-                                <View style={styles.pickupDetailTextContainer}>
-                                  <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Contact Number</ThemedText>
-                                  <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                    {(reservation as any).shippingInfo.pickupContactNumber}
-                                  </ThemedText>
-                                </View>
-                              </View>
-                            )}
-                            
-                            {/* Instructions */}
-                            {(reservation as any).shippingInfo.pickupInstructions && (reservation as any).shippingInfo.pickupInstructions !== 'No special instructions' && (
-                              <View 
-                                key="pickup-instructions"
-                                style={[
-                                  styles.pickupDetailItemFull,
-                                  {
-                                    backgroundColor: isDark 
-                                      ? 'rgba(0, 178, 255, 0.15)' 
-                                      : 'rgba(0, 178, 255, 0.06)',
-                                  }
-                                ]}>
-                                <MaterialIcons name="note" size={16} color={colorPalette.primary} />
-                                <View style={styles.pickupDetailTextContainer}>
-                                  <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Special Instructions</ThemedText>
-                                  <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                    {(reservation as any).shippingInfo.pickupInstructions}
-                                  </ThemedText>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        </View>
                       )}
-                    </>
-                  )}
-                  
-                  {/* Home Service Information */}
-                  {(reservation as any).homeService && (
-                    <View style={[styles.homeServiceContainer, { backgroundColor: cardBgColor, borderColor }]}>
-                      <View style={styles.homeServiceHeader}>
-                        <View style={styles.homeServiceIconContainer}>
-                          <MaterialIcons name="home" size={20} color="#10B981" />
+
+                      {/* Professional Action Summary - Moved to bottom */}
+                      <View style={[styles.laundryActionSummary, { 
+                        backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                        borderColor: isDark ? '#404040' : '#E5E7EB',
+                        marginTop: 16
+                      }]}>
+                        <ThemedText style={[styles.laundryActionText, { color: subtitleColor }]}>
+                          {reservation.status === 'pending' 
+                            ? 'Review and process this laundry service request'
+                            : reservation.status === 'confirmed'
+                            ? 'Monitor service progress and manage customer communication'
+                            : reservation.status === 'completed'
+                            ? 'Service completed successfully'
+                            : 'Service processed - no further action required'
+                          }
+                                  </ThemedText>
+                                </View>
+                              </View>
+                            )}
+                            
+                  {/* Professional Auto Service Summary */}
+                  {reservation.serviceType === 'auto' && (
+                    <View style={[styles.apartmentSummaryCard, { 
+                      backgroundColor: isDark ? '#1A1A1A' : '#F8FAFC',
+                      borderColor: isDark ? '#333' : '#E2E8F0'
+                    }]}>
+                      {/* Header with Status */}
+                      <View style={styles.apartmentSummaryHeader}>
+                        <View style={styles.apartmentSummaryTitleContainer}>
+                          <MaterialIcons name="build" size={20} color={textColor} />
+                          <ThemedText style={[styles.apartmentSummaryTitle, { color: textColor }]}>
+                            Car & Motor Services
+                                  </ThemedText>
                         </View>
-                        <ThemedText style={[styles.homeServiceTitle, { color: '#10B981' }]}>
-                          Home Service Request
+                        <View style={[styles.apartmentStatusIndicator, { 
+                          backgroundColor: getStatusColor(reservation.status) + '15',
+                          borderColor: getStatusColor(reservation.status) + '40'
+                        }]}>
+                          <ThemedText style={[styles.apartmentStatusText, { 
+                            color: getStatusColor(reservation.status) 
+                          }]}>
+                            {(reservation.status || 'pending').toUpperCase()}
+                          </ThemedText>
+                        </View>
+                                </View>
+                      
+                      {/* Professional Information Grid */}
+                      <View style={[styles.apartmentInfoGrid, { 
+                        flexDirection: width < 600 ? 'column' : 'row',
+                        gap: width < 400 ? 8 : 12
+                      }]}>
+                        {/* Customer Information */}
+                        <View style={[styles.apartmentInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.apartmentInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)'
+                          }]}>
+                            <MaterialIcons name="person" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.apartmentInfoContent}>
+                            <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                              Customer Name
+                            </ThemedText>
+                            <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                              {reservation.userName || 'N/A'}
+                                  </ThemedText>
+                                </View>
+                        </View>
+
+                        {/* Contact Email */}
+                        <View style={[styles.apartmentInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.apartmentInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.1)'
+                          }]}>
+                            <MaterialIcons name="email" size={18} color={textColor} />
+                        </View>
+                          <View style={styles.apartmentInfoContent}>
+                            <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                              Contact Email
+                            </ThemedText>
+                            <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                              {reservation.userEmail || 'N/A'}
                         </ThemedText>
+                          </View>
                       </View>
                       
-                      <View style={styles.homeServiceDetails}>
-                        {(reservation as any).problemDescription && (
-                          <View style={styles.homeServiceDetailItem}>
-                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#FEF3C7' }]}>
-                              <MaterialIcons name="build" size={16} color="#F59E0B" />
+                        {/* Service Type */}
+                        <View style={[styles.apartmentInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.apartmentInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(0, 178, 255, 0.15)' : 'rgba(0, 178, 255, 0.1)'
+                          }]}>
+                            <MaterialIcons name="build" size={18} color={textColor} />
                             </View>
-                            <View style={styles.homeServiceDetailContent}>
-                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                                Problem Description
+                          <View style={styles.apartmentInfoContent}>
+                            <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                              Service Type
                               </ThemedText>
-                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
-                                {(reservation as any).problemDescription}
+                            <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                              {(() => {
+                                if ((reservation as any).homeService) return 'Home Service';
+                                if ((reservation as any).shopService) return 'Shop Service';
+                                return 'Car & Motor Parts';
+                              })()}
                               </ThemedText>
                             </View>
                           </View>
-                        )}
-                        
+
+                        {/* Service Price */}
+                        <View style={[styles.apartmentInfoItem, { 
+                          minWidth: width < 600 ? '100%' : '45%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                        }]}>
+                          <View style={[styles.apartmentInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
+                          }]}>
+                            <MaterialIcons name="attach-money" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.apartmentInfoContent}>
+                            <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                              Service Price
+                            </ThemedText>
+                            <ThemedText style={[styles.apartmentInfoValue, { color: '#10B981' }]}>
+                              {formatPHP(reservation.servicePrice)}
+                            </ThemedText>
+                          </View>
+                        </View>
+
+                        {/* Service Address */}
                         {(reservation as any).address && (
-                          <View style={styles.homeServiceDetailItem}>
-                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#DBEAFE' }]}>
-                              <MaterialIcons name="location-on" size={16} color="#3B82F6" />
+                          <View style={[styles.apartmentInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.apartmentInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)'
+                            }]}>
+                              <MaterialIcons name="location-on" size={18} color={textColor} />
                             </View>
-                            <View style={styles.homeServiceDetailContent}>
-                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                                Service Address
+                            <View style={styles.apartmentInfoContent}>
+                              <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                                {(reservation as any).homeService ? 'Service Address' : 'Location'}
                               </ThemedText>
-                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                              <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]} numberOfLines={2}>
                                 {(reservation as any).address}
                               </ThemedText>
                             </View>
                           </View>
                         )}
                         
+                        {/* Contact Number */}
                         {(reservation as any).contactNumber && (
-                          <View style={styles.homeServiceDetailItem}>
-                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#D1FAE5' }]}>
-                              <MaterialIcons name="phone" size={16} color="#10B981" />
+                          <View style={[styles.apartmentInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.apartmentInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)'
+                            }]}>
+                              <MaterialIcons name="phone" size={18} color={textColor} />
                             </View>
-                            <View style={styles.homeServiceDetailContent}>
-                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                            <View style={styles.apartmentInfoContent}>
+                              <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
                                 Contact Number
                               </ThemedText>
-                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                              <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
                                 {(reservation as any).contactNumber}
                               </ThemedText>
                             </View>
                           </View>
                         )}
                         
+                        {/* Preferred Time */}
                         {(reservation as any).preferredTime && (
-                          <View style={styles.homeServiceDetailItem}>
-                            <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#F3E8FF' }]}>
-                              <MaterialIcons name="schedule" size={16} color="#8B5CF6" />
+                          <View style={[styles.apartmentInfoItem, { 
+                            minWidth: width < 600 ? '100%' : '45%',
+                            backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                            borderColor: isDark ? '#404040' : '#E5E7EB',
+                            borderRadius: 12,
+                            padding: 16,
+                            borderWidth: 1,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.04,
+                            shadowRadius: 4,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: 2,
+                          }]}>
+                            <View style={[styles.apartmentInfoIcon, { 
+                              backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                            }]}>
+                              <MaterialIcons name="schedule" size={18} color={textColor} />
                             </View>
-                            <View style={styles.homeServiceDetailContent}>
-                              <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
+                            <View style={styles.apartmentInfoContent}>
+                              <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
                                 Preferred Time
                               </ThemedText>
-                              <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
+                              <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
                                 {(reservation as any).preferredTime}
                               </ThemedText>
                             </View>
                           </View>
                         )}
                       </View>
-                    </View>
-                  )}
-                  
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="calendar-today" size={16} color={subtitleColor} />
-                    <ThemedText style={[
-                      styles.detailText, 
-                      { color: textColor }
-                    ]}>
-                      {formatDate(reservation.reservationDate)}
-                    </ThemedText>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
-                    <ThemedText style={[
-                      styles.detailText, 
-                      { color: textColor }
-                    ]}>
-                      {formatPHP(reservation.servicePrice)}
-                    </ThemedText>
-                  </View>
 
-                  {/* Bed Information for Apartment Reservations */}
-                  {reservation.serviceType === 'apartment' && (reservation as any).bedId && (
-                    <View style={[styles.bedInfoContainer, { backgroundColor: cardBgColor, borderColor }]}>
-                      <View style={styles.bedInfoHeader}>
-                        <View style={styles.bedInfoIconContainer}>
-                          <MaterialIcons name="bed" size={20} color={colorPalette.primary} />
-                        </View>
-                        <ThemedText style={[styles.bedInfoTitle, { color: colorPalette.primary }]}>
-                          Bed Reservation Details
-                        </ThemedText>
-                      </View>
-                      
-                      <View style={styles.bedInfoDetails}>
-                        <View style={styles.bedInfoDetailItem}>
-                          <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
-                            <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
-                          </View>
-                          <View style={styles.bedInfoDetailContent}>
-                            <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
-                              Bed Number
-                            </ThemedText>
-                            <ThemedText style={[styles.bedInfoDetailValue, { color: textColor }]}> 
-                              Bed {(reservation as any).bedNumber || 'N/A'}
-                            </ThemedText>
-                          </View>
-                        </View>
-                        
-                        <View style={styles.bedInfoDetailItem}>
-                          <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                            <MaterialIcons name="check-circle" size={16} color="#10B981" />
-                          </View>
-                          <View style={styles.bedInfoDetailContent}>
-                            <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
-                              Bed Status
-                            </ThemedText>
-                            <ThemedText style={[styles.bedInfoDetailValue, { color: '#10B981' }]}> 
-                              Reserved
-                            </ThemedText>
-                          </View>
-                        </View>
-                        
-                        {(reservation as any).reservationDate && (
-                          <View style={styles.bedInfoDetailItem}>
-                            <View style={[styles.bedInfoDetailIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                              <MaterialIcons name="schedule" size={16} color="#F59E0B" />
-                            </View>
-                            <View style={styles.bedInfoDetailContent}>
-                              <ThemedText style={[styles.bedInfoDetailLabel, { color: subtitleColor }]}>
-                                Reservation Date
-                              </ThemedText>
-                              <ThemedText style={[styles.bedInfoDetailValue, { color: textColor }]}> 
-                                {formatDate((reservation as any).reservationDate)}
-                              </ThemedText>
-                            </View>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Payment Information */}
-                  {isPaymentRequired(reservation.serviceType) && (
-                    <>
-                      <View key="payment-section" style={styles.paymentSection}>
-                        <ThemedText style={[styles.paymentSectionTitle, { color: textColor }]}>
-                          Payment Information
-                        </ThemedText>
-                        
-                        <View key="payment-down-payment" style={styles.detailRow}>
-                          <MaterialIcons name="payment" size={16} color="#10B981" />
-                          <ThemedText style={[styles.detailText, { color: textColor }]}>
-                            Down Payment: {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
-                          </ThemedText>
-                        </View>
-                        
-                        <View key="payment-status" style={styles.detailRow}>
-                          <MaterialIcons 
-                            name={(reservation as any).paymentStatus === 'paid' ? 'check-circle' : 'pending'} 
-                            size={16} 
-                            color={(reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B'} 
-                          />
-                          <ThemedText style={[styles.detailText, { 
-                            color: (reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B' 
+                      {/* Problem Description - Full Width */}
+                      {(reservation as any).problemDescription && (
+                        <View style={[styles.apartmentInfoItem, { 
+                          width: '100%',
+                          backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                          borderColor: isDark ? '#404040' : '#E5E7EB',
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.04,
+                          shadowRadius: 4,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 2,
+                          marginTop: 12,
+                        }]}>
+                          <View style={[styles.apartmentInfoIcon, { 
+                            backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)'
                           }]}>
-                            Payment Status: {(reservation as any).paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                            <MaterialIcons name="description" size={18} color={textColor} />
+                          </View>
+                          <View style={styles.apartmentInfoContent}>
+                            <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                              Problem Description
+                            </ThemedText>
+                            <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]} numberOfLines={4}>
+                              {(reservation as any).problemDescription}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  
+                  
+                  {/* Professional Apartment Rental Summary */}
+                  {reservation.serviceType === 'apartment' && (
+                    <View style={[styles.apartmentSummaryCard, { 
+                      backgroundColor: isDark ? '#1A1A1A' : '#F8FAFC',
+                      borderColor: isDark ? '#333' : '#E2E8F0'
+                    }]}>
+                      {/* Header with Status */}
+                      <View style={styles.apartmentSummaryHeader}>
+                        <View style={styles.apartmentSummaryTitleContainer}>
+                            <MaterialIcons name="apartment" size={20} color={textColor} />
+                          <ThemedText style={[styles.apartmentSummaryTitle, { color: textColor }]}>
+                            Apartment Rental
+                          </ThemedText>
+                        </View>
+                        <View style={[styles.apartmentStatusIndicator, { 
+                          backgroundColor: getStatusColor(reservation.status) + '15',
+                          borderColor: getStatusColor(reservation.status) + '40'
+                        }]}>
+                          <ThemedText style={[styles.apartmentStatusText, { 
+                            color: getStatusColor(reservation.status) 
+                          }]}>
+                            {(reservation.status || 'pending').toUpperCase()}
                           </ThemedText>
                         </View>
                       </View>
-                    </>
+
+                       {/* Professional Information Grid */}
+                       <View style={[styles.apartmentInfoGrid, { 
+                         flexDirection: width < 600 ? 'column' : 'row',
+                         gap: width < 400 ? 8 : 12
+                       }]}>
+                         {/* Tenant Information */}
+                         <View style={[styles.apartmentInfoItem, { 
+                           minWidth: width < 600 ? '100%' : '45%',
+                           backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                           borderColor: isDark ? '#404040' : '#E5E7EB',
+                           borderRadius: 12,
+                           padding: 16,
+                           borderWidth: 1,
+                           shadowColor: '#000',
+                           shadowOpacity: 0.04,
+                           shadowRadius: 4,
+                           shadowOffset: { width: 0, height: 2 },
+                           elevation: 2,
+                         }]}>
+                           <View style={[styles.apartmentInfoIcon, { 
+                             backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)'
+                           }]}>
+                             <MaterialIcons name="person" size={18} color={textColor} />
+                           </View>
+                           <View style={styles.apartmentInfoContent}>
+                             <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                               Tenant Name
+                             </ThemedText>
+                             <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                               {reservation.userName}
+                             </ThemedText>
+                           </View>
+                         </View>
+
+                         {/* Contact Email */}
+                         <View style={[styles.apartmentInfoItem, { 
+                           minWidth: width < 600 ? '100%' : '45%',
+                           backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                           borderColor: isDark ? '#404040' : '#E5E7EB',
+                           borderRadius: 12,
+                           padding: 16,
+                           borderWidth: 1,
+                           shadowColor: '#000',
+                           shadowOpacity: 0.04,
+                           shadowRadius: 4,
+                           shadowOffset: { width: 0, height: 2 },
+                           elevation: 2,
+                         }]}>
+                           <View style={[styles.apartmentInfoIcon, { 
+                             backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.1)'
+                           }]}>
+                             <MaterialIcons name="email" size={18} color={textColor} />
+                           </View>
+                           <View style={styles.apartmentInfoContent}>
+                             <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                               Contact Email
+                             </ThemedText>
+                             <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                               {reservation.userEmail}
+                             </ThemedText>
+                           </View>
+                         </View>
+
+                         {/* Bed Assignment */}
+                         {(reservation as any).bedId && (
+                           <View style={[styles.apartmentInfoItem, { 
+                             minWidth: width < 600 ? '100%' : '45%',
+                             backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                             borderColor: isDark ? '#404040' : '#E5E7EB',
+                             borderRadius: 12,
+                             padding: 16,
+                             borderWidth: 1,
+                             shadowColor: '#000',
+                             shadowOpacity: 0.04,
+                             shadowRadius: 4,
+                             shadowOffset: { width: 0, height: 2 },
+                             elevation: 2,
+                           }]}>
+                             <View style={[styles.apartmentInfoIcon, { 
+                               backgroundColor: isDark ? 'rgba(0, 178, 255, 0.15)' : 'rgba(0, 178, 255, 0.1)'
+                             }]}>
+                                <MaterialIcons name="bed" size={18} color={textColor} />
+                             </View>
+                             <View style={styles.apartmentInfoContent}>
+                               <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                                 Bed Assignment
+                               </ThemedText>
+                               <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                                 Bed {(reservation as any).bedNumber || 'N/A'}
+                               </ThemedText>
+                             </View>
+                           </View>
+                         )}
+
+                         {/* Monthly Rent */}
+                         <View style={[styles.apartmentInfoItem, { 
+                           minWidth: width < 600 ? '100%' : '45%',
+                           backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                           borderColor: isDark ? '#404040' : '#E5E7EB',
+                           borderRadius: 12,
+                           padding: 16,
+                           borderWidth: 1,
+                           shadowColor: '#000',
+                           shadowOpacity: 0.04,
+                           shadowRadius: 4,
+                           shadowOffset: { width: 0, height: 2 },
+                           elevation: 2,
+                         }]}>
+                           <View style={[styles.apartmentInfoIcon, { 
+                             backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
+                           }]}>
+                             <MaterialIcons name="attach-money" size={18} color={textColor} />
+                           </View>
+                           <View style={styles.apartmentInfoContent}>
+                             <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                               Monthly Rent
+                             </ThemedText>
+                             <ThemedText style={[styles.apartmentInfoValue, { color: '#10B981' }]}>
+                               {formatPHP(reservation.servicePrice)}
+                             </ThemedText>
+                           </View>
+                         </View>
+
+                         {/* Location */}
+                         {reservation.serviceLocation && (
+                           <View style={[styles.apartmentInfoItem, { 
+                             minWidth: width < 600 ? '100%' : '45%',
+                             backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                             borderColor: isDark ? '#404040' : '#E5E7EB',
+                             borderRadius: 12,
+                             padding: 16,
+                             borderWidth: 1,
+                             shadowColor: '#000',
+                             shadowOpacity: 0.04,
+                             shadowRadius: 4,
+                             shadowOffset: { width: 0, height: 2 },
+                             elevation: 2,
+                           }]}>
+                             <View style={[styles.apartmentInfoIcon, { 
+                               backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)'
+                             }]}>
+                                <MaterialIcons name="location-on" size={18} color={textColor} />
+                             </View>
+                             <View style={styles.apartmentInfoContent}>
+                               <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                                 Location
+                               </ThemedText>
+                               <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                                 {reservation.serviceLocation}
+                               </ThemedText>
+                             </View>
+                           </View>
+                         )}
+
+                         {/* Application Date */}
+                         <View style={[styles.apartmentInfoItem, { 
+                           minWidth: width < 600 ? '100%' : '45%',
+                           backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                           borderColor: isDark ? '#404040' : '#E5E7EB',
+                           borderRadius: 12,
+                           padding: 16,
+                           borderWidth: 1,
+                           shadowColor: '#000',
+                           shadowOpacity: 0.04,
+                           shadowRadius: 4,
+                           shadowOffset: { width: 0, height: 2 },
+                           elevation: 2,
+                         }]}>
+                           <View style={[styles.apartmentInfoIcon, { 
+                             backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)'
+                           }]}>
+                             <MaterialIcons name="calendar-today" size={18} color={textColor} />
+                           </View>
+                           <View style={styles.apartmentInfoContent}>
+                             <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                               Application Date
+                             </ThemedText>
+                             <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                               {formatDate(reservation.reservationDate)}
+                             </ThemedText>
+                           </View>
+                         </View>
+
+                         {/* Payment Information */}
+                         {isPaymentRequired(reservation.serviceType) && (
+                           <>
+                             <View style={[styles.apartmentInfoItem, { 
+                               minWidth: width < 600 ? '100%' : '45%',
+                               backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                               borderColor: isDark ? '#404040' : '#E5E7EB',
+                               borderRadius: 12,
+                               padding: 16,
+                               borderWidth: 1,
+                               shadowColor: '#000',
+                               shadowOpacity: 0.04,
+                               shadowRadius: 4,
+                               shadowOffset: { width: 0, height: 2 },
+                               elevation: 2,
+                             }]}>
+                               <View style={[styles.apartmentInfoIcon, { 
+                                 backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                               }]}>
+                                 <MaterialIcons name="payment" size={18} color="#8B5CF6" />
+                               </View>
+                               <View style={styles.apartmentInfoContent}>
+                                 <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                                   Down Payment
+                                 </ThemedText>
+                                 <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
+                                   {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
+                                 </ThemedText>
+                               </View>
+                             </View>
+
+                             <View style={[styles.apartmentInfoItem, { 
+                               minWidth: width < 600 ? '100%' : '45%',
+                               backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                               borderColor: isDark ? '#404040' : '#E5E7EB',
+                               borderRadius: 12,
+                               padding: 16,
+                               borderWidth: 1,
+                               shadowColor: '#000',
+                               shadowOpacity: 0.04,
+                               shadowRadius: 4,
+                               shadowOffset: { width: 0, height: 2 },
+                               elevation: 2,
+                             }]}>
+                               <View style={[styles.apartmentInfoIcon, { 
+                                 backgroundColor: (reservation as any).paymentStatus === 'paid' 
+                                   ? (isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                                   : (isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)')
+                               }]}>
+                                 <MaterialIcons 
+                                   name={(reservation as any).paymentStatus === 'paid' ? 'check-circle' : 'pending'} 
+                                   size={18} 
+                                   color={(reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B'} 
+                                 />
+                               </View>
+                               <View style={styles.apartmentInfoContent}>
+                                 <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
+                                   Payment Status
+                                 </ThemedText>
+                                 <ThemedText style={[styles.apartmentInfoValue, { 
+                                   color: (reservation as any).paymentStatus === 'paid' ? '#10B981' : '#F59E0B' 
+                                 }]}>
+                                   {(reservation as any).paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                                 </ThemedText>
+                               </View>
+                             </View>
+                           </>
+                         )}
+                       </View>
+
+                      {/* Professional Action Summary */}
+                      <View style={[styles.apartmentActionSummary, { 
+                        backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
+                        borderColor: isDark ? '#404040' : '#E5E7EB'
+                      }]}>
+                        <ThemedText style={[styles.apartmentActionText, { color: subtitleColor }]}>
+                          {reservation.status === 'pending' 
+                            ? 'Review and approve this apartment rental application'
+                            : reservation.status === 'confirmed'
+                            ? 'Monitor tenant progress and manage rental agreement'
+                            : reservation.status === 'completed'
+                            ? 'Rental period completed successfully'
+                            : 'Application processed - no further action required'
+                          }
+                        </ThemedText>
+                      </View>
+                    </View>
                   )}
+
+                  {/* Date and Price fields removed - now inside service sections */}
                 </View>
                 
                   <View style={[
@@ -939,7 +1606,7 @@ export default function ReservationsScreen() {
                           key="accept-button"
                           style={[
                             styles.actionButton, 
-                            styles.acceptButton,
+                            (reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? styles.apartmentApproveButton : styles.acceptButton,
                             {
                               paddingHorizontal: width < 400 ? 8 : 12,
                               paddingVertical: width < 400 ? 6 : 8,
@@ -947,8 +1614,14 @@ export default function ReservationsScreen() {
                               minWidth: width < 400 ? 60 : 70,
                             }
                           ]}
-                          onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
+                          onPress={() => handleAcceptReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, (reservation as any).bedId)}
                         >
+                          <MaterialIcons 
+                            name={(reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? 'check-circle' : 'check'} 
+                            size={16} 
+                            color="#10B981" 
+                            style={{ marginRight: 4 }}
+                          />
                           <ThemedText style={[
                             styles.actionButtonText, 
                             { 
@@ -956,7 +1629,7 @@ export default function ReservationsScreen() {
                               fontSize: width < 400 ? 11 : 12,
                             }
                           ]}>
-                            Accept
+                            {(reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? 'Approve' : 'Accept'}
                           </ThemedText>
                         </TouchableOpacity>
                         
@@ -964,7 +1637,7 @@ export default function ReservationsScreen() {
                           key="decline-button"
                           style={[
                             styles.actionButton, 
-                            styles.declineButton,
+                            (reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? styles.apartmentRejectButton : styles.declineButton,
                             {
                               paddingHorizontal: width < 400 ? 8 : 12,
                               paddingVertical: width < 400 ? 6 : 8,
@@ -972,8 +1645,14 @@ export default function ReservationsScreen() {
                               minWidth: width < 400 ? 60 : 70,
                             }
                           ]}
-                          onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId)}
+                          onPress={() => handleDeclineReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, (reservation as any).bedId)}
                         >
+                          <MaterialIcons 
+                            name={(reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? 'cancel' : 'close'} 
+                            size={16} 
+                            color="#EF4444" 
+                            style={{ marginRight: 4 }}
+                          />
                           <ThemedText style={[
                             styles.actionButtonText, 
                             { 
@@ -981,7 +1660,7 @@ export default function ReservationsScreen() {
                               fontSize: width < 400 ? 11 : 12,
                             }
                           ]}>
-                            Decline
+                            {(reservation.serviceType === 'apartment' || reservation.serviceType === 'laundry' || reservation.serviceType === 'auto') ? 'Reject' : 'Decline'}
                           </ThemedText>
                         </TouchableOpacity>
                       </>
@@ -995,7 +1674,7 @@ export default function ReservationsScreen() {
                             key="view-balance-button"
                             style={[
                               styles.actionButton, 
-                              styles.balanceButton,
+                              styles.apartmentBalanceButton,
                               {
                                 paddingHorizontal: width < 400 ? 6 : 10,
                                 paddingVertical: width < 400 ? 6 : 8,
@@ -1004,15 +1683,11 @@ export default function ReservationsScreen() {
                               }
                             ]}
                             onPress={() => {
-                              const downPayment = calculateDownPayment(reservation.servicePrice, reservation.serviceType);
-                              const remainingBalance = reservation.servicePrice - downPayment;
-                              Alert.alert(
-                                'Remaining Balance',
-                                `Total Amount: ${formatPHP(reservation.servicePrice)}\nDown Payment: ${formatPHP(downPayment)}\n\nRemaining Balance: ${formatPHP(remainingBalance)}`,
-                                [{ text: 'OK' }]
-                              );
+                              setSelectedReservation(reservation);
+                              setBalanceModalVisible(true);
                             }}
                           >
+                            <MaterialIcons name="account-balance-wallet" size={16} color="#F59E0B" style={{ marginRight: 4 }} />
                             <ThemedText style={[
                               styles.actionButtonText, 
                               { 
@@ -1029,7 +1704,7 @@ export default function ReservationsScreen() {
                           key="complete-button"
                           style={[
                             styles.actionButton, 
-                            styles.completeButton,
+                            (reservation.serviceType === 'apartment' || reservation.serviceType === 'auto') ? styles.apartmentCompleteButton : styles.completeButton,
                             {
                               paddingHorizontal: width < 400 ? 8 : 12,
                               paddingVertical: width < 400 ? 6 : 8,
@@ -1072,6 +1747,12 @@ export default function ReservationsScreen() {
                             }
                           }}
                         >
+                          <MaterialIcons 
+                            name={(reservation.serviceType === 'apartment' || reservation.serviceType === 'auto') ? 'home' : 'check'} 
+                            size={16} 
+                            color="#3B82F6" 
+                            style={{ marginRight: 4 }}
+                          />
                           <ThemedText style={[
                             styles.actionButtonText, 
                             { 
@@ -1079,7 +1760,7 @@ export default function ReservationsScreen() {
                               fontSize: width < 400 ? 11 : 12,
                             }
                           ]}>
-                            Complete
+                            {(reservation.serviceType === 'apartment' || reservation.serviceType === 'auto') ? 'Check Out' : 'Complete'}
                           </ThemedText>
                         </TouchableOpacity>
                       </>
@@ -1098,7 +1779,7 @@ export default function ReservationsScreen() {
                           minWidth: width < 400 ? 60 : 70,
                         }
                       ]}
-                      onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle)}
+                      onPress={() => handleDeleteReservation(reservation.id, reservation.serviceType, reservation.serviceId, reservation.userId, reservation.serviceTitle, (reservation as any).bedId)}
                     >
                       <ThemedText style={[
                         styles.actionButtonText, 
@@ -1130,6 +1811,153 @@ export default function ReservationsScreen() {
             setPaymentSettingsVisible(false);
           }}
         />
+      </Modal>
+
+      {/* Professional Balance Modal */}
+      <Modal
+        visible={balanceModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setBalanceModalVisible(false)}
+      >
+        <View style={styles.balanceModalOverlay}>
+          <View style={[styles.balanceModalContainer, { backgroundColor: cardBgColor }]}>
+            {/* Modal Header */}
+            <View style={styles.balanceModalHeader}>
+              <View style={styles.balanceModalTitleContainer}>
+                <MaterialIcons name="account-balance-wallet" size={24} color="#F59E0B" />
+                <ThemedText style={[styles.balanceModalTitle, { color: textColor }]}>
+                  Payment Details
+                </ThemedText>
+              </View>
+              <TouchableOpacity
+                style={styles.balanceModalCloseButton}
+                onPress={() => setBalanceModalVisible(false)}
+              >
+                <MaterialIcons name="close" size={24} color={subtitleColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Content */}
+            {selectedReservation && (
+              <View style={styles.balanceModalContent}>
+                {/* Reservation Info */}
+                <View style={styles.balanceReservationInfo}>
+                  <ThemedText style={[styles.balanceReservationTitle, { color: textColor }]}>
+                    {selectedReservation.userName}
+                  </ThemedText>
+                  <ThemedText style={[styles.balanceReservationSubtitle, { color: subtitleColor }]}>
+                    {selectedReservation.userEmail}
+                  </ThemedText>
+                  <View style={[styles.balanceReservationBadge, { 
+                    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                    borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)'
+                  }]}>
+                    <ThemedText style={[styles.balanceReservationBadgeText, { color: '#22C55E' }]}>
+                      Confirmed
+                    </ThemedText>
+                  </View>
+                </View>
+
+                {/* Payment Breakdown */}
+                <View style={styles.balancePaymentSection}>
+                  <ThemedText style={[styles.balanceSectionTitle, { color: textColor }]}>
+                    Payment Breakdown
+                  </ThemedText>
+                  
+                  <View style={styles.balancePaymentGrid}>
+                    {/* Monthly Rent */}
+                    <View style={[styles.balancePaymentItem, { 
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                      borderColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)'
+                    }]}>
+                      <View style={styles.balancePaymentItemHeader}>
+                        <MaterialIcons name="home" size={20} color={textColor} />
+                        <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
+                          Monthly Rent
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.balancePaymentItemValue, { color: textColor }]}>
+                        {formatPHP(selectedReservation.servicePrice)}
+                      </ThemedText>
+                    </View>
+
+                    {/* Down Payment */}
+                    <View style={[styles.balancePaymentItem, { 
+                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+                      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'
+                    }]}>
+                      <View style={styles.balancePaymentItemHeader}>
+                        <MaterialIcons name="payment" size={20} color={textColor} />
+                        <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
+                          Down Payment
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.balancePaymentItemValue, { color: textColor }]}>
+                        {formatPHP(calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType))}
+                      </ThemedText>
+                    </View>
+
+                    {/* Remaining Balance */}
+                    <View style={[styles.balancePaymentItem, { 
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+                      borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'
+                    }]}>
+                      <View style={styles.balancePaymentItemHeader}>
+                        <MaterialIcons name="account-balance" size={20} color={textColor} />
+                        <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
+                          Remaining Balance
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.balancePaymentItemValue, { color: textColor, fontWeight: '600' }]}>
+                        {formatPHP(selectedReservation.servicePrice - calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType))}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Payment Status */}
+                <View style={styles.balancePaymentStatus}>
+                  <View style={[styles.balanceStatusItem, { 
+                    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                    borderColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)'
+                  }]}>
+                    <MaterialIcons name="check-circle" size={20} color={textColor} />
+                    <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
+                      Down payment received
+                    </ThemedText>
+                  </View>
+                  
+                  <View style={[styles.balanceStatusItem, { 
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+                    borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'
+                  }]}>
+                    <MaterialIcons name="schedule" size={20} color={textColor} />
+                    <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
+                      Balance due on check-in
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Modal Footer */}
+            <View style={styles.balanceModalFooter}>
+              <TouchableOpacity
+                style={[styles.balanceModalButton, { 
+                  backgroundColor: '#3B82F6',
+                  paddingHorizontal: width < 400 ? 20 : 24,
+                  paddingVertical: width < 400 ? 10 : 12,
+                }]}
+                onPress={() => setBalanceModalVisible(false)}
+              >
+                <ThemedText style={[styles.balanceModalButtonText, { color: '#fff' }]}>
+                  Close
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </ThemedView>
   );
@@ -1164,6 +1992,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     opacity: 0.8,
+  },
+  roleIndicator: {
+    fontSize: 12,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   dateFilter: {
     flexDirection: 'row',
@@ -1361,6 +2194,126 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B20',
     borderColor: '#F59E0B',
     borderWidth: 1,
+  },
+  // Professional Apartment Rental Styles
+  apartmentSummaryCard: {
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  apartmentSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  apartmentSummaryTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  apartmentSummaryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  apartmentStatusIndicator: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  apartmentStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  apartmentInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  apartmentInfoItem: {
+    flex: 1,
+    minWidth: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  apartmentInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  apartmentInfoContent: {
+    flex: 1,
+  },
+  apartmentInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  apartmentInfoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  apartmentActionSummary: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 8,
+  },
+  apartmentActionText: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.9,
+    fontStyle: 'italic',
+  },
+  // Apartment-specific button styles
+  apartmentApproveButton: {
+    backgroundColor: '#10B98120',
+    borderColor: '#10B981',
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  apartmentRejectButton: {
+    backgroundColor: '#EF444420',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  apartmentBalanceButton: {
+    backgroundColor: '#F59E0B20',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  apartmentCompleteButton: {
+    backgroundColor: '#3B82F620',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   paymentSection: {
     marginTop: 12,
@@ -1592,5 +2545,247 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  // Balance Modal Styles
+  balanceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  balanceModalContainer: {
+    width: '100%',
+    maxWidth: 500,
+    borderRadius: 16,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  balanceModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  balanceModalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  balanceModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  balanceModalCloseButton: {
+    padding: 4,
+  },
+  balanceModalContent: {
+    padding: 20,
+  },
+  balanceReservationInfo: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  balanceReservationTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  balanceReservationSubtitle: {
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  balanceReservationBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  balanceReservationBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  balancePaymentSection: {
+    marginBottom: 24,
+  },
+  balanceSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  balancePaymentGrid: {
+    gap: 12,
+  },
+  balancePaymentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  balancePaymentItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  balancePaymentItemLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  balancePaymentItemValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  balancePaymentStatus: {
+    gap: 12,
+  },
+  balanceStatusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  balanceStatusText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  balanceModalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    alignItems: 'center',
+  },
+  balanceModalButton: {
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  balanceModalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  roleInfoCard: {
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  roleInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  roleInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  roleInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  roleInfoSubtext: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
+
+  // Laundry Summary Card Styles
+  laundrySummaryCard: {
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  laundrySummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  laundrySummaryTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  laundrySummaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  laundryStatusIndicator: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  laundryStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  laundryInfoGrid: {
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  laundryInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+  },
+  laundryInfoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  laundryInfoContent: {
+    flex: 1,
+  },
+  laundryInfoLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  laundryInfoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  laundryActionSummary: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  laundryActionText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

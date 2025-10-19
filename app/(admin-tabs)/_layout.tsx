@@ -129,8 +129,14 @@ export default function AdminTabLayout() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         
-        // I-count ang pending reservations
-        const pendingReservations = Object.keys(data)
+        // Get admin role and accessible modules
+        const adminEmail = user.email;
+        const adminRole = getAdminRole(adminEmail);
+        const accessibleModules = getAccessibleModules(adminEmail);
+        const isSuperAdminUser = adminRole === 'super_admin';
+        
+        // I-count ang pending reservations with role-based filtering
+        const allPendingReservations = Object.keys(data)
           .map((key) => ({
             id: key,
             ...data[key],
@@ -139,8 +145,26 @@ export default function AdminTabLayout() {
             return reservation.status === 'pending';
           });
 
-        console.log('Badge Debug - Total pending reservations:', pendingReservations.length);
-        setPendingReservationCount(pendingReservations.length);
+        // Filter reservations based on admin role and accessible modules
+        const filteredPendingReservations = allPendingReservations.filter((reservation: any) => {
+          if (isSuperAdminUser) {
+            // Super admin can see all reservations
+            return true;
+          }
+          
+          // Filter reservations based on accessible modules
+          const moduleMapping: Record<string, string> = {
+            'apartment': 'apartment',
+            'laundry': 'laundry',
+            'auto': 'car'
+          };
+
+          const module = moduleMapping[reservation.serviceType];
+          return module && accessibleModules.includes(module);
+        });
+
+        console.log('Badge Debug - Total pending reservations (filtered):', filteredPendingReservations.length);
+        setPendingReservationCount(filteredPendingReservations.length);
       } else {
         setPendingReservationCount(0);
       }

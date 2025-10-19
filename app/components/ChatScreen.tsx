@@ -762,7 +762,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
                 </ThemedText>
                 
                 {item.apartmentPrice && (
-                  <ThemedText style={[styles.apartmentInquiryPrice, { color: colorPalette.primary }]}>
+                  <ThemedText style={[styles.apartmentInquiryPrice, { color: textColor }]}>
                     {formatPHP(item.apartmentPrice)}
                   </ThemedText>
                 )}

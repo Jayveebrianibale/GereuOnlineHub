@@ -710,30 +710,163 @@ const colorPalette = {
     
     const renderApartmentItem = ({ item }: { item: any }) => (
         <View style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}>
+            <View style={styles.imageContainer}>
         <RobustImage source={item.image} style={styles.apartmentImage} resizeMode="cover" />
+                <View style={[styles.statusOverlay, { backgroundColor: item.available ? '#4CAF50' : '#FF5722' }]}>
+                    <ThemedText style={styles.statusOverlayText}>
+                        {item.available ? 'Available' : 'Unavailable'}
+                    </ThemedText>
+                </View>
+            </View>
         <View style={styles.apartmentContent}>
+                <View style={styles.titleRow}>
             <ThemedText type="subtitle" style={[styles.apartmentTitle, { color: textColor }]}>
             {item.title}
             </ThemedText>
+                    {item.bedManagement && (
+                        <View style={[styles.bedManagementBadge, { backgroundColor: isDark ? 'rgba(0, 178, 255, 0.2)' : 'rgba(0, 178, 255, 0.1)' }]}>
+                            <MaterialIcons name="bed" size={14} color={colorPalette.primary} />
+                            <ThemedText style={[styles.bedManagementText, { color: colorPalette.primary }]}>
+                                Bed Mgmt
+                            </ThemedText>
+                        </View>
+                    )}
+                </View>
+
+                {/* Description */}
+                {item.description && (
+                    <ThemedText style={[styles.description, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                        {item.description}
+                    </ThemedText>
+                )}
+
+                {/* Rating and Reviews */}
+                {(item.rating > 0 || item.reviews > 0) && (
+                    <View style={styles.ratingContainer}>
+                        <View style={styles.ratingRow}>
+                            <MaterialIcons name="star" size={16} color="#FFD700" />
+                            <ThemedText style={[styles.ratingText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                {item.rating.toFixed(1)}
+                            </ThemedText>
+                            <ThemedText style={[styles.reviewsText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                ({item.reviews} review{item.reviews !== 1 ? 's' : ''})
+                            </ThemedText>
+                        </View>
+                    </View>
+                )}
+                
+                {/* Location and Address */}
+                <View style={styles.locationContainer}>
             <View style={styles.locationRow}>
-            <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-            <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                        <MaterialIcons name="location-on" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                        <ThemedText style={[styles.locationText, { color: isDark ? '#B0B0B0' : '#666' }]}>
                 {item.location}
             </ThemedText>
+                    </View>
+                    {item.address && item.address !== item.location && (
+                        <View style={styles.addressRow}>
+                            <MaterialIcons name="place" size={14} color={isDark ? '#B0B0B0' : '#666'} />
+                            <ThemedText style={[styles.addressText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                {item.address}
+                            </ThemedText>
+                        </View>
+                    )}
             </View>
-            <ThemedText style={[styles.priceText, { color: colorPalette.primary }]}>
-            {item.price}
+
+            {/* Price */}
+            <ThemedText style={[styles.priceText, { color: textColor }]}>
+                ₱{item.price}
             </ThemedText>
+
+            {/* Apartment Details */}
+            <View style={styles.detailsContainer}>
+                    <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                        <MaterialIcons name="bed" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                        <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                        {item.bedrooms} bed{item.bedrooms !== 1 ? 's' : ''}
+                    </ThemedText>
+                </View>
+                    <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                        <MaterialIcons name="bathtub" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                        <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                        {item.bathrooms} bath{item.bathrooms !== 1 ? 's' : ''}
+                    </ThemedText>
+                </View>
+                {item.size && (
+                        <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                            <MaterialIcons name="straighten" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                            <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                            {item.size}
+                        </ThemedText>
+                    </View>
+                )}
+            </View>
+
+                {/* Bed Management Stats */}
+                {item.bedManagement && (
+                    <View style={[styles.bedStatsContainer, { backgroundColor: isDark ? 'rgba(0, 178, 255, 0.1)' : 'rgba(0, 178, 255, 0.05)' }]}>
+                        <View style={styles.bedStatsRow}>
+                            <View style={styles.bedStatItem}>
+                                <ThemedText style={[styles.bedStatNumber, { color: colorPalette.primary }]}>
+                                    {item.totalBeds}
+                                </ThemedText>
+                                <ThemedText style={[styles.bedStatLabel, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                    Total
+                    </ThemedText>
+                </View>
+                            <View style={styles.bedStatItem}>
+                                <ThemedText style={[styles.bedStatNumber, { color: '#4CAF50' }]}>
+                                    {item.availableBeds}
+                                </ThemedText>
+                                <ThemedText style={[styles.bedStatLabel, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                    Available
+                        </ThemedText>
+                    </View>
+                            <View style={styles.bedStatItem}>
+                                <ThemedText style={[styles.bedStatNumber, { color: '#FF9800' }]}>
+                                    {item.occupiedBeds}
+                    </ThemedText>
+                                <ThemedText style={[styles.bedStatLabel, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                    Occupied
+                        </ThemedText>
+                            </View>
+                    </View>
+                </View>
+            )}
+
+            {/* Amenities Preview */}
+            {item.amenities && item.amenities.length > 0 && (
+                <View style={styles.amenitiesContainer}>
+                        <ThemedText style={[styles.amenitiesTitle, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                            Amenities
+                    </ThemedText>
+                    <View style={styles.amenitiesList}>
+                        {item.amenities.slice(0, 3).map((amenity: string, index: number) => (
+                                <View key={index} style={[styles.amenityTag, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
+                                    <ThemedText style={[styles.amenityText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                    {amenity}
+                                </ThemedText>
+                            </View>
+                        ))}
+                        {item.amenities.length > 3 && (
+                                <ThemedText style={[styles.moreAmenities, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                                +{item.amenities.length - 3} more
+                            </ThemedText>
+                        )}
+                    </View>
+                </View>
+            )}
+
             <View style={styles.adminActions}>
             <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+                        style={[styles.actionButton, styles.editButton, { backgroundColor: colorPalette.primary }]}
                 onPress={() => handleEdit(item)}
             >
                 <MaterialIcons name="edit" size={16} color="#fff" />
                 <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity 
-                style={[styles.actionButton, { backgroundColor: dangerColor }]}
+                        style={[styles.actionButton, styles.deleteButton, { backgroundColor: dangerColor }]}
                 onPress={() => handleDelete(item.id)}
             >
                 <MaterialIcons name="delete" size={16} color="#fff" />
@@ -749,16 +882,24 @@ const colorPalette = {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
+                <MaterialIcons name="arrow-back" size={24} color={isDark ? '#fff' : '#000'} />
             </TouchableOpacity>
+            <View style={styles.headerContent}>
             <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
             Apartment Management
             </ThemedText>
+                <ThemedText style={[styles.headerSubtitle, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                    Manage your property listings
+                </ThemedText>
+            </View>
             <TouchableOpacity 
-                style={styles.headerAddButton}
+                style={[styles.headerAddButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}
                 onPress={handleAddNew}
             >
-                <MaterialIcons name="add" size={24} color={colorPalette.primary} />
+                <MaterialIcons name="add" size={20} color={isDark ? '#fff' : '#000'} />
+                <ThemedText style={[styles.addNewText, { color: isDark ? '#fff' : '#000' }]}>
+                    Add New
+                </ThemedText>
             </TouchableOpacity>
         </View>
 
@@ -1245,7 +1386,7 @@ const colorPalette = {
                                                 </ThemedText>
                                             </View>
                                             {bed.price && (
-                                                <ThemedText style={[styles.bedPrice, { color: colorPalette.primary }]}>
+                                                <ThemedText style={[styles.bedPrice, { color: isDark ? '#fff' : '#000' }]}>
                                                     {bed.price}
                                                 </ThemedText>
                                             )}
@@ -1689,40 +1830,143 @@ const colorPalette = {
         paddingVertical: 16,
         borderBottomWidth: 1,
         marginTop: 20,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 1,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
     },
     backButton: {
         padding: 4,
     },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '600',
+    headerContent: {
         flex: 1,
-        textAlign: 'center',
+        alignItems: 'center',
         marginHorizontal: 12,
     },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        marginTop: 2,
+        textAlign: 'center',
+    },
     headerAddButton: {
-        padding: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    addNewText: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 4,
     },
     listContainer: {
         padding: 20,
     },
     apartmentCard: {
-        borderRadius: 12,
-        marginBottom: 16,
+        borderRadius: 0,
+        marginBottom: 20,
         borderWidth: 1,
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    imageContainer: {
+        position: 'relative',
+    },
+    statusOverlay: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    statusOverlayText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
     },
     apartmentImage: {
         width: '100%',
         height: 150,
+        borderRadius: 0,
     },
     apartmentContent: {
-        padding: 16,
+        padding: 20,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    bedManagementBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    bedManagementText: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4,
     },
     apartmentTitle: {
-        fontSize: 16,
+        fontSize: 18,
+        fontWeight: '700',
+        flex: 1,
+        marginRight: 8,
+    },
+    description: {
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    ratingContainer: {
+        marginBottom: 12,
+    },
+    ratingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: 14,
         fontWeight: '600',
-        marginBottom: 8,
+        marginLeft: 4,
+    },
+    reviewsText: {
+        fontSize: 12,
+        marginLeft: 4,
+    },
+    locationContainer: {
+        marginBottom: 12,
+    },
+    addressRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    addressText: {
+        fontSize: 12,
+        marginLeft: 4,
+        fontStyle: 'italic',
     },
     locationRow: {
         flexDirection: 'row',
@@ -1734,24 +1978,134 @@ const colorPalette = {
         fontSize: 14,
     },
     priceText: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 20,
+        fontWeight: '800',
+        marginBottom: 16,
+        color: '#4CAF50',
+    },
+    detailsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 16,
+        gap: 8,
+    },
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        marginRight: 8,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    detailText: {
+        marginLeft: 4,
+        fontSize: 14,
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 8,
+        gap: 8,
+    },
+    statusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    bedStatsContainer: {
+        marginBottom: 16,
+        padding: 16,
+        borderRadius: 12,
+    },
+    bedStatsTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    bedStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+    },
+    bedStatItem: {
+        alignItems: 'center',
+    },
+    bedStatNumber: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    bedStatLabel: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    bedStatsText: {
+        fontSize: 12,
+    },
+    amenitiesContainer: {
         marginBottom: 12,
+    },
+    amenitiesTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    amenitiesList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    amenityTag: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    amenityText: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    moreAmenities: {
+        fontSize: 12,
+        fontStyle: 'italic',
+        alignSelf: 'center',
     },
     adminActions: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 8,
+        marginTop: 16,
+        gap: 12,
     },
     actionButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         flex: 1,
-        marginHorizontal: 4,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    editButton: {
+        // Additional styles for edit button if needed
+    },
+    deleteButton: {
+        // Additional styles for delete button if needed
     },
     actionButtonText: {
         color: '#fff',
@@ -1911,7 +2265,7 @@ const colorPalette = {
     imagePreview: {
         width: '100%',
         height: 150,
-        borderRadius: 8,
+        borderRadius: 0,
         borderWidth: 1,
         overflow: 'hidden',
         position: 'relative',
@@ -1919,6 +2273,7 @@ const colorPalette = {
     imagePreviewImage: {
         width: '100%',
         height: '100%',
+        borderRadius: 0,
     },
     imageOverlay: {
         position: 'absolute',
@@ -1968,13 +2323,13 @@ const colorPalette = {
     imageGridItem: {
         width: '100%', // Changed to 100% for full width
         height: 120,
-        borderRadius: 10,
+        borderRadius: 0,
         position: 'relative', // Added for absolute positioning of delete badge
     },
     imageGridImage: {
         width: '100%',
         height: '100%',
-        borderRadius: 10,
+        borderRadius: 0,
     },
     selectedImage: {
         borderWidth: 3,
@@ -1983,7 +2338,7 @@ const colorPalette = {
     imagePlaceholder: {
         width: '100%',
         height: 150,
-        borderRadius: 8,
+        borderRadius: 0,
         borderWidth: 2,
         borderStyle: 'dashed',
         justifyContent: 'center',
@@ -2068,7 +2423,7 @@ const colorPalette = {
     bedImage: {
         width: 60,
         height: 60,
-        borderRadius: 8,
+        borderRadius: 0,
         marginRight: 12,
     },
     bedContent: {

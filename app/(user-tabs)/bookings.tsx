@@ -35,9 +35,9 @@ const colorPalette = {
   primaryLight: '#4AD0FF',
   primary: '#00B2FF',
   primaryDark: '#007BE5',
-  dark: '#0051C1',
-  darker: '#002F87',
-  darkest: '#001A5C',
+  dark: '#374151',
+  darker: '#1F2937',
+  darkest: '#111827',
 };
 
 // ========================================
@@ -99,10 +99,16 @@ export default function Bookings() {
     }
   };
 
-  const cancelAdminReservation = async (serviceType: 'apartment' | 'laundry' | 'auto', serviceId: string) => {
+  const cancelAdminReservation = async (serviceType: 'apartment' | 'laundry' | 'auto', serviceId: string, bedId?: string) => {
     if (!user) return;
     const all = await getAdminReservations();
-    const match = all.find(r => r.serviceType === serviceType && r.serviceId === serviceId && r.userId === user.uid);
+    
+    // If bedId is provided, find the specific bed reservation
+    // Otherwise, find the first reservation for that service
+    const match = bedId 
+      ? all.find(r => r.serviceType === serviceType && r.serviceId === serviceId && r.userId === user.uid && (r as any).bedId === bedId)
+      : all.find(r => r.serviceType === serviceType && r.serviceId === serviceId && r.userId === user.uid);
+      
     if (match) {
       await updateAdminReservationStatus(match.id, 'cancelled');
       try {
@@ -359,562 +365,527 @@ export default function Bookings() {
 
       {activeTab === 'reservations' ? (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
-            My Reservations
-          </ThemedText>
-          <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}> 
-            Track your service reservations
-          </ThemedText>
+        {/* Professional Header */}
+        <View style={styles.professionalHeader}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <MaterialIcons name="bookmark" size={28} color={colorPalette.primary} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <ThemedText type="title" style={[styles.professionalTitle, { color: textColor }]}> 
+                My Reservations
+              </ThemedText>
+              <ThemedText type="default" style={[styles.professionalSubtitle, { color: subtitleColor }]}> 
+                Track and manage your service bookings
+              </ThemedText>
+            </View>
+          </View>
         </View>
 
-        {/* Booking Cards - Apartments */}
+        {/* Professional Apartment Cards */}
        {apartmentsSorted.length > 0 && (
          apartmentsSorted.map((apt) => (
            <View
              key={apt.id}
-             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+             style={[styles.modernApartmentCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(apt as any).serviceImage || (apt as any).image} style={styles.coverImage} resizeMode="cover" />
-             {/* Booking Header */}
-             <View style={styles.bookingHeader}>
-               <View style={styles.serviceInfo}>
-                 <MaterialIcons
-                   name={getServiceIcon('Apartment Rental') as any}
-                   size={24}
-                   color={colorPalette.primary}
+             {/* Card Header with Image and Status */}
+             <View style={styles.cardImageContainer}>
+               <RobustImage 
+                 source={(apt as any).serviceImage || (apt as any).image} 
+                 style={styles.modernCardImage} 
+                 resizeMode="cover" 
+               />
+               {/* Status Badge Overlay */}
+               <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(apt.status || 'pending') }]}>
+                 <MaterialIcons 
+                   name={apt.status === 'confirmed' ? 'check-circle' : 
+                         apt.status === 'declined' ? 'cancel' : 
+                         apt.status === 'completed' ? 'done-all' : 'schedule'} 
+                   size={16} 
+                   color="#fff" 
                  />
-                 <View style={styles.serviceDetails}>
-                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {(apt as any).serviceTitle || (apt as any).title}
-                     {/* Show bed information if it's a bed reservation */}
-                     {(apt as any).bedId && (
-                       <ThemedText style={[styles.bedInfo, { color: colorPalette.primary }]}>
-                         {' '}(Bed {(apt as any).bedNumber})
-                       </ThemedText>
-                     )}
-                   </ThemedText>
-                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
-                     Apartment Rental
-                   </ThemedText>
-                 </View>
+                 <ThemedText style={styles.statusBadgeText}>
+                   {apt.status ? apt.status.charAt(0).toUpperCase() + apt.status.slice(1) : 'Pending'}
+                 </ThemedText>
+               </View>
+               {/* Service Type Badge */}
+               <View style={styles.serviceTypeBadge}>
+                 <MaterialIcons name="apartment" size={14} color="#fff" />
+                 <ThemedText style={styles.serviceTypeBadgeText}>Apartment</ThemedText>
                </View>
              </View>
 
-             {/* Booking Details */}
-             <View style={styles.bookingDetails}>
-               <View style={styles.detailRow}>
-                 <MaterialIcons name="event" size={16} color={subtitleColor} />
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   Reserved
-                   {/* Show reservation date for bed reservations */}
-                   {(apt as any).reservationDate && (
-                     <ThemedText style={[styles.reservationDate, { color: subtitleColor }]}>
-                       {' '}on {new Date((apt as any).reservationDate).toLocaleDateString()}
+             {/* Card Content */}
+             <View style={styles.modernCardContent}>
+               {/* Title Section */}
+               <View style={styles.titleSection}>
+                 <ThemedText type="subtitle" style={[styles.modernCardTitle, { color: textColor }]}> 
+                   {(apt as any).serviceTitle || (apt as any).title}
+                   {/* Show bed information if it's a bed reservation */}
+                   {(apt as any).bedId && (
+                     <ThemedText style={[styles.bedInfo, { color: colorPalette.primary }]}>
+                       {' '}(Bed {(apt as any).bedNumber})
                      </ThemedText>
                    )}
                  </ThemedText>
-               </View>
-               {/* Show bed-specific information */}
-               {(apt as any).bedId && (
-                 <View style={styles.detailRow}>
-                   <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
-                   <ThemedText style={[styles.detailText, { color: colorPalette.primary, fontWeight: '600' }]}> 
-                     Bed {(apt as any).bedNumber}
+                 <View style={styles.priceContainer}>
+                   <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>Total</ThemedText>
+                   <ThemedText style={[styles.priceAmount, { color: textColor }]}>
+                     {formatPHP((apt as any).servicePrice ?? (apt as any).price ?? 0)}
                    </ThemedText>
                  </View>
-               )}
-               {apt.status && (
-                 <View style={styles.detailRow}>
-                   <MaterialIcons 
-                     name={apt.status === 'confirmed' ? 'check-circle' : 
-                           apt.status === 'declined' ? 'cancel' : 
-                           apt.status === 'completed' ? 'done-all' : 'schedule'} 
-                     size={16} 
-                     color={getStatusColor(apt.status)} 
-                   />
-                   <ThemedText style={[styles.detailText, { color: getStatusColor(apt.status), fontWeight: '600' }]}> 
-                     Status: {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-                   </ThemedText>
-                 </View>
-               )}
-               <View style={styles.detailRow}>
-                 <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {(apt as any).serviceLocation || (apt as any).location}
-                 </ThemedText>
                </View>
-               <View style={styles.detailRow}>
-                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP((apt as any).servicePrice ?? (apt as any).price ?? 0)}
-                 </ThemedText>
-               </View>
-               {isPaymentRequired('apartment') && (
-                 <View style={styles.detailRow}>
-                   <MaterialIcons name="payment" size={16} color={subtitleColor} />
-                   <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                     Down Payment: {formatPHP(calculateDownPayment((apt as any).servicePrice ?? (apt as any).price ?? 0, 'apartment'))}
-                   </ThemedText>
-                 </View>
-               )}
-             </View>
 
-             {/* Booking Actions */}
-             <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={styles.viewDetailsButton}
-                 onPress={() => handleViewDetails(apt, 'apartment')}
-               >
-                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
-               </TouchableOpacity>
-               <View style={styles.buttonSpacer} />
-               <View style={styles.rightActions}>
-                 {((apt as any).status || 'pending') === 'pending' && (
-                   <TouchableOpacity 
-                     style={styles.cancelButton}
-                     onPress={() => confirmCancel(async () => {
-                       const serviceId = (apt as any).serviceId || (apt as any).id;
-                       await updateApartmentStatus(serviceId, 'cancelled');
-                       await cancelAdminReservation('apartment', serviceId);
-                     })}
-                   >
-                     <MaterialIcons name="cancel" size={16} color="#F44336" />
-                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                       Cancel
+               {/* Details Grid */}
+               <View style={styles.detailsGrid}>
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="event" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Reserved</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                       {(apt as any).reservationDate ? 
+                         new Date((apt as any).reservationDate).toLocaleDateString() : 
+                         'Recently'
+                       }
                      </ThemedText>
-                   </TouchableOpacity>
+                   </View>
+                 </View>
+
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="location-on" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Location</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]} numberOfLines={1}>
+                       {(apt as any).serviceLocation || (apt as any).location}
+                     </ThemedText>
+                   </View>
+                 </View>
+
+                 {/* Show bed-specific information */}
+                 {(apt as any).bedId && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="bed" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Bed</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: colorPalette.primary, fontWeight: '600' }]}>
+                         Bed {(apt as any).bedNumber}
+                       </ThemedText>
+                     </View>
+                   </View>
                  )}
+
+                 {isPaymentRequired('apartment') && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="payment" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Down Payment</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                         {(() => {
+                           const servicePrice = (apt as any).servicePrice ?? (apt as any).price ?? 0;
+                           const downPayment = calculateDownPayment(servicePrice, 'apartment');
+                           console.log('💰 Down payment calculation:', { servicePrice, downPayment, apt: apt });
+                           return formatPHP(downPayment);
+                         })()}
+                       </ThemedText>
+                     </View>
+                   </View>
+                 )}
+               </View>
+
+               {/* Action Buttons */}
+               <View style={styles.modernActionButtons}>
                  <TouchableOpacity 
-                   style={styles.deleteButton}
-                   onPress={() => handleDeleteReservation(apt, 'apartment')}
+                   style={[styles.primaryActionButton, { backgroundColor: colorPalette.primary }]}
+                   onPress={() => handleViewDetails(apt, 'apartment')}
                  >
-                   <MaterialIcons name="delete" size={16} color="#F44336" />
-                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                     Delete
-                   </ThemedText>
+                   <MaterialIcons name="visibility" size={18} color="#fff" />
+                   <ThemedText style={styles.primaryActionText}>View Details</ThemedText>
                  </TouchableOpacity>
+                 
+                 <View style={styles.secondaryActions}>
+                   {((apt as any).status || 'pending') === 'pending' && (
+                     <TouchableOpacity 
+                       style={[styles.secondaryActionButton, { borderColor: '#F44336' }]}
+                       onPress={() => confirmCancel(async () => {
+                         const serviceId = (apt as any).serviceId || (apt as any).id;
+                         const bedId = (apt as any).bedId;
+                         
+                         // If this is a bed reservation, cancel the specific bed first
+                         if (bedId) {
+                           try {
+                             const { cancelBedReservation } = await import('../services/apartmentService');
+                             await cancelBedReservation(serviceId, bedId);
+                             console.log('✅ Bed reservation cancelled successfully');
+                           } catch (bedError) {
+                             console.error('❌ Error cancelling bed reservation:', bedError);
+                             // Continue with apartment status update even if bed cancellation fails
+                           }
+                         }
+                         
+                         await updateApartmentStatus(serviceId, 'cancelled', bedId);
+                         await cancelAdminReservation('apartment', serviceId, bedId);
+                       })}
+                     >
+                       <MaterialIcons name="cancel" size={16} color="#F44336" />
+                       <ThemedText style={[styles.secondaryActionText, { color: '#F44336' }]}>Cancel</ThemedText>
+                     </TouchableOpacity>
+                   )}
+                 </View>
                </View>
              </View>
            </View>
          ))
        )}
 
-       {/* Booking Cards - Laundry */}
+       {/* Professional Laundry Service Cards */}
        {laundrySorted.length > 0 && (
          laundrySorted.map((svc) => (
            <View
              key={svc.id}
-             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+             style={[styles.modernApartmentCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(svc as any).serviceImage || (svc as any).image} style={styles.coverImage} resizeMode="cover" />
-             {/* Booking Header */}
-             <View style={styles.bookingHeader}>
-               <View style={styles.serviceInfo}>
-                 <MaterialIcons
-                   name={getServiceIcon('Laundry Service') as any}
-                   size={24}
-                   color={colorPalette.primary}
+             {/* Card Header with Image and Status */}
+             <View style={styles.cardImageContainer}>
+               <RobustImage 
+                 source={(svc as any).serviceImage || (svc as any).image} 
+                 style={styles.modernCardImage} 
+                 resizeMode="cover" 
+               />
+               {/* Status Badge Overlay */}
+               <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(svc.status || 'pending') }]}>
+                 <MaterialIcons 
+                   name={svc.status === 'confirmed' ? 'check-circle' : 
+                         svc.status === 'declined' ? 'cancel' : 
+                         svc.status === 'completed' ? 'done-all' : 
+                         svc.status === 'cancelled' ? 'cancel' : 'schedule'} 
+                   size={16} 
+                   color="#fff" 
                  />
-                 <View style={styles.serviceDetails}>
-                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {(svc as any).serviceTitle || (svc as any).title}
-                   </ThemedText>
-                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
-                     Laundry Service
-                   </ThemedText>
-                 </View>
+                 <ThemedText style={styles.statusBadgeText}>
+                   {svc.status ? svc.status.charAt(0).toUpperCase() + svc.status.slice(1) : 'Pending'}
+                 </ThemedText>
+               </View>
+               {/* Service Type Badge */}
+               <View style={styles.serviceTypeBadge}>
+                 <MaterialIcons name="local-laundry-service" size={14} color="#fff" />
+                 <ThemedText style={styles.serviceTypeBadgeText}>Laundry</ThemedText>
                </View>
              </View>
 
-             {/* Booking Details */}
-             <View style={styles.bookingDetails}>
-               <View style={styles.detailRow}>
-                 <MaterialIcons name="event" size={16} color={subtitleColor} />
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   Avail
+             {/* Card Content */}
+             <View style={styles.modernCardContent}>
+               {/* Title Section */}
+               <View style={styles.titleSection}>
+                 <ThemedText type="subtitle" style={[styles.modernCardTitle, { color: textColor }]}> 
+                   {(svc as any).serviceTitle || (svc as any).title}
                  </ThemedText>
-               </View>
-               {svc.status && (
-                 <View style={styles.detailRow}>
-                   <MaterialIcons 
-                     name={svc.status === 'confirmed' ? 'check-circle' : 
-                           svc.status === 'declined' ? 'cancel' : 
-                           svc.status === 'completed' ? 'done-all' : 'schedule'} 
-                     size={16} 
-                     color={getStatusColor(svc.status)} 
-                   />
-                   <ThemedText style={[styles.detailText, { color: getStatusColor(svc.status), fontWeight: '600' }]}> 
-                     Status: {svc.status.charAt(0).toUpperCase() + svc.status.slice(1)}
+                 <View style={styles.priceContainer}>
+                   <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>Total</ThemedText>
+                   <ThemedText style={[styles.priceAmount, { color: textColor }]}>
+                     {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                    </ThemedText>
                  </View>
-               )}
-               <View style={styles.detailRow}>
-                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
-                 </ThemedText>
                </View>
-               {/* Shipping Information - Only for Laundry Services (Never for Auto Services) */}
-               {(svc as any).shippingInfo && (svc as any).serviceType === 'laundry' && !(svc as any).homeService && !(svc as any).shopService && (
-                 <>
-                   <View style={styles.detailRow}>
-                     <MaterialIcons 
-                       name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
-                       size={16} 
-                       color={subtitleColor} 
-                     />
-                     <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                       Delivery: {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pick Up' : 'Drop Off'}
+
+               {/* Details Grid */}
+               <View style={styles.detailsGrid}>
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="event" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Service Date</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                       {new Date().toLocaleDateString()}
                      </ThemedText>
                    </View>
-                   
-                   {/* Drop Off Address */}
-                   {(svc as any).shippingInfo.deliveryType === 'dropoff' && (svc as any).shippingInfo.address && (
-                     <View style={styles.detailRow}>
-                       <MaterialIcons name="location-on" size={16} color={subtitleColor} />
-                       <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                         Address: {(svc as any).shippingInfo.address}
+                 </View>
+
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="local-laundry-service" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Service Type</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                       Laundry Service
+                     </ThemedText>
+                   </View>
+                 </View>
+
+                 {/* Delivery Information */}
+                 {(svc as any).shippingInfo && (svc as any).serviceType === 'laundry' && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons 
+                         name={(svc as any).shippingInfo.deliveryType === 'pickup' ? 'local-shipping' : 'home'} 
+                         size={18} 
+                         color={colorPalette.primary} 
+                       />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>
+                         {(svc as any).shippingInfo.deliveryType === 'pickup' ? 'Pickup Service' : 'Drop-off Service'}
+                       </ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]} numberOfLines={1}>
+                         {(svc as any).shippingInfo.deliveryType === 'pickup' 
+                           ? (svc as any).shippingInfo.pickupAddress || 'Address not provided'
+                           : (svc as any).shippingInfo.address || 'Address not provided'
+                         }
                        </ThemedText>
                      </View>
-                   )}
-                   
-                   {/* Pickup Details */}
-                   {(svc as any).shippingInfo.deliveryType === 'pickup' && (
-                     <View style={[
-                       styles.pickupDetailsContainer,
-                       {
-                         backgroundColor: isDark 
-                           ? 'rgba(0, 178, 255, 0.12)' 
-                           : 'rgba(0, 178, 255, 0.08)',
-                         borderColor: isDark 
-                           ? 'rgba(0, 178, 255, 0.3)' 
-                           : 'rgba(0, 178, 255, 0.2)',
-                       }
-                     ]}>
-                       <View style={styles.pickupDetailsHeader}>
-                         <MaterialIcons name="local-shipping" size={18} color={colorPalette.primary} />
-                         <ThemedText style={[styles.pickupDetailsTitle, { color: textColor }]}>
-                           Pickup Details
-                         </ThemedText>
-                       </View>
-                       
-                       <View style={styles.pickupDetailsContent}>
-                         {/* Date and Time Row */}
-                         <View style={styles.pickupDateTimeRow}>
-                           {(svc as any).shippingInfo.pickupDate && (
-                             <View style={[
-                               styles.pickupDetailItem,
-                               {
-                                 backgroundColor: isDark 
-                                   ? 'rgba(0, 178, 255, 0.15)' 
-                                   : 'rgba(0, 178, 255, 0.06)',
-                               }
-                             ]}>
-                               <MaterialIcons name="event" size={16} color={colorPalette.primary} />
-                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Date</ThemedText>
-                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                 {(svc as any).shippingInfo.pickupDate}
-                               </ThemedText>
-                             </View>
-                           )}
-                           {(svc as any).shippingInfo.pickupTime && (
-                             <View style={[
-                               styles.pickupDetailItem,
-                               {
-                                 backgroundColor: isDark 
-                                   ? 'rgba(0, 178, 255, 0.15)' 
-                                   : 'rgba(0, 178, 255, 0.06)',
-                               }
-                             ]}>
-                               <MaterialIcons name="schedule" size={16} color={colorPalette.primary} />
-                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Time</ThemedText>
-                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                 {(svc as any).shippingInfo.pickupTime}
-                               </ThemedText>
-                             </View>
-                           )}
-                         </View>
-                         
-                         {/* Address */}
-                         {(svc as any).shippingInfo.pickupAddress && (
-                           <View style={[
-                             styles.pickupDetailItemFull,
-                             {
-                               backgroundColor: isDark 
-                                 ? 'rgba(0, 178, 255, 0.15)' 
-                                 : 'rgba(0, 178, 255, 0.06)',
-                             }
-                           ]}>
-                             <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-                             <View style={styles.pickupDetailTextContainer}>
-                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Pickup Address</ThemedText>
-                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                 {(svc as any).shippingInfo.pickupAddress}
-                               </ThemedText>
-                             </View>
-                           </View>
-                         )}
-                         
-                         {/* Contact */}
-                         {(svc as any).shippingInfo.pickupContactNumber && (
-                           <View style={[
-                             styles.pickupDetailItemFull,
-                             {
-                               backgroundColor: isDark 
-                                 ? 'rgba(0, 178, 255, 0.15)' 
-                                 : 'rgba(0, 178, 255, 0.06)',
-                             }
-                           ]}>
-                             <MaterialIcons name="phone" size={16} color={colorPalette.primary} />
-                             <View style={styles.pickupDetailTextContainer}>
-                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Contact Number</ThemedText>
-                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                 {(svc as any).shippingInfo.pickupContactNumber}
-                               </ThemedText>
-                             </View>
-                           </View>
-                         )}
-                         
-                         {/* Instructions */}
-                         {(svc as any).shippingInfo.pickupInstructions && (svc as any).shippingInfo.pickupInstructions !== 'No special instructions' && (
-                           <View style={[
-                             styles.pickupDetailItemFull,
-                             {
-                               backgroundColor: isDark 
-                                 ? 'rgba(0, 178, 255, 0.15)' 
-                                 : 'rgba(0, 178, 255, 0.06)',
-                             }
-                           ]}>
-                             <MaterialIcons name="note" size={16} color={colorPalette.primary} />
-                             <View style={styles.pickupDetailTextContainer}>
-                               <ThemedText style={[styles.pickupDetailLabel, { color: subtitleColor }]}>Special Instructions</ThemedText>
-                               <ThemedText style={[styles.pickupDetailValue, { color: textColor }]}> 
-                                 {(svc as any).shippingInfo.pickupInstructions}
-                               </ThemedText>
-                             </View>
-                           </View>
-                         )}
-                       </View>
-                     </View>
-                   )}
-                 </>
-               )}
-             </View>
-
-             {/* Booking Actions */}
-             <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={styles.viewDetailsButton}
-                 onPress={() => handleViewDetails(svc, 'laundry')}
-               >
-                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
-               </TouchableOpacity>
-               <View style={styles.buttonSpacer} />
-               <View style={styles.rightActions}>
-                 {((svc as any).status || 'pending') === 'pending' && (
-                   <TouchableOpacity 
-                     style={styles.cancelButton}
-                     onPress={() => confirmCancel(async () => {
-                       const serviceId = (svc as any).serviceId || (svc as any).id;
-                       await updateLaundryStatus(serviceId, 'cancelled');
-                       await cancelAdminReservation('laundry', serviceId);
-                     })}
-                   >
-                     <MaterialIcons name="cancel" size={16} color="#F44336" />
-                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                       Cancel
-                     </ThemedText>
-                   </TouchableOpacity>
+                   </View>
                  )}
+               </View>
+
+               {/* Action Buttons */}
+               <View style={styles.modernActionButtons}>
+                 <TouchableOpacity 
+                   style={[styles.primaryActionButton, { backgroundColor: colorPalette.primary }]}
+                   onPress={() => handleViewDetails(svc, 'laundry')}
+                 >
+                   <MaterialIcons name="visibility" size={18} color="#fff" />
+                   <ThemedText style={styles.primaryActionText}>View Details</ThemedText>
+                 </TouchableOpacity>
+                 
+                 <View style={styles.secondaryActions}>
+                   {((svc as any).status || 'pending') === 'pending' && (
+                     <TouchableOpacity 
+                       style={[styles.secondaryActionButton, { borderColor: '#F44336' }]}
+                       onPress={() => confirmCancel(async () => {
+                         const serviceId = (svc as any).serviceId || (svc as any).id;
+                         await updateLaundryStatus(serviceId, 'cancelled');
+                         await cancelAdminReservation('laundry', serviceId);
+                       })}
+                     >
+                       <MaterialIcons name="cancel" size={16} color="#F44336" />
+                       <ThemedText style={[styles.secondaryActionText, { color: '#F44336' }]}>Cancel</ThemedText>
+                     </TouchableOpacity>
+                   )}
+                 </View>
                </View>
              </View>
            </View>
          ))
        )}
 
-       {/* Booking Cards - Car & Motor Parts */}
+       {/* Professional Auto Service Cards */}
        {autoSorted && autoSorted.length > 0 && (
          autoSorted.map((svc) => (
            <View
              key={svc.id}
-             style={[styles.bookingCard, { backgroundColor: cardBgColor, borderColor }]}
+             style={[styles.modernApartmentCard, { backgroundColor: cardBgColor, borderColor }]}
            >
-             <RobustImage source={(svc as any).serviceImage || (svc as any).image} style={styles.coverImage} resizeMode="cover" />
-             {/* Booking Header */}
-             <View style={styles.bookingHeader}>
-               <View style={styles.serviceInfo}>
-                 <MaterialIcons
-                   name={getServiceIcon('Auto Service') as any}
-                   size={24}
-                   color={colorPalette.primary}
+             {/* Card Header with Image and Status */}
+             <View style={styles.cardImageContainer}>
+               <RobustImage 
+                 source={(svc as any).serviceImage || (svc as any).image} 
+                 style={styles.modernCardImage} 
+                 resizeMode="cover" 
+               />
+               {/* Status Badge Overlay */}
+               <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(svc.status || 'pending') }]}>
+                 <MaterialIcons 
+                   name={svc.status === 'confirmed' ? 'check-circle' : 
+                         svc.status === 'declined' ? 'cancel' : 
+                         svc.status === 'completed' ? 'done-all' : 
+                         svc.status === 'cancelled' ? 'cancel' : 'schedule'} 
+                   size={16} 
+                   color="#fff" 
                  />
-                 <View style={styles.serviceDetails}>
-                   <ThemedText type="subtitle" style={[styles.serviceName, { color: textColor }]}> 
-                     {(svc as any).serviceTitle || (svc as any).title}
-                   </ThemedText>
-                   <ThemedText style={[styles.serviceType, { color: subtitleColor }]}> 
-                     Car & Motor Parts
-                   </ThemedText>
-                 </View>
+                 <ThemedText style={styles.statusBadgeText}>
+                   {svc.status ? svc.status.charAt(0).toUpperCase() + svc.status.slice(1) : 'Pending'}
+                 </ThemedText>
+               </View>
+               {/* Service Type Badge */}
+               <View style={styles.serviceTypeBadge}>
+                 <MaterialIcons name="build" size={14} color="#fff" />
+                 <ThemedText style={styles.serviceTypeBadgeText}>Car and Motor Services</ThemedText>
                </View>
              </View>
 
-             {/* Booking Details */}
-             <View style={styles.bookingDetails}>
-               <View style={styles.detailRow}>
-                 <MaterialIcons name="event" size={16} color={subtitleColor} />
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   Avail
+             {/* Card Content */}
+             <View style={styles.modernCardContent}>
+               {/* Title Section */}
+               <View style={styles.titleSection}>
+                 <ThemedText type="subtitle" style={[styles.modernCardTitle, { color: textColor }]}> 
+                   {(svc as any).serviceTitle || (svc as any).title}
                  </ThemedText>
-               </View>
-               {svc.status && (
-                 <View style={styles.detailRow}>
-                   <MaterialIcons 
-                     name={svc.status === 'confirmed' ? 'check-circle' : 
-                           svc.status === 'declined' ? 'cancel' : 
-                           svc.status === 'completed' ? 'done-all' : 'schedule'} 
-                     size={16} 
-                     color={getStatusColor(svc.status)} 
-                   />
-                   <ThemedText style={[styles.detailText, { color: getStatusColor(svc.status), fontWeight: '600' }]}> 
-                     Status: {svc.status.charAt(0).toUpperCase() + svc.status.slice(1)}
+                 <View style={styles.priceContainer}>
+                   <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>Total</ThemedText>
+                   <ThemedText style={[styles.priceAmount, { color: textColor }]}>
+                     {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                    </ThemedText>
                  </View>
-               )}
-               <View style={styles.detailRow}>
-                 <ThemedText style={[styles.phpSymbol, { color: subtitleColor }]}>₱</ThemedText>
-                 <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                   {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
-                 </ThemedText>
                </View>
-               
-               {/* Home Service Information */}
-               {(svc as any).homeService && (
-                 <View style={[styles.homeServiceContainer, { backgroundColor: cardBgColor, borderColor }]}>
-                   <View style={styles.homeServiceHeader}>
-                     <View style={styles.homeServiceIconContainer}>
-                       <MaterialIcons name="home" size={20} color="#10B981" />
+
+               {/* Details Grid */}
+               <View style={styles.detailsGrid}>
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="event" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Reserved</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                       {(svc as any).reservationDate ? 
+                         new Date((svc as any).reservationDate).toLocaleDateString() : 
+                         'Recently'
+                       }
+                     </ThemedText>
+                   </View>
+                 </View>
+
+                 <View style={styles.detailItem}>
+                   <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                     <MaterialIcons name="build" size={18} color={colorPalette.primary} />
+                   </View>
+                   <View style={styles.detailContent}>
+                     <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Service Type</ThemedText>
+                     <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                       {(() => {
+                         if ((svc as any).homeService) return 'Home Service';
+                         if ((svc as any).shopService) return 'Shop Service';
+                         return 'Car & Motor Parts';
+                       })()}
+                     </ThemedText>
+                   </View>
+                 </View>
+
+                 {/* Service Address */}
+                 {(svc as any).address && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="location-on" size={18} color={colorPalette.primary} />
                      </View>
-                     <ThemedText style={[styles.homeServiceTitle, { color: '#10B981' }]}>
-                       Home Service Request
-                     </ThemedText>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>
+                         {(svc as any).homeService ? 'Service Address' : 'Location'}
+                       </ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]} numberOfLines={2}>
+                         {(svc as any).address}
+                       </ThemedText>
+                     </View>
                    </View>
-                   
-                   <View style={styles.homeServiceDetails}>
-                     {(svc as any).problemDescription && (
-                       <View style={styles.homeServiceDetailItem}>
-                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#FEF3C7' }]}>
-                           <MaterialIcons name="build" size={16} color="#F59E0B" />
-                         </View>
-                         <View style={styles.homeServiceDetailContent}>
-                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                             Problem Description
-                           </ThemedText>
-                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
-                             {(svc as any).problemDescription}
-                           </ThemedText>
-                         </View>
-                       </View>
-                     )}
-                     
-                     {(svc as any).address && (
-                       <View style={styles.homeServiceDetailItem}>
-                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#DBEAFE' }]}>
-                           <MaterialIcons name="location-on" size={16} color="#3B82F6" />
-                         </View>
-                         <View style={styles.homeServiceDetailContent}>
-                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                             Service Address
-                           </ThemedText>
-                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
-                             {(svc as any).address}
-                           </ThemedText>
-                         </View>
-                       </View>
-                     )}
-                     
-                     {(svc as any).contactNumber && (
-                       <View style={styles.homeServiceDetailItem}>
-                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#D1FAE5' }]}>
-                           <MaterialIcons name="phone" size={16} color="#10B981" />
-                         </View>
-                         <View style={styles.homeServiceDetailContent}>
-                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                             Contact Number
-                           </ThemedText>
-                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
-                             {(svc as any).contactNumber}
-                           </ThemedText>
-                         </View>
-                       </View>
-                     )}
-                     
-                     {(svc as any).preferredTime && (
-                       <View style={styles.homeServiceDetailItem}>
-                         <View style={[styles.homeServiceDetailIcon, { backgroundColor: '#F3E8FF' }]}>
-                           <MaterialIcons name="schedule" size={16} color="#8B5CF6" />
-                         </View>
-                         <View style={styles.homeServiceDetailContent}>
-                           <ThemedText style={[styles.homeServiceDetailLabel, { color: subtitleColor }]}>
-                             Preferred Time
-                           </ThemedText>
-                           <ThemedText style={[styles.homeServiceDetailValue, { color: textColor }]}> 
-                             {(svc as any).preferredTime}
-                           </ThemedText>
-                         </View>
-                       </View>
-                     )}
-                   </View>
-                 </View>
-               )}
-             </View>
-
-             {/* Booking Actions */}
-             <View style={styles.bookingActions}>
-               <TouchableOpacity 
-                 style={styles.viewDetailsButton}
-                 onPress={() => handleViewDetails(svc, 'auto')}
-               >
-                 <MaterialIcons name="visibility" size={20} color={colorPalette.primary} />
-               </TouchableOpacity>
-               <View style={styles.buttonSpacer} />
-               <View style={styles.rightActions}>
-                 {((svc as any).status || 'pending') === 'pending' && (
-                   <TouchableOpacity 
-                     style={styles.cancelButton}
-                     onPress={() => confirmCancel(async () => {
-                       const serviceId = (svc as any).serviceId || (svc as any).id;
-                       await updateAutoStatus(serviceId, 'cancelled');
-                       await cancelAdminReservation('auto', serviceId);
-                     })}
-                   >
-                     <MaterialIcons name="cancel" size={16} color="#F44336" />
-                     <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                       Cancel
-                     </ThemedText>
-                   </TouchableOpacity>
                  )}
+
+                 {/* Contact Number */}
+                 {(svc as any).contactNumber && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="phone" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Contact Number</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                         {(svc as any).contactNumber}
+                       </ThemedText>
+                     </View>
+                   </View>
+                 )}
+
+                 {/* Preferred Time */}
+                 {(svc as any).preferredTime && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="schedule" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Preferred Time</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                         {(svc as any).preferredTime}
+                       </ThemedText>
+                     </View>
+                   </View>
+                 )}
+
+                 {/* Problem Description */}
+                 {(svc as any).problemDescription && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="description" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Problem Description</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]} numberOfLines={3}>
+                         {(svc as any).problemDescription}
+                       </ThemedText>
+                     </View>
+                   </View>
+                 )}
+
+                 {isPaymentRequired('auto') && (
+                   <View style={styles.detailItem}>
+                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
+                       <MaterialIcons name="payment" size={18} color={colorPalette.primary} />
+                     </View>
+                     <View style={styles.detailContent}>
+                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Down Payment</ThemedText>
+                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                         {(() => {
+                           const servicePrice = (svc as any).servicePrice ?? (svc as any).price ?? 0;
+                           const downPayment = calculateDownPayment(servicePrice, 'auto');
+                           return formatPHP(downPayment);
+                         })()}
+                       </ThemedText>
+                     </View>
+                   </View>
+                 )}
+               </View>
+
+
+               {/* Action Buttons */}
+               <View style={styles.modernActionButtons}>
                  <TouchableOpacity 
-                   style={styles.deleteButton}
-                   onPress={() => handleDeleteReservation(svc, 'auto')}
+                   style={[styles.primaryActionButton, { backgroundColor: colorPalette.primary }]}
+                   onPress={() => handleViewDetails(svc, 'auto')}
                  >
-                   <MaterialIcons name="delete" size={16} color="#F44336" />
-                   <ThemedText style={[styles.actionButtonText, { color: '#F44336', marginLeft: 4 }]}>
-                     Delete
-                   </ThemedText>
+                   <MaterialIcons name="visibility" size={18} color="#fff" />
+                   <ThemedText style={styles.primaryActionText}>View Details</ThemedText>
                  </TouchableOpacity>
+                 
+                 <View style={styles.secondaryActions}>
+                   {((svc as any).status || 'pending') === 'pending' && (
+                     <TouchableOpacity 
+                       style={[styles.secondaryActionButton, { borderColor: '#F44336' }]}
+                       onPress={() => confirmCancel(async () => {
+                         const serviceId = (svc as any).serviceId || (svc as any).id;
+                         await updateAutoStatus(serviceId, 'cancelled');
+                         await cancelAdminReservation('auto', serviceId);
+                       })}
+                     >
+                       <MaterialIcons name="cancel" size={16} color="#F44336" />
+                       <ThemedText style={[styles.secondaryActionText, { color: '#F44336' }]}>Cancel</ThemedText>
+                     </TouchableOpacity>
+                   )}
+                 </View>
                </View>
              </View>
            </View>
          ))
        )}
 
-       {/* Empty state */}
+       {/* Professional Empty State */}
        {apartmentsSorted.length === 0 && laundrySorted.length === 0 && (!autoSorted || autoSorted.length === 0) && (
-         <View style={{ alignItems: 'center', marginTop: 250 }}>
-           <ThemedText style={{ color: subtitleColor }}>No reservations yet.</ThemedText>
+         <View style={styles.emptyStateContainer}>
+           <View style={styles.emptyStateIconContainer}>
+             <MaterialIcons name="bookmark-border" size={64} color={subtitleColor} style={{ opacity: 0.5 }} />
+           </View>
+           <ThemedText style={[styles.emptyStateTitle, { color: textColor }]}>
+             No Reservations Yet
+           </ThemedText>
+           <ThemedText style={[styles.emptyStateMessage, { color: subtitleColor }]}>
+             Your service reservations will appear here once you book them.
+           </ThemedText>
          </View>
        )}
       </ScrollView>
@@ -1308,9 +1279,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   professionalTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 24,
+    fontWeight: '600',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+    lineHeight: 30,
   },
   professionalSubtitle: {
     fontSize: 16,
@@ -1599,5 +1572,302 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  // Modern Apartment Card Styles
+  modernApartmentCard: {
+    borderRadius: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  cardImageContainer: {
+    position: 'relative',
+    height: 200,
+  },
+  modernCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  statusBadgeOverlay: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  serviceTypeBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  serviceTypeBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  modernCardContent: {
+    padding: 20,
+  },
+  titleSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  modernCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 16,
+    lineHeight: 26,
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  priceAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  detailsGrid: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  detailIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  modernActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  primaryActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  primaryActionText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  secondaryActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(244, 67, 54, 0.05)',
+    gap: 4,
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Professional Service Card Styles
+  professionalServiceCard: {
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    overflow: 'hidden',
+  },
+  professionalServiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  serviceIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colorPalette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  serviceHeaderContent: {
+    flex: 1,
+  },
+  professionalServiceName: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  professionalServiceType: {
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  professionalServiceImage: {
+    width: '100%',
+    height: 180,
+  },
+  professionalServiceDetails: {
+    padding: 20,
+    gap: 16,
+  },
+  professionalDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  professionalDetailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 80,
+  },
+  professionalDetailValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  deliveryInfoContainer: {
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colorPalette.primary,
+  },
+  deliveryInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  deliveryInfoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  deliveryDetails: {
+    gap: 8,
+  },
+  deliveryDetailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  deliveryDetailLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  deliveryDetailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+  },
+  professionalActions: {
+    flexDirection: 'row',
+    padding: 20,
+    paddingTop: 0,
+    gap: 12,
+  },
+  professionalActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.3)',
+    gap: 8,
+  },
+  cancelActionButton: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderColor: 'rgba(244, 67, 54, 0.3)',
+  },
+  professionalActionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 }); 

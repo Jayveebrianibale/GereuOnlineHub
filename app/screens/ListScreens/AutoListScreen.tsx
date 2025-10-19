@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-    AutoService,
-    getAutoServices,
+  AutoService,
+  getAutoServices,
 } from '../../services/autoService';
 import {
-    cacheAutoServices,
-    cacheMotorParts,
-    getCachedAutoServices,
-    getCachedMotorParts
+  cacheAutoServices,
+  cacheMotorParts,
+  getCachedAutoServices,
+  getCachedMotorParts
 } from '../../services/dataCache';
 import {
-    MotorPart,
-    getMotorParts,
+  MotorPart,
+  getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -201,12 +201,17 @@ export default function AutoListScreen() {
         
         // Create admin reservation
         if (user) {
+          const shopServiceData = {
+            shopService: true
+          };
+          
           const adminReservationData = mapServiceToAdminReservation(
             service,
             'auto',
             user.uid,
             user.displayName || 'Unknown User',
-            user.email || 'No email'
+            user.email || 'No email',
+            shopServiceData
           );
           await addAdminReservation(adminReservationData);
 
@@ -540,7 +545,7 @@ export default function AutoListScreen() {
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}> 
+          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}> 
             {formatPHP(item.price)}
           </ThemedText>
           <TouchableOpacity 
@@ -944,14 +949,27 @@ export default function AutoListScreen() {
                                  if (!selectedAutoService.available) return '#f5f5f5';
                                  const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                                  const status = (match as any)?.status;
-                                 const active = status === 'pending' || status === 'confirmed';
+                                 const active = status === 'pending' || status === 'confirmed' || status === 'completed';
                                  return active ? colorPalette.primary : 'transparent';
                                })(),
                                opacity: selectedAutoService.available ? 1 : 0.6,
                              }
                            ]}
-                           onPress={() => selectedAutoService.available ? handleAutoReservation(selectedAutoService) : null}
-                           disabled={!selectedAutoService.available}
+                           onPress={() => {
+                             if (!selectedAutoService.available) return;
+                             const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                             const status = (match as any)?.status;
+                             // Only allow reservation if not already reserved or completed
+                             if (status !== 'pending' && status !== 'confirmed' && status !== 'completed') {
+                               handleAutoReservation(selectedAutoService);
+                             }
+                           }}
+                           disabled={(() => {
+                             if (!selectedAutoService.available) return true;
+                             const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
+                             const status = (match as any)?.status;
+                             return status === 'pending' || status === 'confirmed' || status === 'completed';
+                           })()}
                          >
                            {(() => {
                              if (!selectedAutoService.available) {
@@ -965,7 +983,7 @@ export default function AutoListScreen() {
                              }
                              const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                              const status = (match as any)?.status;
-                             const active = status === 'pending' || status === 'confirmed';
+                             const active = status === 'pending' || status === 'confirmed' || status === 'completed';
                              return (
                                <MaterialIcons
                                  name={active ? 'check-circle' : 'bookmark-border'}
@@ -986,7 +1004,7 @@ export default function AutoListScreen() {
                                  (() => {
                                    const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                                    const status = (match as any)?.status;
-                                   const active = status === 'pending' || status === 'confirmed';
+                                   const active = status === 'pending' || status === 'confirmed' || status === 'completed';
                                    return { color: active ? '#fff' : colorPalette.primary };
                                  })()
                                ]}
@@ -994,7 +1012,7 @@ export default function AutoListScreen() {
                                {(() => {
                                  const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                                  const status = (match as any)?.status;
-                                 const active = status === 'pending' || status === 'confirmed';
+                                 const active = status === 'pending' || status === 'confirmed' || status === 'completed';
                                  return active ? 'Reserved' : 'Avail';
                                })()}
                              </ThemedText>
@@ -1248,7 +1266,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   autoCard: {
-    borderRadius: 16,
+    borderRadius: 0,
     marginBottom: 20,
     borderWidth: 1,
     overflow: 'hidden',
@@ -1261,6 +1279,7 @@ const styles = StyleSheet.create({
   autoImage: {
     width: '100%',
     height: 180,
+    borderRadius: 0,
   },
   autoContent: {
     padding: 16,

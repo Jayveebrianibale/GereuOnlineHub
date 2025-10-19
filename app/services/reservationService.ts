@@ -88,11 +88,29 @@ export const saveAdminReservation = async (reservation: Omit<FirebaseAdminReserv
 
 export const updateAdminReservationStatus = async (reservationId: string, status: FirebaseAdminReservation['status']): Promise<void> => {
   try {
+    // Get reservation details before updating to check for bed reservation
     const reservationRef = ref(db, `adminReservations/${reservationId}`);
+    const snapshot = await get(reservationRef);
+    const reservation = snapshot.exists() ? { id: reservationId, ...snapshot.val() } : null;
+    
+    // Update reservation status
     await update(reservationRef, {
       status,
       updatedAt: new Date().toISOString(),
     });
+    
+    // Handle bed reservation cancellation if this is a bed reservation being declined
+    if (status === 'declined' && reservation?.serviceType === 'apartment' && reservation?.bedId) {
+      try {
+        console.log('🛏️ Declining bed reservation, cancelling bed:', { apartmentId: reservation.serviceId, bedId: reservation.bedId });
+        const { cancelBedReservation } = await import('./apartmentService');
+        await cancelBedReservation(reservation.serviceId, reservation.bedId);
+        console.log('✅ Bed reservation cancelled and bed made available after decline');
+      } catch (bedError) {
+        console.error('❌ Error cancelling bed reservation after decline:', bedError);
+        // Don't throw here as the main status update was successful
+      }
+    }
   } catch (error) {
     console.error('Error updating admin reservation status:', error);
     throw error;
@@ -288,19 +306,42 @@ export const removeReservationCompletely = async (
   try {
     console.log('🧹 Starting complete reservation removal:', { adminReservationId, userId, serviceType, serviceId });
     
-    // Step 1: Remove admin reservation
+    // Step 1: Get admin reservation details before removal to check for bed reservation
+    const adminReservationRef = ref(db, `adminReservations/${adminReservationId}`);
+    const adminSnapshot = await get(adminReservationRef);
+    const adminReservation = adminSnapshot.exists() ? { id: adminReservationId, ...adminSnapshot.val() } : null;
+    
+    // Step 2: Remove admin reservation
     await removeAdminReservation(adminReservationId);
     console.log('✅ Admin reservation removed');
     
-    // Step 2: Find and remove user reservation
+    // Step 3: Find and remove user reservation
     const userReservations = await getUserReservations(userId);
-    const userReservation = userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
+    
+    // If this is a bed reservation, find the specific bed reservation
+    // Otherwise, find the first reservation for that service
+    const userReservation = adminReservation?.bedId 
+      ? userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType && (r as any).bedId === adminReservation.bedId)
+      : userReservations.find(r => r.serviceId === serviceId && r.serviceType === serviceType);
     
     if (userReservation) {
       await removeUserReservation(userId, userReservation.id);
       console.log('✅ User reservation removed:', userReservation.id);
     } else {
       console.log('⚠️ No matching user reservation found for removal');
+    }
+    
+    // Step 4: Handle bed reservation cancellation if this is a bed reservation
+    if (serviceType === 'apartment' && adminReservation?.bedId) {
+      try {
+        console.log('🛏️ Cancelling bed reservation:', { apartmentId: serviceId, bedId: adminReservation.bedId });
+        const { cancelBedReservation } = await import('./apartmentService');
+        await cancelBedReservation(serviceId, adminReservation.bedId);
+        console.log('✅ Bed reservation cancelled and bed made available');
+      } catch (bedError) {
+        console.error('❌ Error cancelling bed reservation:', bedError);
+        // Don't throw here as the main reservation removal was successful
+      }
     }
     
     console.log('🎉 Complete reservation removal successful');

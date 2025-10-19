@@ -550,7 +550,8 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await deleteLog(logId);
-              await loadLogs();
+              // Reload both logs and stats to update counts and admin emails
+              await Promise.all([loadLogs(), loadLogsStats()]);
             } catch (error) {
               Alert.alert('Error', 'Failed to delete log');
             }

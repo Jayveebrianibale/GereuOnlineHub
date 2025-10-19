@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { getAccessibleModules, getAdminRole, isSuperAdmin } from '../config/adminConfig';
 import { useAuth } from '../hooks/useAuth';
 import { notifyUser } from '../services/notificationService';
 import {
@@ -20,6 +21,9 @@ interface AdminReservationContextType {
   updateReservationStatus: (reservationId: string, status: AdminReservation['status']) => Promise<void>;
   removeAdminReservation: (reservationId: string) => Promise<void>;
   getReservationsByStatus: (status: AdminReservation['status']) => AdminReservation[];
+  // Role-based filtering
+  getFilteredReservations: () => AdminReservation[];
+  getReservationsByModule: (module: string) => AdminReservation[];
 }
 
 const AdminReservationContext = createContext<AdminReservationContextType | undefined>(undefined);
@@ -34,9 +38,56 @@ export const useAdminReservation = () => {
 
 export const AdminReservationProvider = ({ children }: { children: ReactNode }) => {
   const [adminReservations, setAdminReservations] = useState<AdminReservation[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<AdminReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Get admin role and accessible modules
+  const adminEmail = user?.email || '';
+  const adminRole = getAdminRole(adminEmail);
+  const accessibleModules = getAccessibleModules(adminEmail);
+  const isSuperAdminUser = isSuperAdmin(adminEmail);
+
+  // Function to filter reservations based on admin role
+  const filterReservationsByRole = (reservations: AdminReservation[]): AdminReservation[] => {
+    if (isSuperAdminUser) {
+      // Super admin can see all reservations
+      return reservations;
+    }
+
+    // Filter reservations based on accessible modules
+    return reservations.filter(reservation => {
+      // Map service types to module names
+      const moduleMapping: Record<string, string> = {
+        'apartment': 'apartment',
+        'laundry': 'laundry',
+        'auto': 'car'
+      };
+
+      const module = moduleMapping[reservation.serviceType];
+      return module && accessibleModules.includes(module);
+    });
+  };
+
+  // Function to get filtered reservations
+  const getFilteredReservations = (): AdminReservation[] => {
+    return filterReservationsByRole(adminReservations);
+  };
+
+  // Function to get reservations by specific module
+  const getReservationsByModule = (module: string): AdminReservation[] => {
+    const moduleMapping: Record<string, string> = {
+      'apartment': 'apartment',
+      'laundry': 'laundry',
+      'car': 'auto'
+    };
+
+    const serviceType = Object.keys(moduleMapping).find(key => moduleMapping[key] === module);
+    if (!serviceType) return [];
+
+    return adminReservations.filter(reservation => reservation.serviceType === serviceType);
+  };
 
   // Load reservations from Firebase on mount
   useEffect(() => {
@@ -57,6 +108,9 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
           setError(null);
           const reservations = await getAdminReservations();
           setAdminReservations(reservations);
+          // Filter reservations based on admin role
+          const filtered = filterReservationsByRole(reservations);
+          setFilteredReservations(filtered);
         } catch (err) {
           console.error('Error loading admin reservations:', err);
           setError('Failed to load reservations');
@@ -70,6 +124,9 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
       // Set up real-time listener
       const unsubscribe = listenToAdminReservations((reservations) => {
         setAdminReservations(reservations);
+        // Filter reservations based on admin role
+        const filtered = filterReservationsByRole(reservations);
+        setFilteredReservations(filtered);
         setLoading(false);
       });
 
@@ -78,6 +135,14 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
       };
     }
   }, [user, isAuthenticated, authLoading]);
+
+  // Update filtered reservations when admin role or accessible modules change
+  useEffect(() => {
+    if (adminReservations.length > 0) {
+      const filtered = filterReservationsByRole(adminReservations);
+      setFilteredReservations(filtered);
+    }
+  }, [adminRole, accessibleModules, adminReservations]);
 
   const addAdminReservation = async (reservationData: Omit<AdminReservation, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -140,19 +205,21 @@ export const AdminReservationProvider = ({ children }: { children: ReactNode }) 
   };
 
   const getReservationsByStatus = (status: AdminReservation['status']) => {
-    return adminReservations.filter(reservation => reservation.status === status);
+    return filteredReservations.filter(reservation => reservation.status === status);
   };
 
   return (
     <AdminReservationContext.Provider
       value={{
-        adminReservations,
+        adminReservations: filteredReservations, // Use filtered reservations instead of all reservations
         loading,
         error,
         addAdminReservation,
         updateReservationStatus,
         removeAdminReservation,
         getReservationsByStatus,
+        getFilteredReservations,
+        getReservationsByModule,
       }}
     >
       {children}

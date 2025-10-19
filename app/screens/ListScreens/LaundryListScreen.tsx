@@ -10,8 +10,8 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
-    cacheLaundryServices,
-    getCachedLaundryServices
+  cacheLaundryServices,
+  getCachedLaundryServices
 } from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
@@ -56,6 +56,7 @@ export default function LaundryListScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLaundryService, setSelectedLaundryService] = useState<any>(null);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
@@ -353,26 +354,19 @@ export default function LaundryListScreen() {
     }
   }, [params.selectedServiceId, params.serviceType, laundryServices]);
 
-  // Fetch laundry services from Firebase or cache
+  // Fetch laundry services from Firebase or cache only when screen is first visited
   useEffect(() => {
-    const fetchLaundryServices = async () => {
-      // Only fetch if user is authenticated and not loading
-      if (isLoading) {
-        console.log('⏳ Authentication still loading, waiting...');
-        return;
-      }
-      
-      if (!user) {
-        console.log('⏳ Waiting for user authentication before fetching laundry services...');
-        return;
-      }
+    if (servicesLoaded || isLoading || !user) return;
 
+    const fetchLaundryServices = async () => {
       try {
+        console.log('🔄 Loading laundry services in laundry list screen...');
         // Check cache first
         const cachedServices = getCachedLaundryServices();
         if (cachedServices) {
           console.log('🚀 Using cached laundry services data in laundry list');
           setLaundryServices(cachedServices);
+          setServicesLoaded(true);
           return;
         }
 
@@ -382,12 +376,20 @@ export default function LaundryListScreen() {
         
         // Cache the data for future use
         cacheLaundryServices(laundryServicesData);
+        setServicesLoaded(true);
       } catch (error) {
         console.error('Error fetching laundry services:', error);
       }
     };
     fetchLaundryServices();
-  }, [user, isLoading]); // Add both user and isLoading as dependencies
+  }, [user, isLoading, servicesLoaded]);
+
+  // Trigger loading when component mounts
+  useEffect(() => {
+    if (!servicesLoaded && user && !isLoading) {
+      setServicesLoaded(true);
+    }
+  }, []);
 
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -535,7 +537,7 @@ export default function LaundryListScreen() {
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
+          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
             {formatPHP(item.price)}
           </ThemedText>
           <TouchableOpacity 
@@ -571,13 +573,22 @@ export default function LaundryListScreen() {
       </View>
 
       {/* Laundry Services List */}
-      <FlatList
-        data={getFilteredLaundryServices()}
-        renderItem={renderLaundryItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      {!servicesLoaded ? (
+        <View style={[styles.emptyState, { backgroundColor: bgColor }]}>
+          <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
+          <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+            Loading laundry services...
+          </ThemedText>
+        </View>
+      ) : (
+        <FlatList
+          data={getFilteredLaundryServices()}
+          renderItem={renderLaundryItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Search Modal */}
       <Modal
@@ -1104,7 +1115,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   laundryCard: {
-    borderRadius: 16,
+    borderRadius: 0,
     marginBottom: 20,
     borderWidth: 1,
     overflow: 'hidden',
@@ -1117,6 +1128,7 @@ const styles = StyleSheet.create({
   laundryImage: {
     width: '100%',
     height: 180,
+    borderRadius: 0,
   },
   laundryContent: {
     padding: 16,
@@ -1605,5 +1617,17 @@ const styles = StyleSheet.create({
   },
   pickupContactSection: {
     marginBottom: 16,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

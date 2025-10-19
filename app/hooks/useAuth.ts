@@ -56,9 +56,13 @@ export const useAuth = () => {
         
         // I-update ang user status to active kapag nag-login
         try {
-          await updateUserLastActive(user.uid, user.email || '', user.displayName || undefined);
+          // Check if user is properly authenticated before updating status
+          if (user && user.uid) {
+            await updateUserLastActive(user.uid, user.email || '', user.displayName || undefined);
+          }
         } catch (error) {
-          console.error('Error updating user status on login:', error);
+          console.error('Error setting user status:', error);
+          // Don't throw the error to prevent app crash, just log it
         }
         
         setAuthState({

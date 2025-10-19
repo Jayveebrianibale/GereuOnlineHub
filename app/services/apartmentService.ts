@@ -461,8 +461,8 @@ export const cancelBedReservation = async (apartmentId: string, bedId: string) =
       b.id === bedId ? { 
         ...b, 
         status: 'available' as const,
-        reservedBy: undefined,
-        reservedAt: undefined
+        reservedBy: null,
+        reservedAt: null
       } : b
     );
     

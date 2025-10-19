@@ -179,15 +179,14 @@ export default function MessagesScreen() {
     return () => unsubscribeStatus();
   }, [adminUsers]);
 
-  // ✅ Set current user as online when component mounts
+  // ✅ Set current user as online when component mounts (only for admins)
   useEffect(() => {
-    if (currentUserEmail) {
-      // Encode email to make it Firebase-safe (replace . with _)
+    if (currentUserEmail && ADMIN_EMAILS.includes(currentUserEmail)) {
+      // Only update status for admin users
       const encodedEmail = currentUserEmail.replace(/\./g, '_');
-      // Set current user as online in adminStatus
       const userStatusRef = ref(db, `adminStatus/${encodedEmail}`);
       update(userStatusRef, { [encodedEmail]: true }).catch(error => {
-        console.error('Error setting user status:', error);
+        console.error('Error setting admin status:', error);
       });
     }
   }, [currentUserEmail]);

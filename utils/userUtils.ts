@@ -62,6 +62,18 @@ export const storeUserData = async (user: User, fullName: string): Promise<void>
 // I-update ang user's last active time at i-set ang status to active
 export const updateUserLastActive = async (userId: string, email?: string, displayName?: string): Promise<void> => {
   try {
+    // Validate input parameters
+    if (!userId || userId.trim() === '') {
+      console.warn('Invalid userId provided to updateUserLastActive');
+      return;
+    }
+
+    // Check if database is available
+    if (!db) {
+      console.warn('Firebase database is not available');
+      return;
+    }
+
     const userRef = ref(db, `users/${userId}`);
     
     // I-check muna kung may existing user
@@ -90,12 +102,26 @@ export const updateUserLastActive = async (userId: string, email?: string, displ
     }
   } catch (error) {
     console.error('Error updating user last active:', error);
+    // Don't throw the error to prevent app crashes
+    // The error is already logged for debugging purposes
   }
 };
 
 // Set user status to inactive (for logout)
 export const setUserInactive = async (userId: string): Promise<void> => {
   try {
+    // Validate input parameters
+    if (!userId || userId.trim() === '') {
+      console.warn('Invalid userId provided to setUserInactive');
+      return;
+    }
+
+    // Check if database is available
+    if (!db) {
+      console.warn('Firebase database is not available');
+      return;
+    }
+
     const userRef = ref(db, `users/${userId}`);
     
     // Check if user exists first
@@ -117,12 +143,30 @@ export const setUserInactive = async (userId: string): Promise<void> => {
     }
   } catch (error) {
     console.error('Error setting user inactive:', error);
+    // Don't throw the error to prevent app crashes
+    // The error is already logged for debugging purposes
   }
 };
 
 // Handle existing users who might not have database entries yet
 export const ensureUserExists = async (userId: string, email: string, displayName?: string): Promise<void> => {
   try {
+    // Validate input parameters
+    if (!userId || userId.trim() === '') {
+      console.warn('Invalid userId provided to ensureUserExists');
+      return;
+    }
+    if (!email || email.trim() === '') {
+      console.warn('Invalid email provided to ensureUserExists');
+      return;
+    }
+
+    // Check if database is available
+    if (!db) {
+      console.warn('Firebase database is not available');
+      return;
+    }
+
     const userRef = ref(db, `users/${userId}`);
     const snapshot = await get(userRef);
     
@@ -146,6 +190,8 @@ export const ensureUserExists = async (userId: string, email: string, displayNam
     }
   } catch (error) {
     console.error('Error ensuring user exists:', error);
+    // Don't throw the error to prevent app crashes
+    // The error is already logged for debugging purposes
   }
 };
 

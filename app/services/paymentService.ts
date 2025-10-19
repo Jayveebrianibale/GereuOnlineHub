@@ -690,6 +690,12 @@ export function isPaymentRequired(serviceType: string): boolean {
 
 // Calculate down payment amount
 export function calculateDownPayment(fullAmount: number, serviceType: string): number {
+  // Validate input
+  if (typeof fullAmount !== 'number' || isNaN(fullAmount) || fullAmount < 0) {
+    console.warn('⚠️ Invalid fullAmount for down payment calculation:', fullAmount);
+    return 0;
+  }
+  
   if (serviceType === 'apartment') {
     return Math.round(fullAmount * 0.3); // 30% for apartments
   }

@@ -303,7 +303,7 @@ export default function MotorPartsListScreen() {
          </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}> 
+          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}> 
             {formatPHP(item.price)}
           </ThemedText>
           <TouchableOpacity 

@@ -94,6 +94,7 @@ export default function AdminDashboard() {
   const [autoServices, setAutoServices] = useState<any[]>([]);
   const [laundryServices, setLaundryServices] = useState<any[]>([]);
   const [modules, setModules] = useState(initialModules);
+  const [laundryServicesLoaded, setLaundryServicesLoaded] = useState(false);
   const [totalServices, setTotalServices] = useState(0);
   const [activeReservations, setActiveReservations] = useState(0);
   const [reservationsCount, setReservationsCount] = useState(0);
@@ -153,18 +154,6 @@ export default function AdminDashboard() {
       setAutoServices(autoServicesData);
     });
 
-    // Set up real-time listeners for laundry services
-    const laundryServicesRef = ref(db, 'laundryServices');
-    const laundryServicesListener = onValue(laundryServicesRef, (snapshot) => {
-      const laundryServicesData: any[] = [];
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        Object.keys(data).forEach((key) => {
-          laundryServicesData.push({ id: key, ...data[key] });
-        });
-      }
-      setLaundryServices(laundryServicesData);
-    });
 
     // Set up real-time listener for admin reservations count
     const adminReservationsRef = ref(db, 'adminReservations');
@@ -184,17 +173,35 @@ export default function AdminDashboard() {
          reservation.status === 'cancelled' || 
          reservation.status === 'completed')
       );
-      setReservationsCount(validReservations.length);
+      
+      // Filter reservations based on admin role and accessible modules
+      const filteredReservations = validReservations.filter((reservation: any) => {
+        if (isSuperAdminUser) {
+          // Super admin can see all reservations
+          return true;
+        }
+        
+        // Filter reservations based on accessible modules
+        const moduleMapping: Record<string, string> = {
+          'apartment': 'apartment',
+          'laundry': 'laundry',
+          'auto': 'car'
+        };
+
+        const module = moduleMapping[reservation.serviceType];
+        return module && accessibleModules.includes(module);
+      });
+      
+      setReservationsCount(filteredReservations.length);
     });
 
     // Cleanup listeners when component unmounts
     return () => {
       off(apartmentsRef, 'value', apartmentsListener);
       off(autoServicesRef, 'value', autoServicesListener);
-      off(laundryServicesRef, 'value', laundryServicesListener);
       off(adminReservationsRef, 'value', adminReservationsListener);
     };
-  }, []);
+  }, [isSuperAdminUser, accessibleModules]);
 
   // Admin notifications badge listener (pending + changes since last seen)
   useEffect(() => {
@@ -217,14 +224,33 @@ export default function AdminDashboard() {
           r.id && 
           (r.status === 'pending' || r.status === 'confirmed' || r.status === 'declined' || r.status === 'cancelled')
         );
-        const count = validReservations.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
+        
+        // Apply role-based filtering to unread count
+        const filteredReservations = validReservations.filter((reservation: any) => {
+          if (isSuperAdminUser) {
+            // Super admin can see all reservations
+            return true;
+          }
+          
+          // Filter reservations based on accessible modules
+          const moduleMapping: Record<string, string> = {
+            'apartment': 'apartment',
+            'laundry': 'laundry',
+            'auto': 'car'
+          };
+
+          const module = moduleMapping[reservation.serviceType];
+          return module && accessibleModules.includes(module);
+        });
+        
+        const count = filteredReservations.filter(r => new Date(r.updatedAt).getTime() > lastSeen).length;
         setUnreadCount(count);
       } catch {
         setUnreadCount(0);
       }
     });
     return () => { isActive = false; unsubscribe(); };
-  }, []);
+  }, [isSuperAdminUser, accessibleModules]);
 
   // Auto-slide functionality for apartments
   useEffect(() => {
@@ -340,6 +366,44 @@ export default function AdminDashboard() {
     const activeReservationsCount = calculateActiveReservations(apartments, autoServices, laundryServices);
     setActiveReservations(activeReservationsCount);
   }, [apartments, autoServices, laundryServices, accessibleModules]);
+
+  // Function to load laundry services when user interacts with laundry module
+  const loadLaundryServices = () => {
+    if (laundryServicesLoaded) return;
+    
+    console.log('🔄 Loading laundry services on demand in admin dashboard...');
+    setLaundryServicesLoaded(true);
+  };
+
+  // Auto-load laundry services if admin has access to laundry module
+  useEffect(() => {
+    if (accessibleModules.includes('laundry') && !laundryServicesLoaded) {
+      console.log('🔄 Auto-loading laundry services for laundry admin...');
+      setLaundryServicesLoaded(true);
+    }
+  }, [accessibleModules, laundryServicesLoaded]);
+
+  // Set up laundry listener when laundryServicesLoaded becomes true
+  useEffect(() => {
+    if (!laundryServicesLoaded) return;
+
+    console.log('🧺 Setting up laundry services listener in admin dashboard...');
+    const laundryServicesRef = ref(db, 'laundryServices');
+    const laundryServicesListener = onValue(laundryServicesRef, (snapshot) => {
+      const laundryServicesData: any[] = [];
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.keys(data).forEach((key) => {
+          laundryServicesData.push({ id: key, ...data[key] });
+        });
+      }
+      setLaundryServices(laundryServicesData);
+    });
+
+    return () => {
+      off(laundryServicesRef, 'value', laundryServicesListener);
+    };
+  }, [laundryServicesLoaded]);
 
   // Function to calculate active reservations (placeholder implementation)
   const calculateActiveReservations = (apartments: any[], autoServices: any[], laundryServices: any[]) => {
@@ -519,7 +583,7 @@ export default function AdminDashboard() {
             <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
               Dashboard
             </ThemedText>
-            <ThemedText type="default" style={[styles.headerSubtitle, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.headerSubtitle, { color: textColor }]}>
               Welcome back, {isSuperAdminUser ? 'Super Admin' : adminRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </ThemedText>
             {!isSuperAdminUser && (
@@ -574,7 +638,7 @@ export default function AdminDashboard() {
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
             <View style={styles.statHeader}>
               <MaterialIcons name="business" size={20} color={colorPalette.primary} />
-              <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+              <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
                 Total Services
               </ThemedText>
             </View>
@@ -585,7 +649,7 @@ export default function AdminDashboard() {
           <View style={[styles.statCard, { backgroundColor: cardBackground }]}>
             <View style={styles.statHeader}>
               <MaterialIcons name="event-note" size={20} color={colorPalette.primaryDark} />
-              <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+              <ThemedText type="default" style={[styles.statLabel, { color: textColor }]}>
                 Reservations
               </ThemedText>
             </View>
@@ -732,7 +796,7 @@ export default function AdminDashboard() {
                         </View>
                       )}
                     </>
-                  ) : mod.key === 'laundry' && laundryServices.length > 0 ? (
+                  ) : mod.key === 'laundry' && laundryServicesLoaded && laundryServices.length > 0 ? (
                     <>
                       <FlatList
                         ref={laundryFlatListRef}
@@ -842,13 +906,61 @@ export default function AdminDashboard() {
                     <Image source={mod.image} style={styles.cardImage} resizeMode="cover" />
                   )}
                   
-                  <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
-                    {mod.description}
-                  </ThemedText>
-                  <View style={styles.cardFooter}>
-                    <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
-                      {mod.stats}
+                  {mod.key === 'apartment' ? (
+                    <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        Manage room
+                      </ThemedText>
+                      {' '}
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        listings
+                      </ThemedText>
+                      ,{' '}
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        availability
+                      </ThemedText>
+                      ,{' '}
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        and
+                      </ThemedText>
+                      {' '}
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        reservations
+                      </ThemedText>
                     </ThemedText>
+                  ) : mod.key === 'laundry' ? (
+                    <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        Manage laundry status
+                      </ThemedText>
+                    </ThemedText>
+                  ) : (
+                    <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
+                      {mod.description}
+                    </ThemedText>
+                  )}
+                  <View style={styles.cardFooter}>
+                    {mod.key === 'apartment' ? (
+                      <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
+                        {apartments.length} {apartments.length === 1 ? (
+                          <>
+                            <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                              Listing
+                            </ThemedText>
+                          </>
+                        ) : (
+                          <>
+                            <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                              Listings
+                            </ThemedText>
+                          </>
+                        )}
+                      </ThemedText>
+                    ) : (
+                      <ThemedText type="default" style={[styles.cardStats, { color: iconColor }]}>
+                        {mod.stats}
+                      </ThemedText>
+                    )}
                     <MaterialIcons name="arrow-forward" size={20} color={iconColor} />
                   </View>
                 </TouchableOpacity>
@@ -950,7 +1062,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 16,
     marginLeft: 8,
   },
   statValue: {
@@ -1010,7 +1122,7 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: 120,
-    borderRadius: 12,
+    borderRadius: 0,
     marginBottom: 12,
   },
   cardDescription: {
@@ -1120,7 +1232,7 @@ const styles = StyleSheet.create({
   },
   carouselImageContainer: {
     height: 120,
-    borderRadius: 12,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   carouselImage: {

@@ -61,6 +61,7 @@ export default function AdminLaundryManagement() {
   const dangerColor = isDark ? '#FF6B6B' : '#FF3B30';
 
   const [services, setServices] = useState<LaundryService[]>([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [currentService, setCurrentService] = useState<any>(emptyLaundryService);
   const [isNewService, setIsNewService] = useState(false);
@@ -176,23 +177,16 @@ export default function AdminLaundryManagement() {
     }
   };
 
-  // Load laundry services from Firebase
+  // Load laundry services from Firebase only when screen is first visited
   useEffect(() => {
-    const fetchServices = async () => {
-      // Only fetch if user is authenticated and not loading
-      if (isLoading) {
-        console.log('⏳ Authentication still loading, waiting...');
-        return;
-      }
-      
-      if (!user) {
-        console.log('⏳ Waiting for user authentication before fetching laundry services...');
-        return;
-      }
+    if (servicesLoaded || isLoading || !user) return;
 
+    const fetchServices = async () => {
       try {
+        console.log('🔄 Loading laundry services in admin management screen...');
         const servicesData = await getLaundryServices();
         setServices(servicesData);
+        setServicesLoaded(true);
       } catch (error) {
         console.error('Error fetching laundry services: ', error);
         Alert.alert('Error', 'Failed to fetch laundry services');
@@ -200,7 +194,14 @@ export default function AdminLaundryManagement() {
     };
 
     fetchServices();
-  }, [user, isLoading]); // Add both user and isLoading as dependencies
+  }, [user, isLoading, servicesLoaded]);
+
+  // Trigger loading when component mounts
+  useEffect(() => {
+    if (!servicesLoaded && user && !isLoading) {
+      setServicesLoaded(true);
+    }
+  }, []);
 
   const handleAddNew = () => {
     setCurrentService({ ...emptyLaundryService, id: Date.now().toString() });
@@ -357,55 +358,121 @@ export default function AdminLaundryManagement() {
 
   const renderServiceItem = ({ item }: { item: any }) => (
     <View style={[styles.serviceCard, { backgroundColor: cardBgColor, borderColor }]}>
-      <RobustImage source={item.image} style={styles.serviceImage} resizeMode="cover" />
+      <View style={styles.imageContainer}>
+        <RobustImage source={item.image} style={styles.serviceImage} resizeMode="cover" />
+        <View style={[styles.statusOverlay, { backgroundColor: item.available ? '#4CAF50' : '#FF5722' }]}>
+          <ThemedText style={styles.statusOverlayText}>
+            {item.available ? 'Available' : 'Unavailable'}
+          </ThemedText>
+        </View>
+      </View>
       <View style={styles.serviceContent}>
-        <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
-          {item.title}
-        </ThemedText>
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <FontAwesome name="money" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
+        <View style={styles.titleRow}>
+          <ThemedText type="subtitle" style={[styles.serviceTitle, { color: textColor }]}>
+            {item.title}
+          </ThemedText>
+        </View>
+
+        {/* Description */}
+        {item.description && (
+          <ThemedText style={[styles.description, { color: isDark ? '#B0B0B0' : '#666' }]}>
+            {item.description}
+          </ThemedText>
+        )}
+
+        {/* Rating and Reviews */}
+        {(item.rating > 0 || item.reviews > 0) && (
+          <View style={styles.ratingContainer}>
+            <View style={styles.ratingRow}>
+              <MaterialIcons name="star" size={16} color="#FFD700" />
+              <ThemedText style={[styles.ratingText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                {item.rating.toFixed(1)}
+              </ThemedText>
+              <ThemedText style={[styles.reviewsText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                ({item.reviews} review{item.reviews !== 1 ? 's' : ''})
+              </ThemedText>
+            </View>
+          </View>
+        )}
+        
+        <View style={styles.detailsContainer}>
+          <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+            <FontAwesome name="money" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+            <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
               {item.price}
             </ThemedText>
           </View>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="schedule" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
+          <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+            <MaterialIcons name="schedule" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+            <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
               {item.turnaround}
             </ThemedText>
           </View>
+          {item.minOrder && (
+            <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+              <MaterialIcons name="shopping-cart" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+              <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                Min: {item.minOrder}
+              </ThemedText>
+            </View>
+          )}
         </View>
-        {item.pickup && (
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
-              <MaterialIcons name="local-shipping" size={16} color={subtitleColor} />
-              <ThemedText style={[styles.detailText, { color: textColor }]}>
-                Pickup: {item.pickup}
-              </ThemedText>
+
+        {/* Services Included */}
+        {item.services && item.services.length > 0 && (
+          <View style={styles.servicesContainer}>
+            <ThemedText style={[styles.servicesTitle, { color: isDark ? '#B0B0B0' : '#666' }]}>
+              Services Included
+            </ThemedText>
+            <View style={styles.servicesList}>
+              {item.services.slice(0, 3).map((service: string, index: number) => (
+                <View key={index} style={[styles.serviceTag, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
+                  <ThemedText style={[styles.serviceTagText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                    {service}
+                  </ThemedText>
+                </View>
+              ))}
+              {item.services.length > 3 && (
+                <ThemedText style={[styles.moreServices, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                  +{item.services.length - 3} more
+                </ThemedText>
+              )}
             </View>
           </View>
         )}
-        {item.delivery && (
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
-              <MaterialIcons name="delivery-dining" size={16} color={subtitleColor} />
-              <ThemedText style={[styles.detailText, { color: textColor }]}>
-                Delivery: {item.delivery}
-              </ThemedText>
-            </View>
+
+        {/* Pickup and Delivery */}
+        {(item.pickup || item.delivery) && (
+          <View style={styles.deliveryContainer}>
+            {item.pickup && (
+              <View style={[styles.deliveryItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <MaterialIcons name="local-shipping" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.deliveryText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                  Pickup: {item.pickup}
+                </ThemedText>
+              </View>
+            )}
+            {item.delivery && (
+              <View style={[styles.deliveryItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+                <MaterialIcons name="delivery-dining" size={16} color={isDark ? '#B0B0B0' : '#666'} />
+                <ThemedText style={[styles.deliveryText, { color: isDark ? '#B0B0B0' : '#666' }]}>
+                  Delivery: {item.delivery}
+                </ThemedText>
+              </View>
+            )}
           </View>
         )}
+        
         <View style={styles.adminActions}>
           <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: colorPalette.primary }]}
+            style={[styles.actionButton, styles.editButton, { backgroundColor: colorPalette.primary }]}
             onPress={() => handleEdit(item)}
           >
             <MaterialIcons name="edit" size={16} color="#fff" />
             <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: dangerColor }]}
+            style={[styles.actionButton, styles.deleteButton, { backgroundColor: dangerColor }]}
             onPress={() => handleDelete(item.id)}
           >
             <MaterialIcons name="delete" size={16} color="#fff" />
@@ -421,21 +488,36 @@ export default function AdminLaundryManagement() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
+          <MaterialIcons name="arrow-back" size={24} color={isDark ? '#fff' : '#000'} />
         </TouchableOpacity>
-        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Laundry Service Management
-        </ThemedText>
+        <View style={styles.headerContent}>
+          <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+            Laundry Service Management
+          </ThemedText>
+          <ThemedText style={[styles.headerSubtitle, { color: isDark ? '#B0B0B0' : '#666' }]}>
+            Manage your laundry service offerings
+          </ThemedText>
+        </View>
         <TouchableOpacity
-          style={styles.headerAddButton}
+          style={[styles.headerAddButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}
           onPress={handleAddNew}
         >
-          <MaterialIcons name="add" size={24} color={colorPalette.primary} />
+          <MaterialIcons name="add" size={20} color={isDark ? '#fff' : '#000'} />
+          <ThemedText style={[styles.addNewText, { color: isDark ? '#fff' : '#000' }]}>
+            Add New
+          </ThemedText>
         </TouchableOpacity>
       </View>
 
       {/* Services List */}
-      {(services ?? []).length > 0 ? (
+      {!servicesLoaded ? (
+        <ThemedView style={[styles.emptyState, { backgroundColor: bgColor }]}>
+          <MaterialIcons name="local-laundry-service" size={48} color={subtitleColor} />
+          <ThemedText style={[styles.emptyText, { color: subtitleColor }]}>
+            Loading laundry services...
+          </ThemedText>
+        </ThemedView>
+      ) : (services ?? []).length > 0 ? (
         <FlatList
           data={services}
           renderItem={renderServiceItem}
@@ -918,41 +1000,125 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    marginTop: 30,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   backButton: {
     padding: 4,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+  headerContent: {
     flex: 1,
-    textAlign: 'center',
+    alignItems: 'center',
     marginHorizontal: 12,
   },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   headerAddButton: {
-    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  addNewText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   listContainer: {
     padding: 20,
   },
   serviceCard: {
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 0,
+    marginBottom: 20,
     borderWidth: 1,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  imageContainer: {
+    position: 'relative',
+  },
+  statusOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 0,
+  },
+  statusOverlayText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   serviceImage: {
     width: '100%',
     height: 150,
+    borderRadius: 0,
   },
   serviceContent: {
-    padding: 16,
+    padding: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   serviceTitle: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  ratingContainer: {
+    marginBottom: 12,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
+    marginLeft: 4,
+  },
+  reviewsText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  detailsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 8,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -962,26 +1128,88 @@ const styles = StyleSheet.create({
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
   },
   detailText: {
     marginLeft: 4,
     fontSize: 14,
   },
+  servicesContainer: {
+    marginBottom: 16,
+  },
+  servicesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  servicesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  serviceTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  serviceTagText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  moreServices: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    alignSelf: 'center',
+  },
+  deliveryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 8,
+  },
+  deliveryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  deliveryText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   adminActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 16,
+    gap: 12,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flex: 1,
-    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  editButton: {
+    // Additional styles for edit button if needed
+  },
+  deleteButton: {
+    // Additional styles for delete button if needed
   },
   actionButtonText: {
     color: '#fff',
@@ -1194,13 +1422,13 @@ const styles = StyleSheet.create({
   imageGridItem: {
     width: '100%',
     height: 120,
-    borderRadius: 10,
+    borderRadius: 0,
     position: 'relative',
   },
   imageGridImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 10,
+    borderRadius: 0,
   },
   selectedImage: {
     borderWidth: 3,

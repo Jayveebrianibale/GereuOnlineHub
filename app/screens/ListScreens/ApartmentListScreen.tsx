@@ -156,20 +156,29 @@ export default function ApartmentListScreen() {
     return globalReservation && globalReservation.userId !== user?.uid;
   };
 
+  // Helper function to check if current user has reserved the apartment
+  const isApartmentReservedByCurrentUser = (apartmentId: string) => {
+    const userReservation = reservedApartments.find(apartment => 
+      (apartment as any).serviceId === apartmentId && 
+      (apartment.status === 'pending' || apartment.status === 'confirmed')
+    );
+    return !!userReservation;
+  };
+
   // Helper function to check if apartment is available for reservation
   const isApartmentAvailable = (apartmentId: string) => {
     // Check if apartment is marked as unavailable
     const apartment = apartments.find(apt => apt.id === apartmentId);
     if (!apartment?.available) return false;
     
-    // Check if it's reserved by another user
-    if (isApartmentReservedByOtherUser(apartmentId)) return false;
-    
-    // For apartments with bed management, check if there are available beds
+    // For apartments with bed management, only check if there are available beds
     if (apartment.bedManagement) {
       const availableBeds = apartment.availableBeds || 0;
       return availableBeds > 0;
     }
+    
+    // For regular apartments (without bed management), check if it's reserved by another user
+    if (isApartmentReservedByOtherUser(apartmentId)) return false;
     
     return true;
   };
@@ -392,7 +401,7 @@ export default function ApartmentListScreen() {
     const apartmentData = apartment || selectedApartmentForBed;
     console.log('🛏️ Processing bed reservation:', {
       bed: { id: bed.id, bedNumber: bed.bedNumber, price: bed.price },
-      apartment: { id: apartmentData?.id, title: apartmentData?.title },
+       apartment: { id: apartmentData?.id, title: apartmentData?.title },
       user: { uid: user?.uid },
       reservationDate: reservationDate.toISOString()
     });
@@ -409,11 +418,22 @@ export default function ApartmentListScreen() {
       console.log('✅ Step 1: Bed reserved in apartment service');
       
       // Create bed reservation data for user context
+      const bedPrice = bed.price || apartmentData.price;
+      const parsedPrice = parsePrice(bedPrice);
+      
+      console.log('💰 Bed reservation price calculation:', {
+        bedPrice,
+        apartmentPrice: apartmentData.price,
+        finalPrice: parsedPrice,
+        bed: bed,
+        apartment: apartmentData
+      });
+      
       const bedReservationData = {
         serviceType: 'apartment' as const,
         serviceId: apartmentData.id,
         serviceTitle: `${apartmentData.title} - Bed ${bed.bedNumber}`,
-        servicePrice: bed.price || apartmentData.price,
+        servicePrice: parsedPrice,
         serviceImage: apartmentData.image,
         serviceLocation: apartmentData.location,
         status: 'pending' as const,
@@ -431,7 +451,7 @@ export default function ApartmentListScreen() {
       console.log('🛏️ Step 3: Creating admin reservation...');
       // Create admin reservation for the bed
       const adminReservationData = mapServiceToAdminReservation(
-        { ...apartmentData, bedId: bed.id, bedNumber: bed.bedNumber, reservationDate: reservationDate.toISOString() },
+        { ...apartmentData, price: parsedPrice, bedId: bed.id, bedNumber: bed.bedNumber, reservationDate: reservationDate.toISOString() },
         'apartment',
         user.uid,
         user.displayName || 'Unknown User',
@@ -756,10 +776,27 @@ export default function ApartmentListScreen() {
               }
             } else {
               // Regular apartment availability check
+              const isReservedByCurrentUser = isApartmentReservedByCurrentUser(item.id);
               const isReservedByOther = isApartmentReservedByOtherUser(item.id);
               const isAvailable = isApartmentAvailable(item.id);
               
-              if (isReservedByOther) {
+              if (isReservedByCurrentUser) {
+                return (
+                  <>
+                    <MaterialIcons 
+                      name="bookmark" 
+                      size={16} 
+                      color="#2196F3" 
+                    />
+                    <ThemedText style={[
+                      styles.availabilityText, 
+                      { color: isDark ? "#fff" : "#2196F3" }
+                    ]}>
+                      Reserved
+                    </ThemedText>
+                  </>
+                );
+              } else if (isReservedByOther) {
                 return (
                   <>
                     <MaterialIcons 
@@ -769,7 +806,7 @@ export default function ApartmentListScreen() {
                     />
                     <ThemedText style={[
                       styles.availabilityText, 
-                      { color: "#FF9800" }
+                      { color: isDark ? "#fff" : "#FF9800" }
                     ]}>
                       Reserved
                     </ThemedText>
@@ -851,7 +888,7 @@ export default function ApartmentListScreen() {
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: colorPalette.primary }]}>
+          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
             {formatPHP(item.price || '0')}
           </ThemedText>
           <TouchableOpacity 
@@ -859,22 +896,43 @@ export default function ApartmentListScreen() {
               styles.viewButton, 
               { 
                 backgroundColor: (() => {
+                  // For bed management apartments, only check bed availability
+                  if (item.bedManagement) {
+                    if ((item.availableBeds || 0) === 0) return '#F44336';
+                    return colorPalette.primary;
+                  }
+                  // For regular apartments, check if reserved by current user first
+                  if (isApartmentReservedByCurrentUser(item.id)) return '#9CA3AF';
+                  // Then check if reserved by other user
                   if (isApartmentReservedByOtherUser(item.id)) return '#FF9800';
-                  if (item.bedManagement && (item.availableBeds || 0) === 0) return '#F44336';
                   return colorPalette.primary;
                 })(),
-                opacity: (item.bedManagement && (item.availableBeds || 0) === 0) ? 0.7 : 1
+                opacity: (() => {
+                  if (item.bedManagement && (item.availableBeds || 0) === 0) return 0.7;
+                  if (isApartmentReservedByCurrentUser(item.id)) return 0.6;
+                  return 1;
+                })()
               }
             ]}
             onPress={() => {
-              setSelectedApartment(item);
-              setDetailModalVisible(true);
+              if (!isApartmentReservedByCurrentUser(item.id)) {
+                setSelectedApartment(item);
+                setDetailModalVisible(true);
+              }
             }}
+            disabled={isApartmentReservedByCurrentUser(item.id)}
           >
             <ThemedText style={styles.viewButtonText}>
               {(() => {
+                // For bed management apartments, only check bed availability
+                if (item.bedManagement) {
+                  if ((item.availableBeds || 0) === 0) return 'Fully Occupied';
+                  return 'View Details';
+                }
+                // For regular apartments, check if reserved by current user first
+                if (isApartmentReservedByCurrentUser(item.id)) return 'Reserved';
+                // Then check if reserved by other user
                 if (isApartmentReservedByOtherUser(item.id)) return 'View Info';
-                if (item.bedManagement && (item.availableBeds || 0) === 0) return 'Fully Occupied';
                 return 'View Details';
               })()}
             </ThemedText>
@@ -1008,7 +1066,7 @@ export default function ApartmentListScreen() {
                   
                   <View style={styles.detailContent}>
                     <View style={styles.detailRatingRow}>
-                      <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
+                      <ThemedText type="subtitle" style={[styles.detailPrice, { color: textColor }]}>
                         {formatPHP(selectedApartment.price || '0')}
                       </ThemedText>
                     </View>
@@ -1063,111 +1121,189 @@ export default function ApartmentListScreen() {
                     
                     <View style={styles.detailActions}>
                       {(() => {
-                        const isReservedByOther = isApartmentReservedByOtherUser(selectedApartment.id);
                         const isAvailable = isApartmentAvailable(selectedApartment.id);
                         
-                        if (isReservedByOther) {
-                          return (
-                            <View style={styles.reservedByOtherContainer}>
-                              <MaterialIcons name="person-pin" size={24} color="#FF9800" />
-                              <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
-                                This apartment has been reserved by someone else.
-                              </ThemedText>
-                              <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
-                                Please choose another apartment or check back later
-                              </ThemedText>
-                            </View>
-                          );
-                        } else if (selectedApartment.bedManagement && (selectedApartment.availableBeds || 0) === 0) {
-                          return (
-                            <View style={styles.reservedByOtherContainer}>
-                              <MaterialIcons name="bed" size={24} color="#F44336" />
-                              <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
-                                All beds in this apartment are currently occupied.
-                              </ThemedText>
-                              <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
-                                Please choose another apartment or check back later
-                              </ThemedText>
-                            </View>
-                          );
+                        // For bed management apartments, check bed availability
+                        if (selectedApartment.bedManagement) {
+                          if ((selectedApartment.availableBeds || 0) === 0) {
+                            return (
+                              <View style={styles.reservedByOtherContainer}>
+                                <MaterialIcons name="bed" size={24} color="#F44336" />
+                                <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
+                                  All beds in this apartment are currently occupied.
+                                </ThemedText>
+                                <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
+                                  Please choose another apartment or check back later
+                                </ThemedText>
+                              </View>
+                            );
+                          }
                         } else {
-                          return (
-                            <>
-                              <TouchableOpacity 
-                                style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
-                                onPress={() => handleMessageAdmin(selectedApartment)}
-                              >
-                                <MaterialIcons name="message" size={20} color="#fff" />
-                                <ThemedText style={styles.contactButtonText}>Message</ThemedText>
-                              </TouchableOpacity>
-                              <TouchableOpacity 
-                                style={[
-                                  styles.bookButton,
-                                  {
-                                    borderColor: isAvailable ? colorPalette.primary : '#ccc',
-                                    backgroundColor: (() => {
-                                      if (!isAvailable) return '#f5f5f5';
-                                      const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                                      const status = (match as any)?.status;
-                                      const active = status === 'pending' || status === 'confirmed';
-                                      return active ? colorPalette.primary : 'transparent';
-                                    })(),
-                                    opacity: isAvailable ? 1 : 0.6,
-                                  },
-                                ]}
-                                onPress={() => isAvailable ? handleReservation(selectedApartment) : null}
-                                disabled={!isAvailable}
-                              >
-                                {(() => {
-                                  if (!isAvailable) {
-                                    return (
-                                      <MaterialIcons
-                                        name="cancel"
-                                        size={20}
-                                        color="#999"
-                                      />
-                                    );
-                                  }
-                                  const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                                  const status = (match as any)?.status;
-                                  const active = status === 'pending' || status === 'confirmed';
+                          // For regular apartments, check if reserved by another user
+                          const isReservedByOther = isApartmentReservedByOtherUser(selectedApartment.id);
+                          if (isReservedByOther) {
+                            return (
+                              <View style={styles.reservedByOtherContainer}>
+                                <MaterialIcons name="person-pin" size={24} color="#FF9800" />
+                                <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
+                                  This apartment has been reserved by someone else.
+                                </ThemedText>
+                                <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
+                                  Please choose another apartment or check back later
+                                </ThemedText>
+                              </View>
+                            );
+                          }
+                        }
+                        
+                        // Always show buttons for available apartments
+                        return (
+                          <>
+                            <TouchableOpacity 
+                              style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
+                              onPress={() => handleMessageAdmin(selectedApartment)}
+                            >
+                              <MaterialIcons name="message" size={20} color="#fff" />
+                              <ThemedText style={styles.contactButtonText}>Message</ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={[
+                                styles.bookButton,
+                                {
+                                  borderColor: (() => {
+                                    if (!isAvailable) return '#ccc';
+                                    // For bed spacer apartments, always allow reservation if beds are available
+                                    if (selectedApartment.bedManagement) {
+                                      return colorPalette.primary;
+                                    }
+                                    // For regular apartments, check if already reserved
+                                    const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                    const status = (match as any)?.status;
+                                    const active = status === 'pending' || status === 'confirmed';
+                                    return active ? '#9CA3AF' : colorPalette.primary;
+                                  })(),
+                                  backgroundColor: (() => {
+                                    if (!isAvailable) return '#f5f5f5';
+                                    // For bed spacer apartments, always allow reservation if beds are available
+                                    if (selectedApartment.bedManagement) {
+                                      return 'transparent';
+                                    }
+                                    // For regular apartments, check if already reserved
+                                    const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                    const status = (match as any)?.status;
+                                    const active = status === 'pending' || status === 'confirmed';
+                                    return active ? '#9CA3AF' : 'transparent';
+                                  })(),
+                                  opacity: (() => {
+                                    if (!isAvailable) return 0.6;
+                                    // For bed spacer apartments, always allow reservation if beds are available
+                                    if (selectedApartment.bedManagement) {
+                                      return 1;
+                                    }
+                                    // For regular apartments, check if already reserved
+                                    const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                    const status = (match as any)?.status;
+                                    const active = status === 'pending' || status === 'confirmed';
+                                    return active ? 0.6 : 1;
+                                  })(),
+                                },
+                              ]}
+                              onPress={() => {
+                                if (!isAvailable) return;
+                                // For bed spacer apartments, always allow reservation if beds are available
+                                if (selectedApartment.bedManagement) {
+                                  handleReservation(selectedApartment);
+                                  return;
+                                }
+                                // For regular apartments, check if already reserved
+                                const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                const status = (match as any)?.status;
+                                const active = status === 'pending' || status === 'confirmed';
+                                if (!active) {
+                                  handleReservation(selectedApartment);
+                                }
+                              }}
+                              disabled={!isAvailable || (() => {
+                                // For bed spacer apartments, never disable if beds are available
+                                if (selectedApartment.bedManagement) {
+                                  return false;
+                                }
+                                // For regular apartments, disable if already reserved
+                                const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                const status = (match as any)?.status;
+                                return status === 'pending' || status === 'confirmed';
+                              })()}
+                            >
+                              {(() => {
+                                if (!isAvailable) {
                                   return (
                                     <MaterialIcons
-                                      name={active ? 'check-circle' : 'bookmark-border'}
+                                      name="cancel"
                                       size={20}
-                                      color={active ? '#fff' : colorPalette.primary}
+                                      color="#999"
                                     />
                                   );
-                                })()}
-                                {!isAvailable ? (
-                                  <View style={styles.unavailableContainer}>
-                                    <MaterialIcons name="block" size={16} color="#fff" />
-                                    <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
-                                  </View>
-                                ) : (
-                                  <ThemedText
-                                    style={[
-                                      styles.bookButtonText,
-                                      (() => {
-                                        const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
-                                        const status = (match as any)?.status;
-                                        const active = status === 'pending' || status === 'confirmed';
-                                        return { color: active ? '#fff' : colorPalette.primary };
-                                      })(),
-                                    ]}
-                                  >
-                                    {(() => {
+                                }
+                                // For bed spacer apartments, always show reserve icon
+                                if (selectedApartment.bedManagement) {
+                                  return (
+                                    <MaterialIcons
+                                      name="bookmark-border"
+                                      size={20}
+                                      color={colorPalette.primary}
+                                    />
+                                  );
+                                }
+                                // For regular apartments, check if already reserved
+                                const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                const status = (match as any)?.status;
+                                const active = status === 'pending' || status === 'confirmed';
+                                return (
+                                  <MaterialIcons
+                                    name={active ? 'check-circle' : 'bookmark-border'}
+                                    size={20}
+                                    color={active ? '#fff' : colorPalette.primary}
+                                  />
+                                );
+                              })()}
+                              {!isAvailable ? (
+                                <View style={styles.unavailableContainer}>
+                                  <MaterialIcons name="block" size={16} color="#fff" />
+                                  <ThemedText style={styles.unavailableText}>UNAVAILABLE</ThemedText>
+                                </View>
+                              ) : (
+                                <ThemedText
+                                  style={[
+                                    styles.bookButtonText,
+                                    (() => {
+                                      // For bed spacer apartments, always show primary color
+                                      if (selectedApartment.bedManagement) {
+                                        return { color: colorPalette.primary };
+                                      }
+                                      // For regular apartments, check if already reserved
                                       const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
                                       const status = (match as any)?.status;
                                       const active = status === 'pending' || status === 'confirmed';
-                                      return active ? 'Reserved' : 'Reserve';
-                                    })()}
-                                  </ThemedText>
-                                )}
-                              </TouchableOpacity>
-                            </>
-                          );
-                        }
+                                      return { color: active ? '#fff' : colorPalette.primary };
+                                    })(),
+                                  ]}
+                                >
+                                  {(() => {
+                                    // For bed spacer apartments, always show "Reserve"
+                                    if (selectedApartment.bedManagement) {
+                                      return 'Reserve';
+                                    }
+                                    // For regular apartments, check if already reserved
+                                    const match = reservedApartments.find(a => (a as any).serviceId === selectedApartment.id);
+                                    const status = (match as any)?.status;
+                                    const active = status === 'pending' || status === 'confirmed';
+                                    return active ? 'Reserved' : 'Reserve';
+                                  })()}
+                                </ThemedText>
+                              )}
+                            </TouchableOpacity>
+                          </>
+                        );
                       })()}
                     </View>
                   </View>
@@ -1467,7 +1603,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   apartmentCard: {
-    borderRadius: 16,
+    borderRadius: 0,
     marginBottom: 20,
     borderWidth: 1,
     overflow: 'hidden',
@@ -1480,6 +1616,7 @@ const styles = StyleSheet.create({
   apartmentImage: {
     width: '100%',
     height: 200,
+    borderRadius: 0,
   },
   apartmentContent: {
     padding: 16,

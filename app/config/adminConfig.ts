@@ -16,12 +16,12 @@ export const ADMIN_ROLES = {
 // Admin email to role mapping
 export const ADMIN_EMAIL_ROLES: Record<string, string> = {
   'xxc49540@gmail.com': ADMIN_ROLES.SUPER_ADMIN, // Super admin - can access everything
-  'jayveebriani@gmail.com': ADMIN_ROLES.SUPER_ADMIN, // Super admin - can access everything
+   'jayveebriani@gmail.com': ADMIN_ROLES.SUPER_ADMIN, // Super admin - can access everything
   
   // Add specific admin emails here
-  // 'apartment@example.com': ADMIN_ROLES.APARTMENT_ADMIN,
-  // 'laundry@example.com': ADMIN_ROLES.LAUNDRY_ADMIN,
-  // 'auto@example.com': ADMIN_ROLES.AUTO_ADMIN,
+   'apartment@gmail.com': ADMIN_ROLES.APARTMENT_ADMIN,
+   'laundry@gmail.com': ADMIN_ROLES.LAUNDRY_ADMIN,
+   'auto@gmail.com': ADMIN_ROLES.AUTO_ADMIN,
 };
 
 // Legacy admin emails array for backward compatibility
