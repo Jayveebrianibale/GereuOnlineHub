@@ -9,12 +9,13 @@ import { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
+import { useAuthContext } from '../../contexts/AuthContext';
 import {
-  createLaundryService,
-  deleteLaundryService,
-  getLaundryServices,
-  updateLaundryService,
-  type LaundryService
+    createLaundryService,
+    deleteLaundryService,
+    getLaundryServices,
+    updateLaundryService,
+    type LaundryService
 } from '../../services/laundryService';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
@@ -50,6 +51,7 @@ export default function AdminLaundryManagement() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const isDark = colorScheme === 'dark';
+  const { user, isLoading } = useAuthContext();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -177,6 +179,17 @@ export default function AdminLaundryManagement() {
   // Load laundry services from Firebase
   useEffect(() => {
     const fetchServices = async () => {
+      // Only fetch if user is authenticated and not loading
+      if (isLoading) {
+        console.log('⏳ Authentication still loading, waiting...');
+        return;
+      }
+      
+      if (!user) {
+        console.log('⏳ Waiting for user authentication before fetching laundry services...');
+        return;
+      }
+
       try {
         const servicesData = await getLaundryServices();
         setServices(servicesData);
@@ -187,7 +200,7 @@ export default function AdminLaundryManagement() {
     };
 
     fetchServices();
-  }, []);
+  }, [user, isLoading]); // Add both user and isLoading as dependencies
 
   const handleAddNew = () => {
     setCurrentService({ ...emptyLaundryService, id: Date.now().toString() });

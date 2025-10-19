@@ -2,20 +2,27 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
+    addBedToApartment,
     createApartment,
     deleteApartment,
+    deleteBedFromApartment,
     getApartments,
     updateApartment,
-    type Apartment
+    updateApartmentBedStats,
+    updateBedInApartment,
+    type Apartment,
+    type Bed
 } from '../../services/apartmentService';
+import { convertImageToBase64 } from '../../utils/imageToBase64';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
@@ -45,6 +52,10 @@ const colorPalette = {
     bedrooms: 0,
     bathrooms: 0,
     available: true,
+    bedManagement: false,
+    totalBeds: 0,
+    availableBeds: 0,
+    occupiedBeds: 0,
     };
 
     export default function AdminApartmentManagement() {
@@ -69,6 +80,26 @@ const colorPalette = {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [recentImages, setRecentImages] = useState<string[]>([]);
+  
+  // Bed management states
+  const [beds, setBeds] = useState<Bed[]>([]);
+  const [bedModalVisible, setBedModalVisible] = useState(false);
+  const [currentBed, setCurrentBed] = useState<Bed | null>(null);
+  const [isNewBed, setIsNewBed] = useState(false);
+  const [bedImageSelectionVisible, setBedImageSelectionVisible] = useState(false);
+  const [isProcessingBedImage, setIsProcessingBedImage] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+    // Handle date picker changes
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+        }
+        if (selectedDate) {
+            setSelectedDate(selectedDate);
+        }
+    };
     const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
         visible: false,
         message: '',
@@ -100,26 +131,115 @@ const colorPalette = {
         }
     }, [imageSelectionVisible]);
 
-  const selectAndClose = async (pathOrUri: string) => {
-    // Simply store the local URI in form state - will be saved to Realtime DB on save
-    console.log('📸 Selecting image:', pathOrUri);
-    console.log('📸 Image type:', typeof pathOrUri);
-    console.log('📸 Is ImageManipulator cache:', pathOrUri.includes('/cache/ImageManipulator/'));
-    
-    setCurrentApartment({ ...currentApartment, image: pathOrUri });
+    // Load beds when edit modal opens for apartments with bed management
+    useEffect(() => {
+        if (editModalVisible && currentApartment?.bedManagement && currentApartment?.id && !isNewApartment) {
+            // Only load beds if they haven't been loaded yet or if currentApartment doesn't have beds
+            if (!currentApartment.beds || currentApartment.beds.length === 0) {
+                loadBedsForApartment(currentApartment.id);
+            }
+        }
+    }, [editModalVisible, currentApartment?.bedManagement, currentApartment?.id, isNewApartment]);
 
-    // Optimistically update the list so the image appears immediately
-    if (!isNewApartment && currentApartment?.id) {
-      setApartments(prev => prev.map(apt =>
-        apt.id === currentApartment.id ? { ...apt, image: pathOrUri } : apt
-      ));
-    }
+    const selectAndClose = async (pathOrUri: string) => {
+        // Simply store the local URI in form state - will be saved to Realtime DB on save
+        console.log('📸 Selecting image:', pathOrUri);
+        console.log('📸 Image type:', typeof pathOrUri);
+        console.log('📸 Is ImageManipulator cache:', pathOrUri.includes('/cache/ImageManipulator/'));
+        
+        setCurrentApartment({ ...currentApartment, image: pathOrUri });
 
-    await addRecentImage(pathOrUri);
-    setImageSelectionVisible(false);
-    
-    console.log('📸 Updated currentApartment.image to:', currentApartment.image);
-  };
+        // Optimistically update the list so the image appears immediately
+        if (!isNewApartment && currentApartment?.id) {
+          setApartments(prev => prev.map(apt =>
+            apt.id === currentApartment.id ? { ...apt, image: pathOrUri } : apt
+          ));
+        }
+
+        await addRecentImage(pathOrUri);
+        setImageSelectionVisible(false);
+        
+        console.log('📸 Updated currentApartment.image to:', currentApartment.image);
+      };
+
+    // Bed image selection functions
+    const selectBedImageAndClose = async (pathOrUri: string) => {
+        console.log('📸 Selecting bed image:', pathOrUri);
+        
+        if (currentBed) {
+            const updatedBed = { ...currentBed, image: pathOrUri };
+            console.log('📸 Updated bed with image:', updatedBed);
+            setCurrentBed(updatedBed);
+        }
+
+        await addRecentImage(pathOrUri);
+        setBedImageSelectionVisible(false);
+    };
+
+    const processBedImage = async (uri: string) => {
+        try {
+            setIsProcessingBedImage(true);
+            const manipResult = await ImageManipulator.manipulateAsync(
+                uri,
+                [
+                    { resize: { width: 800 } },
+                ],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            return manipResult.uri;
+        } finally {
+            setIsProcessingBedImage(false);
+        }
+    };
+
+    const pickBedImageFromDevice = async () => {
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Please allow photo library access to choose an image.');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 1,
+                allowsEditing: true,
+                aspect: [4, 3],
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const processed = await processBedImage(result.assets[0].uri);
+                await selectBedImageAndClose(processed);
+            }
+        } catch (error) {
+            console.error('Error picking bed image: ', error);
+            Alert.alert('Error', 'Failed to pick bed image from device');
+        }
+    };
+
+    const takeBedPhotoWithCamera = async () => {
+        try {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission required', 'Please allow camera access to take a photo.');
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                quality: 1,
+                allowsEditing: true,
+                aspect: [4, 3],
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const processed = await processBedImage(result.assets[0].uri);
+                await selectBedImageAndClose(processed);
+            }
+        } catch (error) {
+            console.error('Error taking bed photo: ', error);
+            Alert.alert('Error', 'Failed to take bed photo');
+        }
+    };
 
     const processImage = async (uri: string) => {
         // Crop to 4:3, resize to max width 1280, compress to ~0.7
@@ -209,10 +329,227 @@ const colorPalette = {
         setEditModalVisible(true);
     };
 
-    const handleEdit = (apartment: any) => {
-        setCurrentApartment(apartment);
+    const handleEdit = async (apartment: any) => {
+        // Process apartment image if it's a blob URL
+        let processedApartment = { ...apartment };
+        if (apartment.image && apartment.image.startsWith('blob:')) {
+            try {
+                console.log('🖼️ Converting apartment image to base64');
+                const base64Image = await convertImageToBase64(apartment.image);
+                processedApartment.image = base64Image;
+            } catch (imageError) {
+                console.error('Error converting apartment image to base64:', imageError);
+                // Keep original image if conversion fails
+            }
+        }
+        
+        setCurrentApartment(processedApartment);
         setIsNewApartment(false);
         setEditModalVisible(true);
+        
+        // Load beds for this apartment if bed management is enabled
+        if (apartment.bedManagement) {
+            // Load beds directly from the apartment data
+            if (apartment.beds && apartment.beds.length > 0) {
+                console.log('🛏️ Loading beds from apartment data:', apartment.beds);
+                const processedBeds = await processBedsImages(apartment.beds);
+                setBeds(processedBeds);
+            } else {
+                console.log('🛏️ No beds found in apartment data');
+                setBeds([]);
+            }
+        } else {
+            // Clear beds if bed management is disabled
+            setBeds([]);
+        }
+    };
+
+    // Load beds for a specific apartment
+    const loadBedsForApartment = async (apartmentId: string) => {
+        try {
+            console.log('🛏️ Loading beds for apartment:', apartmentId);
+            
+            // First try to get beds from currentApartment (for editing)
+            if (currentApartment && currentApartment.beds) {
+                console.log('🛏️ Loading beds from currentApartment:', currentApartment.beds);
+                const processedBeds = await processBedsImages(currentApartment.beds);
+                setBeds(processedBeds);
+                return;
+            }
+            
+            // Fallback: try to find apartment in apartments array
+            const apartment = apartments.find(apt => apt.id === apartmentId);
+            if (apartment && apartment.beds) {
+                console.log('🛏️ Loading beds from apartments array:', apartment.beds);
+                const processedBeds = await processBedsImages(apartment.beds);
+                setBeds(processedBeds);
+            } else {
+                console.log('🛏️ No beds found for apartment');
+                setBeds([]);
+            }
+        } catch (error) {
+            console.error('Error loading beds for apartment:', error);
+        }
+    };
+
+    // Process bed images to convert blob URLs to base64
+    const processBedsImages = async (beds: Bed[]) => {
+        try {
+            const processedBeds = await Promise.all(
+                beds.map(async (bed) => {
+                    if (bed.image && bed.image.startsWith('blob:')) {
+                        try {
+                            console.log('🖼️ Converting blob image to base64 for bed:', bed.id);
+                            const base64Image = await convertImageToBase64(bed.image);
+                            return { ...bed, image: base64Image };
+                        } catch (imageError) {
+                            console.error('Error converting bed image to base64:', imageError);
+                            return { ...bed, image: 'https://via.placeholder.com/400x300?text=Bed+Image' };
+                        }
+                    }
+                    return bed;
+                })
+            );
+            return processedBeds;
+        } catch (error) {
+            console.error('Error processing bed images:', error);
+            return beds;
+        }
+    };
+
+    // Bed management functions
+    const handleAddBed = () => {
+        if (isNewApartment) {
+            Alert.alert('Save Apartment First', 'Please save the apartment before adding beds.');
+            return;
+        }
+        
+        if (!currentApartment?.id) {
+            Alert.alert('Error', 'Please save the apartment first before adding beds.');
+            return;
+        }
+        
+        const newBed: Omit<Bed, 'id'> = {
+            bedNumber: beds.length + 1,
+            image: '',
+            status: 'available',
+            price: currentApartment.price || '',
+            description: '',
+            amenities: []
+        };
+        
+        console.log('🛏️ Creating new bed:', newBed);
+        setCurrentBed(newBed as Bed);
+        setIsNewBed(true);
+        setBedModalVisible(true);
+    };
+
+    const handleEditBed = (bed: Bed) => {
+        setCurrentBed(bed);
+        setIsNewBed(false);
+        setBedModalVisible(true);
+    };
+
+    const handleDeleteBed = async (bedId: string) => {
+        try {
+            if (!currentApartment?.id) return;
+            
+            await deleteBedFromApartment(currentApartment.id, bedId);
+            const updatedBeds = beds.filter(bed => bed.id !== bedId);
+            setBeds(updatedBeds);
+            
+            // Update currentApartment with the updated beds
+            setCurrentApartment({
+                ...currentApartment,
+                beds: updatedBeds
+            });
+            
+            setToast({ visible: true, message: 'Bed deleted successfully', type: 'success' });
+        } catch (error) {
+            console.error('Error deleting bed:', error);
+            setToast({ visible: true, message: 'Failed to delete bed', type: 'error' });
+        }
+    };
+
+    const handleSaveBed = async () => {
+        if (!currentBed || !currentApartment?.id) return;
+
+        try {
+            console.log('🛏️ Saving bed:', currentBed);
+            console.log('🛏️ Apartment ID:', currentApartment.id);
+            
+            if (isNewBed) {
+                // Convert bed image to base64 if it's a blob URL
+                let processedImage = currentBed.image;
+                if (currentBed.image && currentBed.image.startsWith('blob:')) {
+                    try {
+                        console.log('🖼️ Converting bed image to base64');
+                        processedImage = await convertImageToBase64(currentBed.image);
+                    } catch (imageError) {
+                        console.error('Error converting bed image to base64:', imageError);
+                        // Keep original image if conversion fails
+                    }
+                }
+
+                const bedData = {
+                    bedNumber: currentBed.bedNumber,
+                    image: processedImage,
+                    status: currentBed.status,
+                    price: currentBed.price,
+                    description: currentBed.description,
+                    amenities: currentBed.amenities || []
+                };
+                console.log('🛏️ Creating bed with data:', bedData);
+                const newBed = await addBedToApartment(currentApartment.id, bedData);
+                console.log('🛏️ Created bed:', newBed);
+                const updatedBeds = [...beds, newBed];
+                setBeds(updatedBeds);
+                
+                // Update currentApartment with the new beds
+                setCurrentApartment({
+                    ...currentApartment,
+                    beds: updatedBeds
+                });
+                
+                setToast({ visible: true, message: 'Bed added successfully', type: 'success' });
+            } else {
+                // Convert bed image to base64 if it's a blob URL
+                let processedImage = currentBed.image;
+                if (currentBed.image && currentBed.image.startsWith('blob:')) {
+                    try {
+                        console.log('🖼️ Converting bed image to base64');
+                        processedImage = await convertImageToBase64(currentBed.image);
+                    } catch (imageError) {
+                        console.error('Error converting bed image to base64:', imageError);
+                        // Keep original image if conversion fails
+                    }
+                }
+
+                const updatedBedData = {
+                    ...currentBed,
+                    image: processedImage
+                };
+
+                console.log('🛏️ Updating bed:', updatedBedData);
+                const updatedBed = await updateBedInApartment(currentApartment.id, currentBed.id, updatedBedData);
+                const updatedBeds = beds.map(bed => bed.id === currentBed.id ? updatedBed : bed);
+                setBeds(updatedBeds);
+                
+                // Update currentApartment with the updated beds
+                setCurrentApartment({
+                    ...currentApartment,
+                    beds: updatedBeds
+                });
+                
+                setToast({ visible: true, message: 'Bed updated successfully', type: 'success' });
+            }
+            
+            setBedModalVisible(false);
+            setCurrentBed(null);
+        } catch (error) {
+            console.error('Error saving bed:', error);
+            setToast({ visible: true, message: 'Failed to save bed', type: 'error' });
+        }
     };
 
     const validateForm = () => {
@@ -285,6 +622,12 @@ const colorPalette = {
                 // Update existing apartment
                 const { id, ...apartmentData } = payload;
                 await updateApartment(id, apartmentData);
+                
+                // Update bed statistics if bed management is enabled
+                if (payload.bedManagement) {
+                    await updateApartmentBedStats(id);
+                }
+                
                 setApartments(apartments.map(apt =>
                     apt.id === currentApartment.id ? { ...apt, ...payload, image: payload.image } : apt
                 ));
@@ -811,6 +1154,130 @@ const colorPalette = {
                     </View>
                 </View>
 
+                <View style={styles.formGroup}>
+                    <ThemedText style={[styles.label, { color: textColor }]}>Bed Management</ThemedText>
+                    <View style={styles.radioGroup}>
+                    <TouchableOpacity
+                        style={styles.radioButton}
+                        onPress={async () => {
+                            setCurrentApartment({ ...currentApartment, bedManagement: true });
+                            // Load beds when enabling bed management
+                            if (currentApartment.id) {
+                                await loadBedsForApartment(currentApartment.id);
+                            }
+                        }}
+                    >
+                        <MaterialIcons
+                        name={currentApartment.bedManagement ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={currentApartment.bedManagement ? colorPalette.primary : textColor}
+                        />
+                        <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Enable
+                        </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.radioButton, { marginLeft: 16 }]}
+                        onPress={() => {
+                            setCurrentApartment({ ...currentApartment, bedManagement: false });
+                            // Clear beds when disabling bed management
+                            setBeds([]);
+                        }}
+                    >
+                        <MaterialIcons
+                        name={!currentApartment.bedManagement ? 'radio-button-checked' : 'radio-button-unchecked'}
+                        size={20}
+                        color={!currentApartment.bedManagement ? colorPalette.primary : textColor}
+                        />
+                        <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                        Disable
+                        </ThemedText>
+                    </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Bed Management Info for New Apartments */}
+                {currentApartment.bedManagement && isNewApartment && (
+                    <View style={[styles.bedManagementInfo, { backgroundColor: 'rgba(0, 178, 255, 0.1)', borderColor: 'rgba(0, 178, 255, 0.3)' }]}>
+                        <MaterialIcons name="info" size={20} color={colorPalette.primary} />
+                        <ThemedText style={[styles.bedManagementInfoText, { color: colorPalette.primary }]}>
+                            Save the apartment first to add and manage beds
+                        </ThemedText>
+                    </View>
+                )}
+
+                {/* Bed Management Section */}
+                {currentApartment.bedManagement && currentApartment.id && !isNewApartment && (
+                    <View style={styles.bedManagementSection}>
+                        <View style={styles.bedManagementHeader}>
+                            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                                Bed Management
+                            </ThemedText>
+                            <TouchableOpacity 
+                                style={[styles.addBedButton, { backgroundColor: colorPalette.primary }]}
+                                onPress={handleAddBed}
+                            >
+                                <MaterialIcons name="add" size={20} color="#fff" />
+                                <ThemedText style={styles.addBedButtonText}>Add Bed</ThemedText>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        {beds.length > 0 ? (
+                            <View style={styles.bedsList}>
+                                {beds.map((bed) => (
+                                    <View key={bed.id} style={[styles.bedCard, { backgroundColor: cardBgColor, borderColor }]}>
+                                        <RobustImage source={bed.image} style={styles.bedImage} resizeMode="cover" />
+                                        <View style={styles.bedContent}>
+                                            <ThemedText type="subtitle" style={[styles.bedTitle, { color: textColor }]}>
+                                                Bed {bed.bedNumber}
+                                            </ThemedText>
+                                            <View style={styles.bedStatusRow}>
+                                                <MaterialIcons 
+                                                    name={bed.status === 'available' ? 'check-circle' : 'person-pin'} 
+                                                    size={16} 
+                                                    color={bed.status === 'available' ? '#4CAF50' : '#FF9800'} 
+                                                />
+                                                <ThemedText style={[
+                                                    styles.bedStatusText, 
+                                                    { color: bed.status === 'available' ? '#4CAF50' : '#FF9800' }
+                                                ]}>
+                                                    {bed.status === 'available' ? 'Available' : 'Occupied'}
+                                                </ThemedText>
+                                            </View>
+                                            {bed.price && (
+                                                <ThemedText style={[styles.bedPrice, { color: colorPalette.primary }]}>
+                                                    {bed.price}
+                                                </ThemedText>
+                                            )}
+                                        </View>
+                                        <View style={styles.bedActions}>
+                                            <TouchableOpacity 
+                                                style={[styles.bedActionButton, { backgroundColor: colorPalette.primary }]}
+                                                onPress={() => handleEditBed(bed)}
+                                            >
+                                                <MaterialIcons name="edit" size={16} color="#fff" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity 
+                                                style={[styles.bedActionButton, { backgroundColor: dangerColor }]}
+                                                onPress={() => handleDeleteBed(bed.id)}
+                                            >
+                                                <MaterialIcons name="delete" size={16} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.emptyBedsContainer}>
+                                <MaterialIcons name="bed" size={48} color={subtitleColor} />
+                                <ThemedText style={[styles.emptyBedsText, { color: subtitleColor }]}>
+                                    No beds added yet. Add a bed to get started.
+                                </ThemedText>
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 <View style={styles.modalActions}>
                     <TouchableOpacity 
                     style={[styles.cancelButton, { borderColor }]}
@@ -945,6 +1412,262 @@ const colorPalette = {
                             <MaterialIcons name="hourglass-top" size={36} color={textColor} />
                             <ThemedText style={{ marginTop: 8, color: textColor }}>
                                 Processing image...
+                            </ThemedText>
+                        </View>
+                    )}
+                </View>
+            </View>
+        </Modal>
+
+        {/* Bed Management Modal */}
+        <Modal
+            visible={bedModalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setBedModalVisible(false)}
+        >
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                <View style={[styles.bedModal, { backgroundColor: cardBgColor }]}>
+                    <ScrollView contentContainerStyle={styles.bedModalContent}>
+                        <View style={styles.bedModalHeader}>
+                            <ThemedText type="title" style={[styles.bedModalTitle, { color: textColor }]}>
+                                {isNewBed ? 'Add New Bed' : 'Edit Bed'}
+                            </ThemedText>
+                            <TouchableOpacity onPress={() => setBedModalVisible(false)}>
+                                <MaterialIcons name="close" size={24} color={textColor} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Bed Number</ThemedText>
+                            <TextInput
+                                style={[styles.input, { color: textColor, borderColor }]}
+                                value={currentBed?.bedNumber?.toString() || '1'}
+                                onChangeText={(text) => {
+                                    const numValue = parseInt(text) || 1;
+                                    setCurrentBed({ ...currentBed!, bedNumber: numValue });
+                                }}
+                                placeholder="1"
+                                placeholderTextColor={subtitleColor}
+                                keyboardType="numeric"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Bed Image</ThemedText>
+                            <TouchableOpacity
+                                style={[styles.imagePreview, { borderColor }]}
+                                onPress={() => setBedImageSelectionVisible(true)}
+                            >
+                                {currentBed?.image ? (
+                                    <>
+                                        <RobustImage
+                                            source={currentBed.image}
+                                            style={styles.imagePreviewImage}
+                                            resizeMode="cover"
+                                        />
+                                        <View style={styles.imageOverlay}>
+                                            <MaterialIcons name="edit" size={20} color="#fff" />
+                                            <ThemedText style={styles.imageOverlayText}>Change Image</ThemedText>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <View style={[styles.imagePlaceholder, { borderColor }]}>
+                                        <MaterialIcons name="add-a-photo" size={48} color={subtitleColor} />
+                                        <ThemedText style={[styles.placeholderText, { color: subtitleColor }]}>
+                                            Tap to upload bed image
+                                        </ThemedText>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Bed Price (Optional)</ThemedText>
+                            <TextInput
+                                style={[styles.input, { color: textColor, borderColor }]}
+                                value={currentBed?.price || ''}
+                                onChangeText={(text) => setCurrentBed({ ...currentBed!, price: text })}
+                                placeholder="e.g. P5,000/mo"
+                                placeholderTextColor={subtitleColor}
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Description (Optional)</ThemedText>
+                            <TextInput
+                                style={[styles.textarea, { color: textColor, borderColor }]}
+                                value={currentBed?.description || ''}
+                                onChangeText={(text) => setCurrentBed({ ...currentBed!, description: text })}
+                                placeholder="Bed description"
+                                placeholderTextColor={subtitleColor}
+                                multiline
+                                numberOfLines={3}
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Status</ThemedText>
+                            <View style={styles.radioGroup}>
+                                <TouchableOpacity
+                                    style={styles.radioButton}
+                                    onPress={() => setCurrentBed({ ...currentBed!, status: 'available' })}
+                                >
+                                    <MaterialIcons
+                                        name={currentBed?.status === 'available' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                                        size={20}
+                                        color={currentBed?.status === 'available' ? '#4CAF50' : textColor}
+                                    />
+                                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                                        Available
+                                    </ThemedText>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.radioButton, { marginLeft: 16 }]}
+                                    onPress={() => setCurrentBed({ ...currentBed!, status: 'occupied' })}
+                                >
+                                    <MaterialIcons
+                                        name={currentBed?.status === 'occupied' ? 'radio-button-checked' : 'radio-button-unchecked'}
+                                        size={20}
+                                        color={currentBed?.status === 'occupied' ? '#FF9800' : textColor}
+                                    />
+                                    <ThemedText style={[styles.radioLabel, { color: textColor, marginLeft: 8 }]}>
+                                        Occupied
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <ThemedText style={[styles.label, { color: textColor }]}>Reservation Date (Optional)</ThemedText>
+                            <TouchableOpacity
+                                style={[styles.dateInput, { borderColor }]}
+                                onPress={() => setShowDatePicker(true)}
+                            >
+                                <ThemedText style={[styles.dateInputText, { color: textColor }]}>
+                                    {selectedDate.toLocaleDateString()}
+                                </ThemedText>
+                                <MaterialIcons name="calendar-today" size={20} color={subtitleColor} />
+                            </TouchableOpacity>
+                            
+                            {showDatePicker && (
+                                <View style={styles.datePickerContainer}>
+                                    <DateTimePicker
+                                        value={selectedDate}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={handleDateChange}
+                                        minimumDate={new Date()}
+                                        style={styles.datePicker}
+                                    />
+                                    {Platform.OS === 'ios' && (
+                                        <TouchableOpacity
+                                            style={[styles.datePickerDoneButton, { backgroundColor: colorPalette.primary }]}
+                                            onPress={() => setShowDatePicker(false)}
+                                        >
+                                            <ThemedText style={styles.datePickerDoneButtonText}>Done</ThemedText>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity 
+                                style={[styles.cancelButton, { borderColor }]}
+                                onPress={() => setBedModalVisible(false)}
+                            >
+                                <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
+                                    Cancel
+                                </ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.saveButton, { backgroundColor: colorPalette.primary }]}
+                                onPress={handleSaveBed}
+                            >
+                                <ThemedText style={styles.saveButtonText}>
+                                    {isNewBed ? 'Add Bed' : 'Save Changes'}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+
+        {/* Bed Image Selection Modal */}
+        <Modal
+            visible={bedImageSelectionVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setBedImageSelectionVisible(false)}
+        >
+            <View style={styles.imageSelectionModal}>
+                <View style={[styles.imageSelectionContainer, { backgroundColor: cardBgColor }]}>
+                    <View style={styles.imageSelectionHeader}>
+                        <ThemedText type="title" style={[styles.imageSelectionTitle, { color: textColor }]}>
+                            Select Bed Image
+                        </ThemedText>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={takeBedPhotoWithCamera} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="photo-camera" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={pickBedImageFromDevice} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="photo-library" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={async () => { await clearRecentImages(); setRecentImages([]); }} style={{ marginRight: 12 }}>
+                                <MaterialIcons name="delete-sweep" size={24} color={textColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setBedImageSelectionVisible(false)}>
+                                <MaterialIcons name="close" size={24} color={textColor} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    
+                    {recentImages.length === 0 ? (
+                        <ThemedText style={[styles.confirmText, { color: subtitleColor }]}>No recent images yet. Use the buttons above.</ThemedText>
+                    ) : (
+                        <FlatList
+                            data={recentImages}
+                            keyExtractor={(img) => img}
+                            numColumns={2}
+                            style={{ maxHeight: 420 }}
+                            contentContainerStyle={styles.imageGrid}
+                            columnWrapperStyle={{ justifyContent: 'space-between' }}
+                            renderItem={({ item: img }) => (
+                                <View style={{ width: '47%', marginBottom: 16 }}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.imageGridItem,
+                                            currentBed?.image === img && styles.selectedImage
+                                        ]}
+                                        onPress={() => selectBedImageAndClose(img)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <RobustImage
+                                            source={img}
+                                            style={styles.imageGridImage}
+                                            resizeMode="cover"
+                                        />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={async () => { await removeRecentImage(img); const rec = await getRecentImages(); setRecentImages(rec); }}
+                                        style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 14, padding: 4 }}
+                                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                                    >
+                                        <MaterialIcons name="close" size={16} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                            showsVerticalScrollIndicator={true}
+                        />
+                    )}
+
+                    {isProcessingBedImage && (
+                        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                            <MaterialIcons name="hourglass-top" size={36} color={textColor} />
+                            <ThemedText style={{ marginTop: 8, color: textColor }}>
+                                Processing bed image...
                             </ThemedText>
                         </View>
                     )}
@@ -1300,4 +2023,158 @@ const colorPalette = {
     modalToastClose: {
         padding: 4,
     },
-    });
+    // Bed management styles
+    bedManagementSection: {
+        marginTop: 20,
+        padding: 16,
+        backgroundColor: 'rgba(0, 178, 255, 0.05)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 178, 255, 0.2)',
+    },
+    bedManagementHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    addBedButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    addBedButtonText: {
+        color: '#fff',
+        fontWeight: '500',
+        fontSize: 14,
+        marginLeft: 6,
+    },
+    bedsList: {
+        gap: 12,
+    },
+    bedCard: {
+        flexDirection: 'row',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        alignItems: 'center',
+    },
+    bedImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 8,
+        marginRight: 12,
+    },
+    bedContent: {
+        flex: 1,
+    },
+    bedTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    bedStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    bedStatusText: {
+        marginLeft: 4,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    bedPrice: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    bedActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    bedActionButton: {
+        padding: 8,
+        borderRadius: 6,
+    },
+    emptyBedsContainer: {
+        alignItems: 'center',
+        paddingVertical: 20,
+    },
+    emptyBedsText: {
+        marginTop: 8,
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    // Bed modal styles
+    bedModal: {
+        width: '100%',
+        borderRadius: 16,
+        maxHeight: '90%',
+    },
+    bedModalContent: {
+        padding: 20,
+    },
+    bedModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    bedModalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    // Bed management info styles
+    bedManagementInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginTop: 16,
+    },
+    bedManagementInfoText: {
+        marginLeft: 8,
+        fontSize: 14,
+        fontWeight: '500',
+        flex: 1,
+    },
+    // Date picker styles
+    dateInput: {
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dateInputText: {
+        fontSize: 16,
+    },
+    datePickerContainer: {
+        marginTop: 12,
+        alignItems: 'center',
+    },
+    datePicker: {
+        alignSelf: 'center',
+    },
+    datePickerDoneButton: {
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    datePickerDoneButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+    },
+});

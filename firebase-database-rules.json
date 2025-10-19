@@ -1,0 +1,59 @@
+{
+  "rules": {
+    "logs": {
+      ".indexOn": ["timestamp"],
+      "$logId": {
+        ".validate": "newData.hasChildren(['userId', 'userEmail', 'userRole', 'action', 'timestamp', 'date', 'time'])",
+        "userId": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "userEmail": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "userRole": {
+          ".validate": "newData.isString() && (newData.val() == 'admin' || newData.val() == 'user')"
+        },
+        "action": {
+          ".validate": "newData.isString() && (newData.val() == 'login' || newData.val() == 'logout')"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "date": {
+          ".validate": "newData.isString() && newData.val().matches(/^\\d{4}-\\d{2}-\\d{2}$/)"
+        },
+        "time": {
+          ".validate": "newData.isString() && newData.val().matches(/^\\d{2}:\\d{2}:\\d{2}$/)"
+        }
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "reservations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "apartments": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "laundry": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "auto": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "messages": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

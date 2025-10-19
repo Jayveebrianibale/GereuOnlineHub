@@ -31,7 +31,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.development
+.env.production
+.env.staging
 
 # typescript
 *.tsbuildinfo
@@ -39,5 +43,13 @@ yarn-error.*
 # Firebase service account keys (security)
 *firebase-adminsdk*.json
 *service-account*.json
+
+# API Keys and sensitive configuration
+*.key
+*.pem
+*.p12
+*.mobileprovision
+secrets.json
+config.json
 
 app-example

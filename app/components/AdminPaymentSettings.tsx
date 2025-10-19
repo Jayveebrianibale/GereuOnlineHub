@@ -31,6 +31,7 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
   const loadSettings = async () => {
     try {
       const currentSettings = await getAdminPaymentSettings();
+      console.log('Loaded settings:', currentSettings);
       setSettings(currentSettings);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -57,8 +58,18 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
       const success = await updateAdminPaymentSettings({ gcashNumber: newGCashNumber.trim() });
       console.log('Update result:', success);
       if (success) {
-        setSettings(prev => prev ? { ...prev, gcashNumber: newGCashNumber.trim() } : null);
+        // I-update ang local state immediately
+        setSettings(prev => {
+          const updatedSettings = prev ? { ...prev, gcashNumber: newGCashNumber.trim() } : null;
+          console.log('Updating local state with:', updatedSettings);
+          return updatedSettings;
+        });
         setEditModalVisible(false);
+        
+        // I-refetch ang data from Firebase to ensure sync
+        console.log('Refetching data from Firebase...');
+        await loadSettings();
+        
         Alert.alert('Success', 'GCash number updated successfully');
       } else {
         Alert.alert('Error', 'Failed to update GCash number');
@@ -293,18 +304,35 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
               <ThemedText style={[styles.settingLabel, { color: textColor }]}>
                 GCash Number
               </ThemedText>
-              <ThemedText style={[styles.settingValue, { color: subtitleColor }]}>
-                {settings?.gcashNumber || 'Not set'}
+              <ThemedText style={[styles.settingValue, { 
+                color: settings?.gcashNumber ? subtitleColor : '#F59E0B',
+                fontStyle: settings?.gcashNumber ? 'normal' : 'italic'
+              }]}>
+                {settings?.gcashNumber || 'No GCash number added yet'}
               </ThemedText>
+              {!settings?.gcashNumber && (
+                <ThemedText style={[styles.settingSubtext, { color: subtitleColor }]}>
+                  Add your GCash number to enable QR code payments
+                </ThemedText>
+              )}
             </View>
             <TouchableOpacity 
-              style={[styles.editButton, { borderColor: '#00B2FF' }]}
+              style={[styles.editButton, { 
+                borderColor: settings?.gcashNumber ? '#00B2FF' : '#10B981',
+                backgroundColor: settings?.gcashNumber ? 'transparent' : '#10B98120'
+              }]}
               onPress={handleUpdateGCashNumber}
               disabled={saving}
             >
-              <MaterialIcons name="edit" size={16} color="#00B2FF" />
-              <ThemedText style={[styles.editButtonText, { color: '#00B2FF' }]}>
-                {saving ? 'Saving...' : 'Edit'}
+              <MaterialIcons 
+                name={settings?.gcashNumber ? "edit" : "add"} 
+                size={16} 
+                color={settings?.gcashNumber ? '#00B2FF' : '#10B981'} 
+              />
+              <ThemedText style={[styles.editButtonText, { 
+                color: settings?.gcashNumber ? '#00B2FF' : '#10B981' 
+              }]}>
+                {saving ? 'Saving...' : (settings?.gcashNumber ? 'Edit' : 'Add Number')}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -338,7 +366,10 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
               <View style={[styles.qrCodePlaceholder, { borderColor }]}>
                 <MaterialIcons name="qr-code" size={48} color={subtitleColor} />
                 <ThemedText style={[styles.placeholderText, { color: subtitleColor }]}>
-                  No QR code uploaded
+                  No QR code uploaded yet
+                </ThemedText>
+                <ThemedText style={[styles.placeholderSubtext, { color: subtitleColor }]}>
+                  Upload your GCash QR code to enable payments
                 </ThemedText>
               </View>
             )}
@@ -377,7 +408,7 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
           <View style={[styles.editModal, { backgroundColor: bgColor, borderColor }]}>
             <View style={styles.editModalHeader}>
               <ThemedText style={[styles.editModalTitle, { color: textColor }]}>
-                Update GCash Number
+                {settings?.gcashNumber ? 'Update GCash Number' : 'Add GCash Number'}
               </ThemedText>
               <TouchableOpacity onPress={handleCancelEdit}>
                 <MaterialIcons name="close" size={24} color={textColor} />
@@ -396,7 +427,7 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
                 }]}
                 value={newGCashNumber}
                 onChangeText={setNewGCashNumber}
-                placeholder="09123456789"
+                placeholder="Enter GCash number"
                 placeholderTextColor={subtitleColor}
                 keyboardType="phone-pad"
                 autoFocus
@@ -422,7 +453,7 @@ export function AdminPaymentSettingsModal({ isDark, onClose }: AdminPaymentSetti
                 disabled={saving}
               >
                 <ThemedText style={[styles.editModalButtonText, { color: '#fff' }]}>
-                  {saving ? 'Saving...' : 'Update'}
+                  {saving ? 'Saving...' : (settings?.gcashNumber ? 'Update' : 'Add')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -498,6 +529,11 @@ const styles = StyleSheet.create({
   settingValue: {
     fontSize: 14,
   },
+  settingSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.8,
+  },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -553,6 +589,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     textAlign: 'center',
+  },
+  placeholderSubtext: {
+    marginTop: 4,
+    fontSize: 10,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   uploadButton: {
     flexDirection: 'row',

@@ -9,11 +9,12 @@ import { off, onValue, ref } from 'firebase/database';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, FlatList, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from './components/RobustImage';
+import { useAuthContext } from './contexts/AuthContext';
 import { db } from './firebaseConfig';
 import {
-  cacheApartments,
-  cacheAutoServices,
-  cacheLaundryServices
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -45,6 +46,7 @@ export default function UserHome() {
   const router = useRouter();
   const isDark = colorScheme === 'dark';
   const [unreadCount, setUnreadCount] = useState(0);
+  const { user, isLoading } = useAuthContext();
 
   const [apartments, setApartments] = useState<any[]>([]);
   const [autoServices, setAutoServices] = useState<any[]>([]);
@@ -190,6 +192,17 @@ export default function UserHome() {
 
   // Real-time listeners for all services
   useEffect(() => {
+    // Only set up listeners if user is authenticated and not loading
+    if (isLoading) {
+      console.log('⏳ Authentication still loading, waiting...');
+      return;
+    }
+    
+    if (!user) {
+      console.log('⏳ Waiting for user authentication before setting up real-time listeners...');
+      return;
+    }
+
     console.log('🔄 Setting up real-time listeners for services...');
     
     // Set up real-time listener for apartments
@@ -248,7 +261,7 @@ export default function UserHome() {
       off(autoServicesRef, 'value', autoServicesListener);
       off(laundryServicesRef, 'value', laundryServicesListener);
     };
-  }, []);
+  }, [user, isLoading]); // Add both user and isLoading as dependencies
 
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -292,7 +305,13 @@ export default function UserHome() {
     const apartment = apartments.find(apt => apt.id === apartmentId);
     if (!apartment?.available) return false;
     
-    // Check if it's reserved by any user
+    // For apartments with bed management, only check if there are available beds
+    if (apartment.bedManagement) {
+      const availableBeds = apartment.availableBeds || 0;
+      return availableBeds > 0;
+    }
+    
+    // For regular apartments (without bed management), check if it's reserved by any user
     if (isApartmentReserved(apartmentId)) return false;
     
     return true;
@@ -403,7 +422,18 @@ export default function UserHome() {
               fontWeight: '600',
             }
           ]}>
-            {isApartmentAvailable(item.id) ? 'Available' : 'Unavailable'}
+            {(() => {
+              if (item.bedManagement) {
+                const availableBeds = item.availableBeds || 0;
+                const totalBeds = item.totalBeds || 0;
+                if (availableBeds > 0) {
+                  return `${availableBeds}/${totalBeds} beds`;
+                } else {
+                  return 'All occupied';
+                }
+              }
+              return isApartmentAvailable(item.id) ? 'Available' : 'Unavailable';
+            })()}
           </ThemedText>
         </View>
         <View style={styles.priceTag}> 

@@ -10,8 +10,8 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
-  cacheLaundryServices,
-  getCachedLaundryServices
+    cacheLaundryServices,
+    getCachedLaundryServices
 } from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
@@ -42,7 +42,7 @@ export default function LaundryListScreen() {
   const isDark = colorScheme === 'dark';
   const { reservedLaundryServices, reserveLaundryService, removeLaundryReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
-  const { user } = useAuthContext();
+  const { user, isLoading } = useAuthContext();
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
@@ -356,6 +356,17 @@ export default function LaundryListScreen() {
   // Fetch laundry services from Firebase or cache
   useEffect(() => {
     const fetchLaundryServices = async () => {
+      // Only fetch if user is authenticated and not loading
+      if (isLoading) {
+        console.log('⏳ Authentication still loading, waiting...');
+        return;
+      }
+      
+      if (!user) {
+        console.log('⏳ Waiting for user authentication before fetching laundry services...');
+        return;
+      }
+
       try {
         // Check cache first
         const cachedServices = getCachedLaundryServices();
@@ -376,7 +387,7 @@ export default function LaundryListScreen() {
       }
     };
     fetchLaundryServices();
-  }, []);
+  }, [user, isLoading]); // Add both user and isLoading as dependencies
 
   const renderFilterButton = ({ item }: { item: any }) => (
     <TouchableOpacity
