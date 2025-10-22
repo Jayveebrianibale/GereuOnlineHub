@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-  AutoService,
-  getAutoServices,
+    AutoService,
+    getAutoServices,
 } from '../../services/autoService';
 import {
-  cacheAutoServices,
-  cacheMotorParts,
-  getCachedAutoServices,
-  getCachedMotorParts
+    cacheAutoServices,
+    cacheMotorParts,
+    getCachedAutoServices,
+    getCachedMotorParts
 } from '../../services/dataCache';
 import {
-  MotorPart,
-  getMotorParts,
+    MotorPart,
+    getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -55,8 +55,8 @@ export default function AutoListScreen() {
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
-  const textColor = isDark ? '#fff' : colorPalette.darkest;
-  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+  const textColor = isDark ? '#fff' : '#000';
+  const subtitleColor = isDark ? 'rgba(255,255,255,0.75)' : '#555';
   const borderColor = isDark ? '#333' : '#eee';
 
   const [activeTab, setActiveTab] = useState<'services' | 'parts'>('services');
@@ -471,7 +471,28 @@ export default function AutoListScreen() {
     <View
       style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
+      {/* Image with Professional Overlay */}
+      <View style={styles.imageContainer}>
+        <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
+        <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.1)' }]} />
+        
+        {/* Availability Badge */}
+        <View style={[
+          styles.availabilityBadge,
+          { backgroundColor: item.available ? '#4CAF50' : '#F44336' }
+        ]}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={14} 
+            color="#fff" 
+          />
+          <ThemedText style={styles.availabilityBadgeText}>
+            {item.available ? "Available" : "Unavailable"}
+          </ThemedText>
+        </View>
+        
+      </View>
+      
       <View style={styles.autoContent}>
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
@@ -479,94 +500,126 @@ export default function AutoListScreen() {
           </ThemedText>
         </View>
         
-        <ThemedText style={[styles.description, { color: subtitleColor }]}>
+        <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
           {item.description}
         </ThemedText>
         
-        {/* Availability Status */}
-        <View style={styles.availabilityRow}>
-          <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
-            size={16} 
-            color={item.available ? "#4CAF50" : "#F44336"} 
-          />
-          <ThemedText style={[
-            styles.availabilityText, 
-            { color: item.available ? "#4CAF50" : "#F44336" }
-          ]}>
-            {item.available ? "Available" : "Unavailable"}
-          </ThemedText>
+        {/* Professional Service Details Grid */}
+        <View style={styles.detailsGrid}>
+          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+            <MaterialIcons name="attach-money" size={18} color={isDark ? '#fff' : '#000'} />
+            <View style={styles.detailContent}>
+              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Price</ThemedText>
+              <ThemedText style={[styles.detailValue, { color: textColor }]}> 
+                {formatPHP(item.price)}
+              </ThemedText>
+            </View>
+          </View>
+          
+          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+            <Ionicons name="timer-outline" size={18} color={isDark ? '#fff' : '#000'} />
+            <View style={styles.detailContent}>
+              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Duration</ThemedText>
+              <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                {item.duration}
+              </ThemedText>
+            </View>
+          </View>
+          
         </View>
         
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="attach-money" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}> 
-              {formatPHP(item.price)}
+        {/* Professional Services Section */}
+        <View style={styles.servicesSection}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="build" size={16} color={isDark ? '#fff' : '#000'} />
+            <ThemedText style={[styles.sectionLabel, { color: textColor }]}>
+              Services Included
             </ThemedText>
           </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="timer-outline" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.duration}
-            </ThemedText>
-          </View>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="verified" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.warranty}
-            </ThemedText>
-          </View>
-        </View>
-        
-       <View style={styles.servicesContainer}>
-        {item?.services?.map((service: string, index: number) => (
-          <View key={index} style={styles.serviceBadge}>
-            <ThemedText style={styles.serviceText}>{service}</ThemedText>
-          </View>
-        ))}
-      </View>
-
-        
-        <View style={styles.includesContainer}>
-          <ThemedText style={[styles.includesTitle, { color: textColor }]}>
-            Includes:
-          </ThemedText>
-          <View style={styles.includesList}>
-            {(item.includes || []).map((include: string, index: number) => (
-              <View key={index} style={styles.includeItem}>
-                <MaterialIcons name="check-circle" size={14} color={colorPalette.primary} />
-                <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
-                  {include}
+          <View style={styles.servicesContainer}>
+            {Array.isArray(item.services) &&
+              item.services.slice(0, 3).map((service: string, index: number) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.serviceBadge,
+                    { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                      borderWidth: 1
+                    },
+                  ]}
+                >
+                  <MaterialIcons name="check-circle" size={12} color={isDark ? '#fff' : '#000'} />
+                  <ThemedText style={[styles.serviceText, { color: textColor }]}>{service}</ThemedText>
+                </View>
+              ))}
+            {Array.isArray(item.services) && item.services.length > 3 && (
+              <View style={[styles.serviceBadge, styles.moreBadge, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={[styles.serviceText, { color: '#fff' }]}>
+                  +{item.services.length - 3} more
                 </ThemedText>
               </View>
-            ))}
+            )}
           </View>
         </View>
         
+        {/* Professional Price Section */}
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}> 
-            {formatPHP(item.price)}
-          </ThemedText>
+          <View style={styles.priceContainer}>
+            <View style={styles.priceHeader}>
+              <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
+                {formatPHP(item.price)}
+              </ThemedText>
+              <View style={[styles.priceBadge, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={styles.priceBadgeText}>Best Value</ThemedText>
+              </View>
+            </View>
+            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
+              Starting Price • No Hidden Fees
+            </ThemedText>
+          </View>
           <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
+            style={[styles.viewButton, styles.professionalButton]}
             onPress={() => {
               setSelectedAutoService(item);
               setDetailModalVisible(true);
             }}
           >
+            <MaterialIcons name="visibility" size={16} color="#fff" />
             <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
           </TouchableOpacity>
         </View>
-              </View>
       </View>
-    );
+    </View>
+  );
 
   const renderMotorPartItem = ({ item }: { item: any }) => (
     <View
       style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
     >
-      <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
+      {/* Image with Professional Overlay */}
+      <View style={styles.imageContainer}>
+        <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
+        <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.1)' }]} />
+        
+        {/* Availability Badge */}
+        <View style={[
+          styles.availabilityBadge,
+          { backgroundColor: item.available ? '#4CAF50' : '#F44336' }
+        ]}>
+          <MaterialIcons 
+            name={item.available ? "check-circle" : "cancel"} 
+            size={14} 
+            color="#fff" 
+          />
+          <ThemedText style={styles.availabilityBadgeText}>
+            {item.available ? "In Stock" : "Out of Stock"}
+          </ThemedText>
+        </View>
+        
+      </View>
+      
       <View style={styles.autoContent}>
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
@@ -574,44 +627,30 @@ export default function AutoListScreen() {
           </ThemedText>
         </View>
         
-        <ThemedText style={[styles.description, { color: subtitleColor }]}>
+        <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
           {item.description}
         </ThemedText>
         
-        {/* Availability Status */}
-        <View style={styles.availabilityRow}>
-          <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
-            size={16} 
-            color={item.available ? "#4CAF50" : "#F44336"} 
-          />
-          <ThemedText style={[
-            styles.availabilityText, 
-            { color: item.available ? "#4CAF50" : "#F44336" }
-          ]}>
-            {item.available ? "Available" : "Unavailable"}
-          </ThemedText>
-        </View>
-        
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="category" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
-              {item.category}
-            </ThemedText>
+        {/* Professional Part Details Grid */}
+        <View style={styles.detailsGrid}>
+          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+            <MaterialIcons name="category" size={18} color={isDark ? '#fff' : '#000'} />
+            <View style={styles.detailContent}>
+              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Category</ThemedText>
+              <ThemedText style={[styles.detailValue, { color: textColor }]}>
+                {item.category}
+              </ThemedText>
+            </View>
           </View>
         </View>
         
+        {/* Professional Price Section */}
         <View style={styles.priceRow}>
-          <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
-            onPress={() => {
-              setSelectedMotorPart(item);
-              setDetailModalVisible(true);
-            }}
-          >
-            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
-          </TouchableOpacity>
+          <View style={styles.priceContainer}>
+            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
+              Motor Parts & Accessories
+            </ThemedText>
+          </View>
         </View>
       </View>
     </View>
@@ -849,92 +888,163 @@ export default function AutoListScreen() {
                   </TouchableOpacity>
                    
                    <View style={styles.detailContent}>
-                     {selectedAutoService && (
-                       <View style={styles.detailRatingRow}>
-                         <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}> 
-                           {formatPHP(selectedAutoService.price)}
+                     {/* Header with Price */}
+                     <View style={styles.detailHeaderInfo}>
+                       <View style={styles.priceContainer}>
+                         <ThemedText type="subtitle" style={[styles.detailPrice, { color: textColor }]}>
+                           {formatPHP(selectedAutoService?.price || selectedMotorPart?.price)}
                          </ThemedText>
                        </View>
-                     )}
+                       
+                       {/* Availability Status */}
+                       <View style={styles.availabilityRow}>
+                         <MaterialIcons 
+                           name={(selectedAutoService?.available || selectedMotorPart?.available) ? "check-circle" : "cancel"} 
+                           size={20} 
+                           color={(selectedAutoService?.available || selectedMotorPart?.available) ? "#4CAF50" : "#F44336"} 
+                         />
+                         <ThemedText style={[
+                           styles.availabilityText, 
+                           { color: (selectedAutoService?.available || selectedMotorPart?.available) ? "#4CAF50" : "#F44336" }
+                         ]}>
+                           {(selectedAutoService?.available || selectedMotorPart?.available) ? "Available Now" : "Currently Unavailable"}
+                         </ThemedText>
+                       </View>
+                     </View>
                      
                      <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
                        {selectedAutoService?.description || selectedMotorPart?.description}
                      </ThemedText>
                      
-                     <View style={styles.detailSpecs}>
-                       {selectedAutoService && (
-                         <>
-                           <View style={styles.detailItem}>
-                             <MaterialIcons name="attach-money" size={20} color={subtitleColor} />
-                             <ThemedText style={[styles.detailText, { color: textColor }]}> 
-                               {formatPHP(selectedAutoService.price)}
-                             </ThemedText>
-                           </View>
-                           <View style={styles.detailItem}>
-                             <Ionicons name="timer-outline" size={20} color={subtitleColor} />
-                             <ThemedText style={[styles.detailText, { color: textColor }]}>
-                               {selectedAutoService.duration}
-                             </ThemedText>
-                           </View>
-                           <View style={styles.detailItem}>
-                             <MaterialIcons name="verified" size={20} color={subtitleColor} />
-                             <ThemedText style={[styles.detailText, { color: textColor }]}>
-                               {selectedAutoService.warranty}
-                             </ThemedText>
-                           </View>
-                         </>
-                       )}
-                       {selectedMotorPart && (
-                         <View style={styles.detailItem}>
-                           <MaterialIcons name="category" size={20} color={subtitleColor} />
-                           <ThemedText style={[styles.detailText, { color: textColor }]}>
-                             {selectedMotorPart.category}
-                           </ThemedText>
-                         </View>
-                       )}
+                     {/* Service Specifications */}
+                     <View style={styles.specsSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Service Specifications
+                       </ThemedText>
+                       <View style={styles.specsGrid}>
+                         {selectedAutoService && (
+                           <>
+                             <View style={styles.specItem}>
+                               <MaterialIcons name="attach-money" size={20} color={isDark ? '#fff' : '#000'} />
+                               <View style={styles.specContent}>
+                                 <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                                   Service Price
+                                 </ThemedText>
+                                 <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                                   {formatPHP(selectedAutoService.price)}
+                                 </ThemedText>
+                               </View>
+                             </View>
+                             
+                             <View style={styles.specItem}>
+                               <Ionicons name="timer-outline" size={20} color={isDark ? '#fff' : '#000'} />
+                               <View style={styles.specContent}>
+                                 <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                                   Duration
+                                 </ThemedText>
+                                 <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                                   {selectedAutoService.duration}
+                                 </ThemedText>
+                               </View>
+                             </View>
+                             
+                           </>
+                         )}
+                         {selectedMotorPart && (
+                           <>
+                             <View style={styles.specItem}>
+                               <MaterialIcons name="category" size={20} color={isDark ? '#fff' : '#000'} />
+                               <View style={styles.specContent}>
+                                 <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                                   Category
+                                 </ThemedText>
+                                 <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                                   {selectedMotorPart.category}
+                                 </ThemedText>
+                               </View>
+                             </View>
+                           </>
+                         )}
+                       </View>
                      </View>
                      
+                     {/* Services Included */}
                      {selectedAutoService && (
-                       <>
-                         <View style={styles.servicesSection}>
-                           <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                             Services Included
-                           </ThemedText>
-                           <View style={styles.servicesGrid}>
-                            {selectedAutoService?.services?.map((service: string, index: number) => (
-                              <View key={index} style={styles.serviceItem}>
-                                <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                                <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
-                                  {service}
-                                </ThemedText>
-                              </View>
-                            ))}
-                          </View>
-                         </View>
-                         
-                         <View style={styles.includesSection}>
-                           <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                             What&apos;s Included
-                           </ThemedText>
-                           <View style={styles.includesGrid}>
-                            {selectedAutoService?.includes?.map((include: string, index: number) => (
-                              <View key={index} style={styles.includeItem}>
-                                <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                                <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
-                                  {include}
-                                </ThemedText>
-                              </View>
-                            ))}
-                          </View>
-                         </View>
-                       </>
+                       <View style={styles.servicesSection}>
+                         <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                           Services Included
+                         </ThemedText>
+                         <View style={styles.servicesGrid}>
+                          {selectedAutoService?.services?.map((service: string, index: number) => (
+                            <View key={index} style={styles.serviceItem}>
+                              <MaterialIcons name="check-circle" size={16} color={isDark ? '#fff' : '#000'} />
+                              <ThemedText style={[styles.serviceItemText, { color: subtitleColor }]}>
+                                {service}
+                              </ThemedText>
+                            </View>
+                          ))}
+                        </View>
+                       </View>
                      )}
                      
+                     {/* What's Included */}
+                     {selectedAutoService && (
+                       <View style={styles.includesSection}>
+                         <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                           What&apos;s Included
+                         </ThemedText>
+                         <View style={styles.includesGrid}>
+                          {selectedAutoService?.includes?.map((include: string, index: number) => (
+                            <View key={index} style={styles.includeItem}>
+                              <MaterialIcons name="check-circle" size={16} color={isDark ? '#fff' : '#000'} />
+                              <ThemedText style={[styles.includeText, { color: subtitleColor }]}>
+                                {include}
+                              </ThemedText>
+                            </View>
+                          ))}
+                        </View>
+                       </View>
+                     )}
+                     
+                     {/* Service Features */}
+                     <View style={styles.featuresSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Why Choose Our Auto Services?
+                       </ThemedText>
+                       <View style={styles.featuresList}>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="build" size={20} color={isDark ? '#fff' : '#000'} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Professional mechanics with years of experience
+                           </ThemedText>
+                         </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="security" size={20} color={isDark ? '#fff' : '#000'} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Quality parts and genuine components
+                           </ThemedText>
+                         </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="speed" size={20} color={isDark ? '#fff' : '#000'} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Fast and reliable service delivery
+                           </ThemedText>
+                         </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="support-agent" size={20} color={isDark ? '#fff' : '#000'} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             24/7 customer support and assistance
+                           </ThemedText>
+                         </View>
+                       </View>
+                     </View>
+                     
+                     
                      <View style={styles.detailActions}>
-                       <TouchableOpacity 
-                         style={[styles.contactButton, { backgroundColor: colorPalette.primary }]} 
+                       <TouchableOpacity
+                         style={[styles.contactButton, { backgroundColor: colorPalette.primary }]}
                          onPress={() => selectedAutoService ? handleMessageAdmin(selectedAutoService) : handleMessageAdminForPart(selectedMotorPart)}
-                       >
+                         >
                          <MaterialIcons name="message" size={20} color="#fff" />
                          <ThemedText style={styles.contactButtonText}>Message</ThemedText>
                        </TouchableOpacity>
@@ -1005,7 +1115,7 @@ export default function AutoListScreen() {
                                    const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                                    const status = (match as any)?.status;
                                    const active = status === 'pending' || status === 'confirmed' || status === 'completed';
-                                   return { color: active ? '#fff' : colorPalette.primary };
+                                   return { color: active ? '#fff' : textColor };
                                  })()
                                ]}
                              >
@@ -1013,7 +1123,7 @@ export default function AutoListScreen() {
                                  const match = reservedAutoServices.find(s => (s as any).serviceId === selectedAutoService.id);
                                  const status = (match as any)?.status;
                                  const active = status === 'pending' || status === 'confirmed' || status === 'completed';
-                                 return active ? 'Reserved' : 'Avail';
+                                 return active ? 'Availed' : 'Avail';
                                })()}
                              </ThemedText>
                            )}
@@ -1217,9 +1327,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     marginTop: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   noResultsContainer: {
     flex: 1,
@@ -1267,19 +1383,56 @@ const styles = StyleSheet.create({
   },
   autoCard: {
     borderRadius: 0,
-    marginBottom: 20,
+    marginBottom: 24,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    backgroundColor: '#fff',
+  },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    overflow: 'hidden',
   },
   autoImage: {
     width: '100%',
-    height: 180,
+    height: '100%',
     borderRadius: 0,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  availabilityBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  availabilityBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   autoContent: {
     padding: 16,
@@ -1288,13 +1441,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   autoTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     flex: 1,
     marginRight: 12,
+    letterSpacing: 0.3,
   },
   description: {
     fontSize: 14,
@@ -1315,37 +1469,154 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 12,
   },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+    gap: 12,
+  },
+  detailCard: {
+    alignSelf: 'flex-start',
+    maxWidth: '60%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  detailContent: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: normalize(16),
     marginBottom: normalize(8),
     flex: isTablet ? 1 : 0,
+    minWidth: '45%',
   },
   detailText: {
     marginLeft: normalize(4),
     fontSize: normalize(isTablet ? 15 : 14),
     flex: 1,
   },
+  servicesSection: {
+    marginBottom: normalize(20),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 6,
+    letterSpacing: 0.3,
+  },
   servicesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 12,
+    gap: 8,
   },
   serviceBadge: {
-    backgroundColor: 'rgba(0, 178, 255, 0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  moreBadge: {
+    shadowColor: colorPalette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   serviceText: {
-    color: colorPalette.primary,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  featuresContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  featureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.2)',
+  },
+  featureText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  priceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  priceLabel: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  priceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  priceBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   includesContainer: {
     marginBottom: 16,
+  },
+  includesSection: {
+    marginBottom: normalize(24),
   },
   includesTitle: {
     fontSize: 14,
@@ -1355,6 +1626,11 @@ const styles = StyleSheet.create({
   includesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  includesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: normalize(8),
   },
   includeItem: {
     flexDirection: 'row',
@@ -1415,10 +1691,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  professionalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colorPalette.primary,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: colorPalette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   viewButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 13,
+    marginLeft: 6,
+    letterSpacing: 0.3,
   },
   modalOverlay: {
     flex: 1,
@@ -1500,7 +1792,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: normalize(isTablet ? 300 : 250),
   },
-  imageOverlay: {
+  detailImageOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1511,18 +1803,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     opacity: 0,
   },
-  detailContent: {
-    padding: normalize(isTablet ? 24 : 20),
-  },
   detailRatingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: normalize(16),
   },
+  detailHeaderInfo: {
+    marginBottom: normalize(20),
+  },
   detailPrice: {
     fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
+  },
+  specsSection: {
+    marginBottom: normalize(24),
+  },
+  specsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: normalize(12),
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+    padding: normalize(12),
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: normalize(8),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  specContent: {
+    marginLeft: normalize(8),
+    flex: 1,
+  },
+  specLabel: {
+    fontSize: normalize(12),
+    fontWeight: '600',
+    marginBottom: normalize(2),
+  },
+  specValue: {
+    fontSize: normalize(14),
+  },
+  featuresSection: {
+    marginBottom: normalize(24),
+  },
+  featuresList: {
+    gap: normalize(12),
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: normalize(8),
   },
   detailDescription: {
     fontSize: normalize(isTablet ? 18 : 16),
@@ -1535,23 +1868,12 @@ const styles = StyleSheet.create({
     marginBottom: normalize(24),
     gap: normalize(12),
   },
-  servicesSection: {
-    marginBottom: normalize(24),
-  },
-  includesSection: {
-    marginBottom: normalize(24),
-  },
   sectionTitle: {
     fontSize: normalize(isTablet ? 18 : 16),
     fontWeight: '600',
     marginBottom: normalize(12),
   },
   servicesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: normalize(8),
-  },
-  includesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: normalize(8),
@@ -1572,6 +1894,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: normalize(12),
+    alignItems: 'stretch',
   },
   contactButton: {
     flex: 1,
@@ -1594,19 +1917,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     marginTop: 0,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    position: 'relative',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   tabButtonActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#00B2FF',
+    borderBottomWidth: 3,
+    borderBottomColor: colorPalette.primary,
   },
   // Service Type Modal Styles
   serviceTypeModal: {

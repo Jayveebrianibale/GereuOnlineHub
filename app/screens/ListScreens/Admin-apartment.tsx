@@ -50,7 +50,7 @@ const colorPalette = {
     description: '',
     size: '',
     bedrooms: 0,
-    bathrooms: 0,
+    bathrooms: '',
     available: true,
     bedManagement: false,
     totalBeds: 0,
@@ -577,8 +577,8 @@ const colorPalette = {
             errors.title = 'Title must be at least 3 characters';
         }
         
-        if (currentApartment.price && !currentApartment.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
-            errors.price = 'Please enter a valid price (e.g., P1,200, 20,000/mo)';
+        if (currentApartment.price && currentApartment.price.trim().length < 1) {
+            errors.price = 'Price must contain at least 1 character';
         }
         
         if (currentApartment.bedrooms < 0) {
@@ -789,7 +789,7 @@ const colorPalette = {
                     <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
                         <MaterialIcons name="bathtub" size={16} color={isDark ? '#B0B0B0' : '#666'} />
                         <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
-                        {item.bathrooms} bath{item.bathrooms !== 1 ? 's' : ''}
+                        {item.bathrooms} {item.bathrooms && !isNaN(Number(item.bathrooms)) ? (Number(item.bathrooms) !== 1 ? 'baths' : 'bath') : ''}
                     </ThemedText>
                 </View>
                 {item.size && (
@@ -1025,7 +1025,7 @@ const colorPalette = {
                             });
                         }
                     }}
-                    placeholder="e.g. P1,200/mo"
+                    placeholder="e.g. P1,200/mo, Negotiable, Contact for price"
                     placeholderTextColor={subtitleColor}
                     keyboardType="default"
                     />
@@ -1197,10 +1197,9 @@ const colorPalette = {
                                 borderWidth: fieldErrors.bathrooms ? 2 : 1
                             }
                         ]}
-                        value={currentApartment.bathrooms.toString()}
+                        value={currentApartment.bathrooms}
                         onChangeText={(text) => {
-                            const numValue = parseInt(text) || 0;
-                            setCurrentApartment({ ...currentApartment, bathrooms: numValue });
+                            setCurrentApartment({ ...currentApartment, bathrooms: text });
                             // Clear error when user starts typing
                             if (fieldErrors.bathrooms) {
                                 setFieldErrors(prev => {
@@ -1210,9 +1209,9 @@ const colorPalette = {
                                 });
                             }
                         }}
-                        placeholder="0"
+                        placeholder="e.g., 2, Shared, Private"
                         placeholderTextColor={subtitleColor}
-                        keyboardType="numeric"
+                        keyboardType="default"
                     />
                     {fieldErrors.bathrooms && (
                         <ThemedText style={[styles.errorText, { color: dangerColor }]}>

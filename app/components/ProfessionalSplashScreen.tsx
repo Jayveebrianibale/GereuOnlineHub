@@ -3,12 +3,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  Dimensions,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

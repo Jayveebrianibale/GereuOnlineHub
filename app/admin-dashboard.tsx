@@ -62,7 +62,7 @@ const initialModules = [
   },
   {
     key: 'car',
-    title: 'Car and Motor Parts',
+    title: 'Car and Motor Services',
     image: require('@/assets/images/auto1.jpg'),
     description: 'Manage car parts and service requests',
     stats: '0 Services',
@@ -503,7 +503,7 @@ export default function AdminDashboard() {
           results.push({
             ...auto,
             type: 'auto',
-            category: 'Car and Motor Parts'
+            category: 'Car and Motor Services'
           });
         }
       });
@@ -936,7 +936,9 @@ export default function AdminDashboard() {
                     </ThemedText>
                   ) : (
                     <ThemedText style={[styles.cardDescription, { color: subtitleColor }]}>
-                      {mod.description}
+                      <ThemedText style={{ color: isDark ? '#fff' : '#000' }}>
+                        {mod.description}
+                      </ThemedText>
                     </ThemedText>
                   )}
                   <View style={styles.cardFooter}>

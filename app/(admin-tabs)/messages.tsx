@@ -339,7 +339,7 @@ export default function MessagesScreen() {
               </ThemedText>
               <View style={[styles.titleAccent, { backgroundColor: colorPalette.primary }]} />
             </View>
-            <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.subtitle, { color: textColor }]}>
               Manage your conversations
             </ThemedText>
           </View>

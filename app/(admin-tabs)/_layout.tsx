@@ -130,7 +130,7 @@ export default function AdminTabLayout() {
         const data = snapshot.val();
         
         // Get admin role and accessible modules
-        const adminEmail = user.email;
+        const adminEmail = user.email!; // Non-null assertion since we checked above
         const adminRole = getAdminRole(adminEmail);
         const accessibleModules = getAccessibleModules(adminEmail);
         const isSuperAdminUser = adminRole === 'super_admin';

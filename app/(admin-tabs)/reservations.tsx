@@ -364,7 +364,7 @@ export default function ReservationsScreen() {
             <ThemedText type="default" style={[
               styles.subtitle, 
               { 
-                color: subtitleColor, 
+                color: textColor, 
                 fontSize: subtitleSize 
               }
             ]}>

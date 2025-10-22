@@ -8,14 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { height, width } = Dimensions.get('window');
@@ -99,7 +99,7 @@ export default function PrivacyPolicyModal({ visible, onClose, onAccept }: Priva
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.lastUpdated}>
               <Ionicons name="time" size={16} color="#6B7280" />
-              <Text style={styles.lastUpdatedText}>Last updated: December 2024</Text>
+              <Text style={styles.lastUpdatedText}>Last updated: October 2025</Text>
             </View>
 
             {/* Introduction */}
@@ -244,7 +244,7 @@ export default function PrivacyPolicyModal({ visible, onClose, onAccept }: Priva
                   <Text style={styles.bulletText}>With payment processors (GCash) for transaction processing</Text>
                 </View>
                 <View style={styles.bulletItem}>
-                  <Ionicons name="gavel" size={16} color="#00B2FF" />
+                  <Ionicons name="document-text" size={16} color="#00B2FF" />
                   <Text style={styles.bulletText}>When required by law or legal process</Text>
                 </View>
                 <View style={styles.bulletItem}>

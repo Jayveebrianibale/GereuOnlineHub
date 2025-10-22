@@ -10,8 +10,8 @@ import { useAdminReservation } from '../../contexts/AdminReservationContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import {
-  cacheLaundryServices,
-  getCachedLaundryServices
+    cacheLaundryServices,
+    getCachedLaundryServices
 } from '../../services/dataCache';
 import { getLaundryServices } from '../../services/laundryService';
 import { notifyAdmins } from '../../services/notificationService';
@@ -46,8 +46,8 @@ export default function LaundryListScreen() {
   
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
-  const textColor = isDark ? '#fff' : colorPalette.darkest;
-  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+  const textColor = isDark ? '#fff' : '#000';
+  const subtitleColor = isDark ? 'rgba(255,255,255,0.75)' : '#555';
   const borderColor = isDark ? '#333' : '#eee';
 
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -490,7 +490,8 @@ export default function LaundryListScreen() {
           </ThemedText>
         </View>
         
-        <View style={styles.detailsRow}>
+        {/* Service Details Grid */}
+        <View style={styles.detailsGrid}>
           <View style={styles.detailItem}>
             <FontAwesome name="money" size={16} color={subtitleColor} />
             <ThemedText style={[styles.detailText, { color: textColor }]}>
@@ -509,37 +510,57 @@ export default function LaundryListScreen() {
               {item.pickup}
             </ThemedText>
           </View>
-        </View>
-        
-        <View style={styles.servicesContainer}>
-          {Array.isArray(item.services) &&
-            item.services.map((service: string, index: number) => (
-              <View key={index} style={styles.serviceBadge}>
-                <ThemedText style={styles.serviceText}>{service}</ThemedText>
-              </View>
-            ))}
-        </View>
-
-        
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
+          <View style={styles.detailItem}>
             <MaterialIcons name="delivery-dining" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.infoText, { color: textColor }]}>
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
               {item.delivery}
             </ThemedText>
           </View>
-          <View style={styles.infoItem}>
+          <View style={styles.detailItem}>
             <MaterialIcons name="scale" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.infoText, { color: textColor }]}>
+            <ThemedText style={[styles.detailText, { color: textColor }]}>
               {item.minOrder}
             </ThemedText>
           </View>
         </View>
         
-        <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
-            {formatPHP(item.price)}
+        {/* Services Included */}
+        <View style={styles.servicesSection}>
+          <ThemedText style={[styles.sectionLabel, { color: textColor }]}>
+            Services Included:
           </ThemedText>
+          <View style={styles.servicesContainer}>
+            {Array.isArray(item.services) &&
+              item.services.slice(0, 3).map((service: string, index: number) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.serviceBadge,
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' },
+                  ]}
+                >
+                  <ThemedText style={[styles.serviceText, { color: textColor }]}>{service}</ThemedText>
+                </View>
+              ))}
+            {Array.isArray(item.services) && item.services.length > 3 && (
+              <View style={[styles.serviceBadge, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={[styles.serviceText, { color: '#fff' }]}>
+                  +{item.services.length - 3} more
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+        
+        <View style={styles.priceRow}>
+          <View style={styles.priceContainer}>
+            <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
+              {formatPHP(item.price)}
+            </ThemedText>
+            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
+              Starting Price
+            </ThemedText>
+          </View>
           <TouchableOpacity 
             style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
             onPress={() => {
@@ -677,37 +698,91 @@ export default function LaundryListScreen() {
                   </TouchableOpacity>
                    
                    <View style={styles.detailContent}>
-                     <View style={styles.detailRatingRow}>
-                       <ThemedText type="subtitle" style={[styles.detailPrice, { color: colorPalette.primary }]}>
-                         {formatPHP(selectedLaundryService.price)}
-                       </ThemedText>
+                     {/* Header with Price */}
+                     <View style={styles.detailHeaderInfo}>
+                       <View style={styles.priceContainer}>
+                         <ThemedText type="subtitle" style={[styles.detailPrice, { color: textColor }]}>
+                           {formatPHP(selectedLaundryService.price)}
+                         </ThemedText>
+                       </View>
+                       
+                       {/* Availability Status */}
+                       <View style={styles.availabilityRow}>
+                         <MaterialIcons 
+                           name={selectedLaundryService.available ? "check-circle" : "cancel"} 
+                           size={20} 
+                           color={selectedLaundryService.available ? "#4CAF50" : "#F44336"} 
+                         />
+                         <ThemedText style={[
+                           styles.availabilityText, 
+                           { color: selectedLaundryService.available ? "#4CAF50" : "#F44336" }
+                         ]}>
+                           {selectedLaundryService.available ? "Available Now" : "Currently Unavailable"}
+                         </ThemedText>
+                       </View>
                      </View>
                      
                      <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
                        {selectedLaundryService.description}
                      </ThemedText>
                      
-                     <View style={styles.detailSpecs}>
-                       <View style={styles.detailItem}>
-                         <FontAwesome name="money" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {formatPHP(selectedLaundryService.price)}
-                         </ThemedText>
-                       </View>
-                       <View style={styles.detailItem}>
-                         <MaterialIcons name="schedule" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedLaundryService.turnaround}
-                         </ThemedText>
-                       </View>
-                       <View style={styles.detailItem}>
-                         <MaterialIcons name="local-shipping" size={20} color={subtitleColor} />
-                         <ThemedText style={[styles.detailText, { color: textColor }]}>
-                           {selectedLaundryService.pickup}
-                         </ThemedText>
+                     {/* Service Specifications */}
+                     <View style={styles.specsSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Service Specifications
+                       </ThemedText>
+                       <View style={styles.specsGrid}>
+                         <View style={styles.specItem}>
+                           <MaterialIcons name="schedule" size={20} color={colorPalette.primary} />
+                           <View style={styles.specContent}>
+                             <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                               Turnaround Time
+                             </ThemedText>
+                             <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                               {selectedLaundryService.turnaround}
+                             </ThemedText>
+                           </View>
+                         </View>
+                         
+                         <View style={styles.specItem}>
+                           <MaterialIcons name="local-shipping" size={20} color={colorPalette.primary} />
+                           <View style={styles.specContent}>
+                             <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                               Pickup Service
+                             </ThemedText>
+                             <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                               {selectedLaundryService.pickup}
+                             </ThemedText>
+                           </View>
+                         </View>
+                         
+                         <View style={styles.specItem}>
+                           <MaterialIcons name="delivery-dining" size={20} color={colorPalette.primary} />
+                           <View style={styles.specContent}>
+                             <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                               Delivery Service
+                             </ThemedText>
+                             <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                               {selectedLaundryService.delivery}
+                             </ThemedText>
+                           </View>
+                         </View>
+                         
+                         <View style={styles.specItem}>
+                           <MaterialIcons name="scale" size={20} color={colorPalette.primary} />
+                           <View style={styles.specContent}>
+                             <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                               Minimum Order
+                             </ThemedText>
+                             <ThemedText style={[styles.specValue, { color: subtitleColor }]}>
+                               {selectedLaundryService.minOrder}
+                             </ThemedText>
+                           </View>
+                         </View>
                        </View>
                      </View>
                      
+                     {/* Services Included */}
                      <View style={styles.servicesSection}>
                        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
                          Services Included
@@ -724,17 +799,56 @@ export default function LaundryListScreen() {
                       </View>
                      </View>
                      
-                     <View style={styles.infoSection}>
+                     {/* Service Features */}
+                     <View style={styles.featuresSection}>
                        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                         Service Details
+                         Why Choose This Service?
                        </ThemedText>
-                       <View style={styles.infoGrid}>
-                         <View style={styles.infoItem}>
-                           <MaterialIcons name="scale" size={16} color={colorPalette.primary} />
-                           <ThemedText style={[styles.infoText, { color: subtitleColor }]}>
-                             {selectedLaundryService.minOrder}
+                       <View style={styles.featuresList}>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="eco" size={20} color={colorPalette.primary} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Eco-friendly detergents and processes
                            </ThemedText>
                          </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="security" size={20} color={colorPalette.primary} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Secure handling of your garments
+                           </ThemedText>
+                         </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="speed" size={20} color={colorPalette.primary} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             Fast and reliable service
+                           </ThemedText>
+                         </View>
+                         <View style={styles.featureItem}>
+                           <MaterialIcons name="support-agent" size={20} color={colorPalette.primary} />
+                           <ThemedText style={[styles.featureText, { color: subtitleColor }]}>
+                             24/7 customer support
+                           </ThemedText>
+                         </View>
+                       </View>
+                     </View>
+                     
+                     {/* Pricing Information */}
+                     <View style={styles.pricingSection}>
+                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                         Pricing Information
+                       </ThemedText>
+                       <View style={styles.pricingCard}>
+                         <View style={styles.pricingHeader}>
+                           <ThemedText style={[styles.pricingTitle, { color: textColor }]}>
+                             Starting Price
+                           </ThemedText>
+                           <ThemedText type="subtitle" style={[styles.pricingAmount, { color: colorPalette.primary }]}>
+                             {formatPHP(selectedLaundryService.price)}
+                           </ThemedText>
+                         </View>
+                         <ThemedText style={[styles.pricingNote, { color: subtitleColor }]}>
+                           Final price may vary based on quantity, fabric type, and special requirements
+                         </ThemedText>
                        </View>
                      </View>
                      
@@ -798,7 +912,7 @@ export default function LaundryListScreen() {
                                 const match = reservedLaundryServices.find(s => (s as any).serviceId === selectedLaundryService.id);
                                 const status = (match as any)?.status;
                                 const active = status === 'pending' || status === 'confirmed';
-                                return { color: active ? '#fff' : colorPalette.primary };
+                                return { color: active ? '#fff' : textColor };
                               })(),
                             ]}
                           >
@@ -1164,17 +1278,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 12,
   },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 12,
+  },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: normalize(16),
     marginBottom: normalize(8),
     flex: isTablet ? 1 : 0,
+    minWidth: '45%',
   },
   detailText: {
     marginLeft: normalize(4),
     fontSize: normalize(isTablet ? 15 : 14),
     flex: 1,
+  },
+  servicesSection: {
+    marginBottom: normalize(16),
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  priceLabel: {
+    fontSize: 12,
+    marginTop: 2,
   },
   servicesContainer: {
     flexDirection: 'row',
@@ -1340,9 +1476,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: normalize(16),
   },
+  detailHeaderInfo: {
+    marginBottom: normalize(20),
+  },
   detailPrice: {
     fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
+  },
+  specsSection: {
+    marginBottom: normalize(24),
+  },
+  specsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: normalize(12),
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+    padding: normalize(12),
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: normalize(8),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  specContent: {
+    marginLeft: normalize(8),
+    flex: 1,
+  },
+  specLabel: {
+    fontSize: normalize(12),
+    fontWeight: '600',
+    marginBottom: normalize(2),
+  },
+  specValue: {
+    fontSize: normalize(14),
+  },
+  featuresSection: {
+    marginBottom: normalize(24),
+  },
+  featuresList: {
+    gap: normalize(12),
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: normalize(8),
+  },
+  featureText: {
+    marginLeft: normalize(12),
+    fontSize: normalize(14),
+    flex: 1,
+  },
+  pricingSection: {
+    marginBottom: normalize(24),
+  },
+  pricingCard: {
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: normalize(12),
+    padding: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  pricingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: normalize(8),
+  },
+  pricingTitle: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+  },
+  pricingAmount: {
+    fontSize: normalize(18),
+    fontWeight: 'bold',
+  },
+  pricingNote: {
+    fontSize: normalize(12),
+    fontStyle: 'italic',
   },
   detailDescription: {
     fontSize: normalize(isTablet ? 18 : 16),
@@ -1354,9 +1567,6 @@ const styles = StyleSheet.create({
     justifyContent: isTablet ? 'space-between' : 'flex-start',
     marginBottom: normalize(24),
     gap: normalize(12),
-  },
-  servicesSection: {
-    marginBottom: normalize(24),
   },
   infoSection: {
     marginBottom: normalize(24),
@@ -1544,17 +1754,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 178, 255, 0.2)',
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  featureText: {
-    marginLeft: 4,
-    fontSize: 12,
-    fontWeight: '500',
   },
   pickupSection: {
     marginTop: 20,

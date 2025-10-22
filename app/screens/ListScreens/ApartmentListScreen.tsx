@@ -17,8 +17,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-  cacheApartments,
-  getCachedApartments
+    cacheApartments,
+    getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -50,8 +50,11 @@ export default function ApartmentListScreen() {
   const bgColor = isDark ? '#121212' : '#fff';
   const cardBgColor = isDark ? '#1E1E1E' : '#fff';
   const textColor = isDark ? '#fff' : colorPalette.darkest;
-  const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
+  const subtitleColor = isDark ? '#fff' : '#000';
   const borderColor = isDark ? '#333' : '#eee';
+  // Modal-specific text colors to avoid blue in light mode and ensure contrast in dark mode
+  const modalTextColor = isDark ? '#fff' : '#000';
+  const modalMutedColor = isDark ? 'rgba(255,255,255,0.82)' : '#333';
 
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchVisible, setSearchVisible] = useState(false);
@@ -727,7 +730,7 @@ export default function ApartmentListScreen() {
         
         <View style={styles.locationRow}>
           <MaterialIcons name="location-on" size={16} color={colorPalette.primary} />
-          <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+          <ThemedText style={[styles.locationText, { color: textColor }]}>
             {item.location || 'Location not specified'}
           </ThemedText>
         </View>
@@ -790,7 +793,7 @@ export default function ApartmentListScreen() {
                     />
                     <ThemedText style={[
                       styles.availabilityText, 
-                      { color: isDark ? "#fff" : "#2196F3" }
+                      { color: textColor }
                     ]}>
                       Reserved
                     </ThemedText>
@@ -806,7 +809,7 @@ export default function ApartmentListScreen() {
                     />
                     <ThemedText style={[
                       styles.availabilityText, 
-                      { color: isDark ? "#fff" : "#FF9800" }
+                      { color: textColor }
                     ]}>
                       Reserved
                     </ThemedText>
@@ -849,48 +852,68 @@ export default function ApartmentListScreen() {
           })()}
         </View>
         
-        <ThemedText style={[styles.description, { color: subtitleColor }]}>
+        <ThemedText style={[styles.description, { color: textColor }]}>
           {item.description || 'No description available'}
         </ThemedText>
         
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="bed" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
+        {/* Apartment Specifications Grid */}
+        <View style={styles.specsGrid}>
+          <View style={styles.specItem}>
+            <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.specText, { color: textColor }]}>
               {item.bedrooms || 'N/A'} bed
             </ThemedText>
           </View>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="bathtub" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
+          <View style={styles.specItem}>
+            <MaterialIcons name="bathtub" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.specText, { color: textColor }]}>
               {item.bathrooms || 'N/A'} bath
             </ThemedText>
           </View>
-          <View style={styles.detailItem}>
-            <MaterialIcons name="square-foot" size={16} color={subtitleColor} />
-            <ThemedText style={[styles.detailText, { color: textColor }]}>
+          <View style={styles.specItem}>
+            <MaterialIcons name="square-foot" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.specText, { color: textColor }]}>
               {item.size || 'N/A'} sqft
+            </ThemedText>
+          </View>
+          <View style={styles.specItem}>
+            <MaterialIcons name="home" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.specText, { color: textColor }]}>
+              {item.bedManagement ? 'Bed Space' : 'Full Unit'}
             </ThemedText>
           </View>
         </View>
         
-        <View style={styles.amenitiesContainer}>
-          {item.amenities?.slice(0, 3).map((amenity: string, index: number) => (
-            <View key={index} style={styles.amenityBadge}>
-              <ThemedText style={styles.amenityText}>{amenity}</ThemedText>
-            </View>
-          ))}
-          {item.amenities && item.amenities.length > 3 && (
-            <ThemedText style={[styles.moreAmenities, { color: subtitleColor }]}>
-              +{item.amenities.length - 3} more
-            </ThemedText>
-          )}
+        {/* Amenities Section */}
+        <View style={styles.amenitiesSection}>
+          <ThemedText style={[styles.sectionLabel, { color: textColor }]}>
+            Amenities:
+          </ThemedText>
+          <View style={styles.amenitiesContainer}>
+            {item.amenities?.slice(0, 3).map((amenity: string, index: number) => (
+              <View key={index} style={styles.amenityBadge}>
+                <ThemedText style={[styles.amenityText, { color: textColor }]}>{amenity}</ThemedText>
+              </View>
+            ))}
+            {item.amenities && item.amenities.length > 3 && (
+              <View style={[styles.amenityBadge, { backgroundColor: colorPalette.primary }]}>
+                <ThemedText style={[styles.amenityText, { color: '#fff' }]}>
+                  +{item.amenities.length - 3} more
+                </ThemedText>
+              </View>
+            )}
+          </View>
         </View>
         
         <View style={styles.priceRow}>
-          <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
-            {formatPHP(item.price || '0')}
-          </ThemedText>
+          <View style={styles.priceContainer}>
+            <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
+              {formatPHP(item.price || '0')}
+            </ThemedText>
+            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
+              {item.bedManagement ? 'Per Room/Month' : 'Per Month'}
+            </ThemedText>
+          </View>
           <TouchableOpacity 
             style={[
               styles.viewButton, 
@@ -908,19 +931,35 @@ export default function ApartmentListScreen() {
                   return colorPalette.primary;
                 })(),
                 opacity: (() => {
-                  if (item.bedManagement && (item.availableBeds || 0) === 0) return 0.7;
-                  if (isApartmentReservedByCurrentUser(item.id)) return 0.6;
+                  if (item.bedManagement && (item.availableBeds || 0) === 0) return 0.85;
+                  if (isApartmentReservedByCurrentUser(item.id)) return 0.8;
                   return 1;
                 })()
               }
             ]}
             onPress={() => {
-              if (!isApartmentReservedByCurrentUser(item.id)) {
-                setSelectedApartment(item);
-                setDetailModalVisible(true);
+              // For bed spacer apartments, check bed availability
+              if (item.bedManagement) {
+                if ((item.availableBeds || 0) > 0) {
+                  setSelectedApartment(item);
+                  setDetailModalVisible(true);
+                }
+              } else {
+                // For regular apartments, check if not reserved by current user
+                if (!isApartmentReservedByCurrentUser(item.id)) {
+                  setSelectedApartment(item);
+                  setDetailModalVisible(true);
+                }
               }
             }}
-            disabled={isApartmentReservedByCurrentUser(item.id)}
+            disabled={(() => {
+              // For bed spacer apartments, disable if no beds available
+              if (item.bedManagement) {
+                return (item.availableBeds || 0) === 0;
+              }
+              // For regular apartments, disable if reserved by current user
+              return isApartmentReservedByCurrentUser(item.id);
+            })()}
           >
             <ThemedText style={styles.viewButtonText}>
               {(() => {
@@ -997,24 +1036,24 @@ export default function ApartmentListScreen() {
             </View>
             
             <View style={[styles.searchInputContainer, { borderColor: borderColor }]}>
-              <MaterialIcons name="search" size={20} color={subtitleColor} />
+          <MaterialIcons name="search" size={20} color={colorPalette.primary} />
               <TextInput
                 style={[styles.searchInput, { color: textColor }]}
                 placeholder="Search by location, amenities..."
-                placeholderTextColor={subtitleColor}
+            placeholderTextColor={textColor}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoFocus={true}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialIcons name="clear" size={20} color={subtitleColor} />
+                  <MaterialIcons name="clear" size={20} color={colorPalette.primary} />
                 </TouchableOpacity>
               )}
             </View>
             
             <View style={styles.searchResults}>
-              <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
+              <ThemedText style={[styles.resultsText, { color: textColor }]}>
                 {getFilteredApartments().length} results found
               </ThemedText>
             </View>
@@ -1037,10 +1076,22 @@ export default function ApartmentListScreen() {
         onRequestClose={() => setDetailModalVisible(false)}
       >
         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <View style={[styles.detailModal, { backgroundColor: cardBgColor }]}>
+          <View style={[
+            styles.detailModal,
+            {
+              backgroundColor: cardBgColor,
+              borderWidth: 1,
+              borderColor: borderColor,
+              shadowColor: '#000',
+              shadowOpacity: isDark ? 0.35 : 0.15,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: 8,
+            }
+          ]}>
             {selectedApartment && (
               <>
-                <View style={styles.detailHeader}>
+                <View style={[styles.detailHeader, { borderBottomColor: borderColor }]}>
                   <ThemedText type="title" style={[styles.detailTitle, { color: textColor }]}>
                     {selectedApartment.title || 'Apartment'}
                   </ThemedText>
@@ -1065,57 +1116,269 @@ export default function ApartmentListScreen() {
                   </TouchableOpacity>
                   
                   <View style={styles.detailContent}>
-                    <View style={styles.detailRatingRow}>
-                      <ThemedText type="subtitle" style={[styles.detailPrice, { color: textColor }]}>
-                        {formatPHP(selectedApartment.price || '0')}
-                      </ThemedText>
+                    {/* Header with Price and Availability */}
+                    <View style={styles.detailHeaderInfo}>
+                      <View style={styles.priceContainer}>
+                        <ThemedText type="subtitle" style={[styles.detailPrice, { color: textColor }]}>
+                          {formatPHP(selectedApartment.price || '0')}
+                        </ThemedText>
+                        <ThemedText style={[styles.priceLabel, { color: modalMutedColor }]}>
+                          {selectedApartment.bedManagement ? 'Per Room/Month' : 'Per Month'}
+                        </ThemedText>
+                      </View>
+                      
+                      {/* Availability Status */}
+                      <View style={styles.availabilityRow}>
+                        {(() => {
+                          if (selectedApartment.bedManagement) {
+                            const availableBeds = selectedApartment.availableBeds || 0;
+                            const totalBeds = selectedApartment.totalBeds || 0;
+                            
+                            if (availableBeds > 0) {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="bed" 
+                                    size={20} 
+                                    color="#4CAF50" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: "#4CAF50" }
+                                  ]}>
+                                    {availableBeds} of {totalBeds} beds available
+                                  </ThemedText>
+                                </>
+                              );
+                            } else {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="bed" 
+                                    size={20} 
+                                    color="#F44336" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: "#F44336" }
+                                  ]}>
+                                    All beds occupied
+                                  </ThemedText>
+                                </>
+                              );
+                            }
+                          } else {
+                            const isAvailable = isApartmentAvailable(selectedApartment.id);
+                            const isReservedByCurrentUser = isApartmentReservedByCurrentUser(selectedApartment.id);
+                            const isReservedByOther = isApartmentReservedByOtherUser(selectedApartment.id);
+                            
+                            if (isReservedByCurrentUser) {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="bookmark" 
+                                    size={20} 
+                                    color="#2196F3" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: textColor }
+                                  ]}>
+                                    Reserved by You
+                                  </ThemedText>
+                                </>
+                              );
+                            } else if (isReservedByOther) {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="person-pin" 
+                                    size={20} 
+                                    color="#FF9800" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: textColor }
+                                  ]}>
+                                    Reserved by Others
+                                  </ThemedText>
+                                </>
+                              );
+                            } else if (isAvailable) {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="check-circle" 
+                                    size={20} 
+                                    color="#4CAF50" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: "#4CAF50" }
+                                  ]}>
+                                    Available Now
+                                  </ThemedText>
+                                </>
+                              );
+                            } else {
+                              return (
+                                <>
+                                  <MaterialIcons 
+                                    name="cancel" 
+                                    size={20} 
+                                    color="#F44336" 
+                                  />
+                                  <ThemedText style={[
+                                    styles.availabilityText, 
+                                    { color: "#F44336" }
+                                  ]}>
+                                    Currently Unavailable
+                                  </ThemedText>
+                                </>
+                              );
+                            }
+                          }
+                        })()}
+                      </View>
                     </View>
                     
                     <View style={styles.locationRow}>
                       <MaterialIcons name="location-on" size={20} color={colorPalette.primary} />
-                      <ThemedText style={[styles.locationText, { color: subtitleColor }]}>
+                      <ThemedText style={[styles.locationText, { color: modalMutedColor }]}>
                         {selectedApartment.location || 'Location not specified'}
                       </ThemedText>
                     </View>
                     
-                    <ThemedText style={[styles.detailDescription, { color: subtitleColor }]}>
+                    <ThemedText style={[styles.detailDescription, { color: modalMutedColor }]}>
                       {selectedApartment.description || 'No description available'}
                     </ThemedText>
                     
-                    <View style={styles.detailSpecs}>
-                      <View style={styles.specItem}>
-                        <MaterialIcons name="bed" size={20} color={subtitleColor} />
-                        <ThemedText style={[styles.specText, { color: textColor }]}>
-                          {selectedApartment.bedrooms || 'N/A'} Bedrooms
-                        </ThemedText>
-                      </View>
-                      <View style={styles.specItem}>
-                        <MaterialIcons name="bathtub" size={20} color={subtitleColor} />
-                        <ThemedText style={[styles.specText, { color: textColor }]}>
-                          {selectedApartment.bathrooms || 'N/A'} Bathrooms
-                        </ThemedText>
-                      </View>
-                      <View style={styles.specItem}>
-                        <MaterialIcons name="square-foot" size={20} color={subtitleColor} />
-                        <ThemedText style={[styles.specText, { color: textColor }]}>
-                          {selectedApartment.size || 'N/A'} sqft
-                        </ThemedText>
+                    {/* Apartment Specifications */}
+                    <View style={styles.specsSection}>
+                      <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                        Apartment Specifications
+                      </ThemedText>
+                      <View style={styles.specsGrid}>
+                        <View style={styles.specItem}>
+                          <MaterialIcons name="bed" size={20} color={colorPalette.primary} />
+                          <View style={styles.specContent}>
+                            <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                              Bedrooms
+                            </ThemedText>
+                            <ThemedText style={[styles.specValue, { color: modalMutedColor }]}>
+                              {selectedApartment.bedrooms || 'N/A'}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.specItem}>
+                          <MaterialIcons name="bathtub" size={20} color={colorPalette.primary} />
+                          <View style={styles.specContent}>
+                            <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                              Bathrooms
+                            </ThemedText>
+                            <ThemedText style={[styles.specValue, { color: modalMutedColor }]}>
+                              {selectedApartment.bathrooms || 'N/A'}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.specItem}>
+                          <MaterialIcons name="square-foot" size={20} color={colorPalette.primary} />
+                          <View style={styles.specContent}>
+                            <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                              Size
+                            </ThemedText>
+                            <ThemedText style={[styles.specValue, { color: modalMutedColor }]}>
+                              {selectedApartment.size || 'N/A'} sqft
+                            </ThemedText>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.specItem}>
+                          <MaterialIcons name="home" size={20} color={colorPalette.primary} />
+                          <View style={styles.specContent}>
+                            <ThemedText style={[styles.specLabel, { color: textColor }]}>
+                              Type
+                            </ThemedText>
+                            <ThemedText style={[styles.specValue, { color: modalMutedColor }]}>
+                              {selectedApartment.bedManagement ? 'Bed Space' : 'Full Unit'}
+                            </ThemedText>
+                          </View>
+                        </View>
                       </View>
                     </View>
                     
+                    {/* Amenities Section */}
                     <View style={styles.amenitiesSection}>
                       <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
-                        Amenities
+                        Amenities & Features
                       </ThemedText>
                       <View style={styles.amenitiesGrid}>
                         {selectedApartment.amenities?.map((amenity: string, index: number) => (
                           <View key={index} style={styles.amenityItem}>
                             <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
-                            <ThemedText style={[styles.amenityItemText, { color: subtitleColor }]}>
+                            <ThemedText style={[styles.amenityItemText, { color: modalMutedColor }]}>
                               {amenity}
                             </ThemedText>
                           </View>
                         ))}
+                      </View>
+                    </View>
+                    
+                    {/* Apartment Features */}
+                    <View style={styles.featuresSection}>
+                      <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                        Why Choose This Apartment?
+                      </ThemedText>
+                      <View style={styles.featuresList}>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons name="security" size={20} color={colorPalette.primary} />
+                          <ThemedText style={[styles.featureText, { color: modalMutedColor }]}>
+                            Secure and safe living environment
+                          </ThemedText>
+                        </View>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons name="wifi" size={20} color={colorPalette.primary} />
+                          <ThemedText style={[styles.featureText, { color: modalMutedColor }]}>
+                            High-speed internet included
+                          </ThemedText>
+                        </View>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons name="local-laundry-service" size={20} color={colorPalette.primary} />
+                          <ThemedText style={[styles.featureText, { color: modalMutedColor }]}>
+                            Laundry facilities available
+                          </ThemedText>
+                        </View>
+                        <View style={styles.featureItem}>
+                          <MaterialIcons name="support-agent" size={20} color={colorPalette.primary} />
+                          <ThemedText style={[styles.featureText, { color: modalMutedColor }]}>
+                            24/7 maintenance support
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Pricing Information */}
+                    <View style={styles.pricingSection}>
+                      <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+                        Pricing Information
+                      </ThemedText>
+                      <View style={styles.pricingCard}>
+                        <View style={styles.pricingHeader}>
+                          <ThemedText style={[styles.pricingTitle, { color: textColor }]}>
+                            {selectedApartment.bedManagement ? 'Room Pricing' : 'Monthly Rent'}
+                          </ThemedText>
+                          <ThemedText type="subtitle" style={[styles.pricingAmount, { color: colorPalette.primary }]}>
+                            {formatPHP(selectedApartment.price || '0')}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={[styles.pricingNote, { color: modalMutedColor }]}>
+                          {selectedApartment.bedManagement 
+                            ? 'Room pricing. Utilities and amenities included.'
+                            : 'Monthly rent includes utilities and basic amenities.'
+                          }
+                        </ThemedText>
                       </View>
                     </View>
                     
@@ -1148,7 +1411,7 @@ export default function ApartmentListScreen() {
                                 <ThemedText style={[styles.reservedByOtherText, { color: textColor }]}>
                                   This apartment has been reserved by someone else.
                                 </ThemedText>
-                                <ThemedText style={[styles.reservedByOtherSubtext, { color: subtitleColor }]}>
+                                <ThemedText style={[styles.reservedByOtherSubtext, { color: modalMutedColor }]}>
                                   Please choose another apartment or check back later
                                 </ThemedText>
                               </View>
@@ -1365,7 +1628,7 @@ export default function ApartmentListScreen() {
                 </TouchableOpacity>
               </View>
               
-              <ThemedText style={[styles.bedSelectionSubtitle, { color: subtitleColor }]}>
+              <ThemedText style={[styles.bedSelectionSubtitle, { color: modalMutedColor }]}>
                 {selectedApartmentForBed?.title} - Select an available bed
               </ThemedText>
               
@@ -1416,7 +1679,7 @@ export default function ApartmentListScreen() {
                             Bed {bed.bedNumber}
                           </ThemedText>
                           {bed.description && (
-                            <ThemedText style={[styles.bedSelectionDescription, { color: subtitleColor }]}>
+                            <ThemedText style={[styles.bedSelectionDescription, { color: modalMutedColor }]}>
                               {bed.description}
                             </ThemedText>
                           )}
@@ -1475,7 +1738,7 @@ export default function ApartmentListScreen() {
                 </TouchableOpacity>
               </View>
               
-              <ThemedText style={[styles.dateSelectionSubtitle, { color: subtitleColor }]}>
+              <ThemedText style={[styles.dateSelectionSubtitle, { color: modalMutedColor }]}>
                 {selectedBed && `Bed ${selectedBed.bedNumber} - ${selectedApartmentForBed?.title}`}
               </ThemedText>
 
@@ -1661,6 +1924,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 12,
   },
+  specsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: normalize(16),
+    gap: normalize(12),
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    minWidth: '45%',
+  },
+  specText: {
+    marginLeft: 4,
+    fontSize: 14,
+  },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1669,6 +1948,21 @@ const styles = StyleSheet.create({
   detailText: {
     marginLeft: 4,
     fontSize: 14,
+  },
+  amenitiesSection: {
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  priceContainer: {
+    flex: 1,
+  },
+  priceLabel: {
+    fontSize: 12,
+    marginTop: 2,
   },
   amenitiesContainer: {
     flexDirection: 'row',
@@ -1704,12 +1998,23 @@ const styles = StyleSheet.create({
   viewButton: {
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   viewButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 14,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -1811,9 +2116,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: normalize(16),
   },
+  detailHeaderInfo: {
+    marginBottom: normalize(20),
+  },
   detailPrice: {
     fontSize: normalize(isTablet ? 22 : 20),
     fontWeight: 'bold',
+  },
+  specsSection: {
+    marginBottom: normalize(24),
+  },
+  specContent: {
+    marginLeft: normalize(8),
+    flex: 1,
+  },
+  specLabel: {
+    fontSize: normalize(12),
+    fontWeight: '600',
+    marginBottom: normalize(2),
+  },
+  specValue: {
+    fontSize: normalize(14),
+  },
+  featuresSection: {
+    marginBottom: normalize(24),
+  },
+  featuresList: {
+    gap: normalize(12),
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: normalize(8),
+  },
+  featureText: {
+    marginLeft: normalize(12),
+    fontSize: normalize(14),
+    flex: 1,
+  },
+  pricingSection: {
+    marginBottom: normalize(24),
+  },
+  pricingCard: {
+    backgroundColor: 'rgba(0, 178, 255, 0.05)',
+    borderRadius: normalize(12),
+    padding: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.1)',
+  },
+  pricingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: normalize(8),
+  },
+  pricingTitle: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+  },
+  pricingAmount: {
+    fontSize: normalize(18),
+    fontWeight: 'bold',
+  },
+  pricingNote: {
+    fontSize: normalize(12),
+    fontStyle: 'italic',
   },
   detailDescription: {
     fontSize: normalize(isTablet ? 18 : 16),
@@ -1825,19 +2192,6 @@ const styles = StyleSheet.create({
     justifyContent: isTablet ? 'space-between' : 'flex-start',
     marginBottom: normalize(24),
     gap: normalize(12),
-  },
-  specItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  specText: {
-    marginLeft: normalize(8),
-    fontSize: normalize(isTablet ? 15 : 14),
-    fontWeight: '500',
-  },
-  amenitiesSection: {
-    marginBottom: normalize(24),
   },
   sectionTitle: {
     fontSize: normalize(isTablet ? 18 : 16),

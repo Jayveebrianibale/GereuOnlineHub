@@ -37,20 +37,20 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 // Admin Configuration Objects
 export const APARTMENT_ADMIN = {
-  email: 'apartment@example.com', // Change this to the actual apartment admin email
-  name: 'Apartment Account',
+  email: 'apartment@gmail.com', // Admin Apartment account
+  name: 'Admin Apartment',
   role: ADMIN_ROLES.APARTMENT_ADMIN,
 };
 
 export const LAUNDRY_ADMIN = {
-  email: 'laundry@example.com', // Change this to the actual laundry admin email
-  name: 'Laundry Account',
+  email: 'laundry@gmail.com', // Admin Laundry account
+  name: 'Admin Laundry',
   role: ADMIN_ROLES.LAUNDRY_ADMIN,
 };
 
 export const AUTO_ADMIN = {
-  email: 'auto@example.com', // Change this to the actual auto admin email
-  name: 'Auto Account',
+  email: 'auto@gmail.com', // Admin Car and Motor Services account
+  name: 'Admin Car and Motor Services',
   role: ADMIN_ROLES.AUTO_ADMIN,
 };
 

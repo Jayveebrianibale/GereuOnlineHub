@@ -86,7 +86,7 @@ export default function PrivacyPolicyScreen() {
               <View style={styles.lastUpdatedBadge}>
                 <Ionicons name="time" size={14} color="#6B7280" />
                 <ThemedText style={styles.lastUpdatedText}>
-                  Last updated: December 2024
+                  Last updated: October 2025
                 </ThemedText>
               </View>
             </View>

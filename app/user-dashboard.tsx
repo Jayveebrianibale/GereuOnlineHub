@@ -13,9 +13,9 @@ import { useAuthContext } from './contexts/AuthContext';
 import { useReservation } from './contexts/ReservationContext';
 import { db } from './firebaseConfig';
 import {
-  cacheApartments,
-  cacheAutoServices,
-  cacheLaundryServices
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -465,7 +465,14 @@ export default function UserHome() {
   }, [autoServices.length, isUserInteracting.auto]);
 
   const renderApartmentItem = ({ item }: { item: any }) => (
-    <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+    <View style={[
+      styles.carouselItem, 
+      { 
+        width: itemWidth, 
+        marginRight: itemSpacing,
+        borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+      }
+    ]}> 
       <RobustImage 
         source={item.image} 
         style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
@@ -527,7 +534,12 @@ export default function UserHome() {
             })()}
           </ThemedText>
         </View>
-        <View style={styles.priceTag}> 
+        <View style={[
+          styles.priceTag,
+          { 
+            backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+          }
+        ]}> 
           <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
         </View>
       </View>
@@ -670,7 +682,14 @@ export default function UserHome() {
     // Enhanced laundry service display with same appearance as apartment rentals
     if (serviceType === 'laundry') {
       return (
-        <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+        <View style={[
+          styles.carouselItem, 
+          { 
+            width: itemWidth, 
+            marginRight: itemSpacing,
+            borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+          }
+        ]}> 
           <RobustImage 
             source={item.image} 
             style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
@@ -706,7 +725,12 @@ export default function UserHome() {
                 {item.available ? 'Available' : 'Unavailable'}
               </ThemedText>
             </View>
-            <View style={styles.priceTag}> 
+            <View style={[
+              styles.priceTag,
+              { 
+                backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+              }
+            ]}> 
               <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
             </View>
           </View>
@@ -797,7 +821,14 @@ export default function UserHome() {
 
     // Enhanced auto service display with same appearance as apartment rentals
     return (
-      <View style={[styles.carouselItem, { width: itemWidth, marginRight: itemSpacing }]}> 
+      <View style={[
+        styles.carouselItem, 
+        { 
+          width: itemWidth, 
+          marginRight: itemSpacing,
+          borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+        }
+      ]}> 
         <RobustImage 
           source={item.image} 
           style={[styles.carouselImage, { height: isLargeScreen ? 180 : isTablet ? 160 : 200 }]} 
@@ -833,7 +864,12 @@ export default function UserHome() {
               {item.available ? 'Available' : 'Unavailable'}
             </ThemedText>
           </View>
-          <View style={styles.priceTag}> 
+          <View style={[
+            styles.priceTag,
+            { 
+              backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+            }
+          ]}> 
             <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
           </View>
         </View>
@@ -1474,6 +1510,8 @@ const styles = StyleSheet.create({
   carouselItem: {
     borderRadius: 0,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -1509,10 +1547,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   priceTag: {
-    backgroundColor: colorPalette.primary,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   priceText: {
     color: '#fff',

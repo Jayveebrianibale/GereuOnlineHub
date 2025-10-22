@@ -381,7 +381,7 @@ export default function UsersScreen() {
             <ThemedText type="title" style={[styles.title, { color: textColor }]}>
               User Management
             </ThemedText>
-            <ThemedText type="default" style={[styles.subtitle, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.subtitle, { color: textColor }]}>
               Manage user accounts and permissions
             </ThemedText>
           </View>
@@ -419,7 +419,7 @@ export default function UsersScreen() {
         {/* User Stats */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: textColor, fontSize: 14 }]}>
               Total Users
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: textColor }]}>
@@ -427,7 +427,7 @@ export default function UsersScreen() {
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: textColor, fontSize: 14 }]}>
               Active
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: '#10B981' }]}>
@@ -435,7 +435,7 @@ export default function UsersScreen() {
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: cardBgColor }]}>
-            <ThemedText type="default" style={[styles.statLabel, { color: subtitleColor }]}>
+            <ThemedText type="default" style={[styles.statLabel, { color: textColor, fontSize: 14 }]}>
               Inactive
             </ThemedText>
             <ThemedText type="title" style={[styles.statValue, { color: '#EF4444' }]}>

@@ -179,7 +179,7 @@ export default function TermsAndPrivacyModal({
               <View style={styles.lastUpdatedContent}>
                 <Ionicons name="time" size={16} color="#6B7280" />
                 <Text style={styles.lastUpdatedText}>
-                  Last updated: December 2024
+                  Last updated: October 2025
                 </Text>
               </View>
             </View>
