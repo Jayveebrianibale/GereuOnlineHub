@@ -3,12 +3,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
 import {
-  Animated,
-  Dimensions,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
+    Animated,
+    Dimensions,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -141,40 +141,17 @@ export default function ProfessionalSplashScreen({ onFinish }: ProfessionalSplas
                styles.loadingContainer,
                {
                  opacity: fadeAnim,
+                 transform: [{ translateY: slideAnim }],
                },
              ]}
            >
-             <View style={styles.loadingBar}>
-               <Animated.View
-                 style={[
-                   styles.loadingProgress,
-                   {
-                     transform: [
-                       {
-                         scaleX: fadeAnim.interpolate({
-                           inputRange: [0, 1],
-                           outputRange: [0, 1],
-                         }),
-                       },
-                     ],
-                   },
-                 ]}
-               />
+             <View style={styles.loadingDots}>
+               <View style={[styles.dot, styles.dot1]} />
+               <View style={[styles.dot, styles.dot2]} />
+               <View style={[styles.dot, styles.dot3]} />
              </View>
            </Animated.View>
         </View>
-
-        {/* Version Info */}
-        <Animated.View
-          style={[
-            styles.versionContainer,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <Text style={styles.versionText}>v1.0.0</Text>
-        </Animated.View>
       </LinearGradient>
     </View>
   );
@@ -191,8 +168,10 @@ const styles = StyleSheet.create({
   },
   patternOverlay: {
     position: 'absolute',
-    width: '100%',
-    height: '100%',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   circle: {
     position: 'absolute',
@@ -202,45 +181,39 @@ const styles = StyleSheet.create({
   circle1: {
     width: 200,
     height: 200,
-    top: -100,
+    top: -50,
     right: -50,
   },
   circle2: {
     width: 150,
     height: 150,
-    bottom: 100,
-    left: -75,
+    bottom: -30,
+    left: -30,
   },
   circle3: {
     width: 100,
     height: 100,
-    top: height * 0.3,
-    right: 50,
+    top: '30%',
+    left: -20,
   },
   contentContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
   logoContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
   },
   logoWrapper: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   logo: {
     width: 80,
@@ -248,14 +221,13 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 60,
   },
   appName: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: 'bold',
+    color: 'white',
     textAlign: 'center',
-    letterSpacing: 1,
     marginBottom: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -263,38 +235,31 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 16,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    fontWeight: '500',
   },
   loadingContainer: {
-    width: width * 0.6,
     alignItems: 'center',
   },
-  loadingBar: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  loadingProgress: {
-    height: '100%',
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    transformOrigin: 'left',
-  },
-  versionContainer: {
-    position: 'absolute',
-    bottom: 50,
+  loadingDots: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  versionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 0.5,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 4,
+  },
+  dot1: {
+    animationDelay: '0s',
+  },
+  dot2: {
+    animationDelay: '0.2s',
+  },
+  dot3: {
+    animationDelay: '0.4s',
   },
 });
