@@ -13,9 +13,9 @@ import { useAuthContext } from './contexts/AuthContext';
 import { useReservation } from './contexts/ReservationContext';
 import { db } from './firebaseConfig';
 import {
-    cacheApartments,
-    cacheAutoServices,
-    cacheLaundryServices
+  cacheApartments,
+  cacheAutoServices,
+  cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -537,14 +537,14 @@ export default function UserHome() {
         <View style={[
           styles.priceTag,
           { 
-            backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+            backgroundColor: '#333333'
           }
         ]}> 
           <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
         </View>
       </View>
       <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
-        <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 16 : 18 }]}> 
+        <ThemedText type="subtitle" style={[styles.itemTitle, { color: isDark ? '#E0E0E0' : '#333333', fontSize: isLargeScreen ? 20 : 22 }]}> 
           {item.title}
         </ThemedText>
 
@@ -728,7 +728,7 @@ export default function UserHome() {
             <View style={[
               styles.priceTag,
               { 
-                backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+                backgroundColor: '#333333'
               }
             ]}> 
               <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
@@ -867,7 +867,7 @@ export default function UserHome() {
           <View style={[
             styles.priceTag,
             { 
-              backgroundColor: colorScheme === 'dark' ? colorPalette.primary : '#000000'
+              backgroundColor: '#333333'
             }
           ]}> 
             <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
@@ -1565,8 +1565,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   itemTitle: {
-    fontSize: 18,
+    fontSize: 22,
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
+    fontWeight: 'bold',
   },
   description: {
     fontSize: 12,

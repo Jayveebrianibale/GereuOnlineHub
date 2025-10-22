@@ -17,8 +17,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-    cacheApartments,
-    getCachedApartments
+  cacheApartments,
+  getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -716,6 +716,45 @@ export default function ApartmentListScreen() {
     return getImageSource(apartment.image);
   };
 
+  // Helper function to get appropriate icon for amenity
+  const getAmenityIcon = (amenity: string) => {
+    const amenityLower = amenity.toLowerCase();
+    
+    if (amenityLower.includes('air') || amenityLower.includes('conditioner') || amenityLower.includes('ac')) {
+      return 'ac-unit';
+    } else if (amenityLower.includes('wifi') || amenityLower.includes('internet') || amenityLower.includes('wifi')) {
+      return 'wifi';
+    } else if (amenityLower.includes('furnished') || amenityLower.includes('furniture')) {
+      return 'chair';
+    } else if (amenityLower.includes('security') || amenityLower.includes('fingerprint') || amenityLower.includes('cctv')) {
+      return 'security';
+    } else if (amenityLower.includes('parking') || amenityLower.includes('garage')) {
+      return 'local-parking';
+    } else if (amenityLower.includes('pool') || amenityLower.includes('swimming')) {
+      return 'pool';
+    } else if (amenityLower.includes('gym') || amenityLower.includes('fitness')) {
+      return 'fitness-center';
+    } else if (amenityLower.includes('elevator') || amenityLower.includes('lift')) {
+      return 'elevator';
+    } else if (amenityLower.includes('balcony') || amenityLower.includes('terrace')) {
+      return 'balcony';
+    } else if (amenityLower.includes('kitchen') || amenityLower.includes('cooking')) {
+      return 'kitchen';
+    } else if (amenityLower.includes('laundry') || amenityLower.includes('washing')) {
+      return 'local-laundry-service';
+    } else if (amenityLower.includes('tv') || amenityLower.includes('television')) {
+      return 'tv';
+    } else if (amenityLower.includes('heating') || amenityLower.includes('heat')) {
+      return 'whatshot';
+    } else if (amenityLower.includes('water') || amenityLower.includes('hot water')) {
+      return 'water-drop';
+    } else if (amenityLower.includes('electricity') || amenityLower.includes('power')) {
+      return 'electrical-services';
+    } else {
+      return 'check-circle'; // Default icon
+    }
+  };
+
   const renderApartmentItem = ({ item }: { item: any }) => (
     <View
       style={[styles.apartmentCard, { backgroundColor: cardBgColor, borderColor }]}
@@ -892,6 +931,12 @@ export default function ApartmentListScreen() {
           <View style={styles.amenitiesContainer}>
             {item.amenities?.slice(0, 3).map((amenity: string, index: number) => (
               <View key={index} style={styles.amenityBadge}>
+                <MaterialIcons 
+                  name={getAmenityIcon(amenity)} 
+                  size={14} 
+                  color={colorPalette.primary} 
+                  style={{ marginRight: 4 }}
+                />
                 <ThemedText style={[styles.amenityText, { color: textColor }]}>{amenity}</ThemedText>
               </View>
             ))}
@@ -1317,7 +1362,13 @@ export default function ApartmentListScreen() {
                       <View style={styles.amenitiesGrid}>
                         {selectedApartment.amenities?.map((amenity: string, index: number) => (
                           <View key={index} style={styles.amenityItem}>
-                            <MaterialIcons name="check-circle" size={16} color={colorPalette.primary} />
+                            <View style={styles.amenityIconContainer}>
+                              <MaterialIcons 
+                                name={getAmenityIcon(amenity)} 
+                                size={16} 
+                                color="#666666" 
+                              />
+                            </View>
                             <ThemedText style={[styles.amenityItemText, { color: modalMutedColor }]}>
                               {amenity}
                             </ThemedText>
@@ -1977,6 +2028,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
     marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   amenityText: {
     color: colorPalette.primary,
@@ -2021,6 +2074,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  fullScreenModal: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   searchModal: {
     width: '100%',
@@ -2067,10 +2125,10 @@ const styles = StyleSheet.create({
   },
   detailModal: {
     width: '100%',
-    borderRadius: normalize(isTablet ? 20 : 16),
-    maxHeight: '90%',
+    borderRadius: 0,
+    maxHeight: '100%',
     overflow: 'hidden',
-    maxWidth: isTablet ? wp(80) : wp(95),
+    maxWidth: '100%',
   },
   detailScrollView: {
     // flex: 1, // Removed to fix modal content visibility
@@ -2094,7 +2152,7 @@ const styles = StyleSheet.create({
   },
   detailImage: {
     width: '100%',
-    height: normalize(isTablet ? 300 : 250),
+    height: normalize(isTablet ? 200 : 180),
   },
   imageOverlay: {
     position: 'absolute',
@@ -2209,6 +2267,15 @@ const styles = StyleSheet.create({
     width: isTablet ? '33%' : '50%',
     marginBottom: normalize(8),
     minWidth: isSmallScreen ? wp(45) : wp(40),
+  },
+  amenityIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   amenityItemText: {
     marginLeft: normalize(8),
