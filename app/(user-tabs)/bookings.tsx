@@ -1575,7 +1575,7 @@ const styles = StyleSheet.create({
   },
   // Modern Apartment Card Styles
   modernApartmentCard: {
-    borderRadius: 20,
+    borderRadius: 0,
     marginBottom: 24,
     borderWidth: 1,
     shadowColor: '#000',

@@ -617,18 +617,37 @@ export default function AdminDashboard() {
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: cardBackground }]}>
-          <MaterialIcons name="search" size={20} color={subtitleColor} style={styles.searchIcon} />
+        <View style={[
+          styles.searchContainer, 
+          { 
+            backgroundColor: cardBackground,
+            borderColor: colorScheme === 'dark' ? '#404040' : '#E1E5E9',
+          }
+        ]}>
+          <MaterialIcons 
+            name="search" 
+            size={22} 
+            color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+            style={styles.searchIcon} 
+          />
           <TextInput
             style={[styles.searchInput, { color: textColor }]}
-            placeholder="Search services..."
-            placeholderTextColor={subtitleColor}
+            placeholder="Search for services..."
+            placeholderTextColor={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'}
             value={searchQuery}
             onChangeText={handleSearch}
+            selectionColor={colorPalette.primary}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <MaterialIcons name="clear" size={20} color={subtitleColor} />
+            <TouchableOpacity 
+              onPress={() => handleSearch('')}
+              style={styles.clearButton}
+            >
+              <MaterialIcons 
+                name="clear" 
+                size={20} 
+                color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} 
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -1145,23 +1164,31 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     marginBottom: 20,
+    borderWidth: 2,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 16,
+  },
+  clearButton: {
+    padding: 4,
+    borderRadius: 12,
+    marginLeft: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: 0,
+    paddingVertical: 4,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   searchResultsContainer: {
     marginBottom: 24,

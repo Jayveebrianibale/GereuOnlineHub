@@ -72,12 +72,12 @@
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "232136a8-7373-4fda-aaa8-966ccccd1bc2"
-      },
       "paymongo": {
         "secretKey": "sk_test_WL2guhaPujZZ5cw4ycEuyWue",
         "publicKey": "pk_test_unHcUNnqqxMZZyLwcn9omjPz"
+      },
+      "eas": {
+        "projectId": "5891ca8e-31d0-442a-91bc-968958b59549"
       }
     }
   }

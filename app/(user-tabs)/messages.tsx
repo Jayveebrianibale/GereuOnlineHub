@@ -117,11 +117,11 @@ export default function MessagesScreen() {
         Object.keys(usersData).forEach(userId => {
           const userData = usersData[userId];
           if (ADMIN_EMAILS.includes(userData.email)) {
-            // Filter out admin with name "Jeibii" (case-insensitive)
+            // Filter out admin with name "Jeibii" or "Super Admin" (case-insensitive)
             const adminName = userData.name || 'Admin';
             const safeName = adminName.toLowerCase().trim();
             console.log('Checking admin:', { adminName, safeName, email: userData.email });
-            if (!safeName.includes('jeibii')) {
+            if (!safeName.includes('jeibii') && !safeName.includes('super admin')) {
               console.log('Adding admin to list:', adminName);
               adminUsersList.push({
                 id: userId,
