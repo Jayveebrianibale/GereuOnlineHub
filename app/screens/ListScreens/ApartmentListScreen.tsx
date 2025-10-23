@@ -17,8 +17,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-  cacheApartments,
-  getCachedApartments
+    cacheApartments,
+    getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -675,14 +675,18 @@ export default function ApartmentListScreen() {
         filteredData = apartments.filter(apt => 
           apt.title?.toLowerCase().includes('1-bedroom') || 
           apt.title?.toLowerCase().includes('1 bedroom') ||
-          apt.bedrooms === 1
+          apt.bedrooms === 1 ||
+          apt.bedrooms === '1' ||
+          (typeof apt.bedrooms === 'string' && apt.bedrooms.toLowerCase().includes('1'))
         );
         break;
       case '2bed':
         filteredData = apartments.filter(apt => 
           apt.title?.toLowerCase().includes('2-bedroom') || 
           apt.title?.toLowerCase().includes('2 bedroom') ||
-          apt.bedrooms === 2
+          apt.bedrooms === 2 ||
+          apt.bedrooms === '2' ||
+          (typeof apt.bedrooms === 'string' && apt.bedrooms.toLowerCase().includes('2'))
         );
         break;
       case 'luxury':
@@ -900,7 +904,7 @@ export default function ApartmentListScreen() {
           <View style={styles.specItem}>
             <MaterialIcons name="bed" size={16} color={colorPalette.primary} />
             <ThemedText style={[styles.specText, { color: textColor }]}>
-              {item.bedrooms || 'N/A'} bed
+              {item.bedrooms || 'N/A'} {typeof item.bedrooms === 'number' ? (item.bedrooms !== 1 ? 'beds' : 'bed') : ''}
             </ThemedText>
           </View>
           <View style={styles.specItem}>

@@ -49,7 +49,7 @@ const colorPalette = {
     amenities: [],
     description: '',
     size: '',
-    bedrooms: 0,
+    bedrooms: '',
     bathrooms: '',
     available: true,
     bedManagement: false,
@@ -581,8 +581,8 @@ const colorPalette = {
             errors.price = 'Price must contain at least 1 character';
         }
         
-        if (currentApartment.bedrooms < 0) {
-            errors.bedrooms = 'Bedrooms cannot be negative';
+        if (!currentApartment.bedrooms || currentApartment.bedrooms.trim() === '') {
+            errors.bedrooms = 'Bedrooms is required';
         }
         
         if (currentApartment.bathrooms < 0) {
@@ -783,7 +783,7 @@ const colorPalette = {
                     <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
                         <MaterialIcons name="bed" size={16} color={isDark ? '#B0B0B0' : '#666'} />
                         <ThemedText style={[styles.detailText, { color: isDark ? '#B0B0B0' : '#666' }]}>
-                        {item.bedrooms} bed{item.bedrooms !== 1 ? 's' : ''}
+                        {item.bedrooms} {typeof item.bedrooms === 'number' ? (item.bedrooms !== 1 ? 'beds' : 'bed') : ''}
                     </ThemedText>
                 </View>
                     <View style={[styles.detailItem, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
@@ -1162,10 +1162,9 @@ const colorPalette = {
                                 borderWidth: fieldErrors.bedrooms ? 2 : 1
                             }
                         ]}
-                        value={currentApartment.bedrooms.toString()}
+                        value={typeof currentApartment.bedrooms === 'string' ? currentApartment.bedrooms : currentApartment.bedrooms.toString()}
                         onChangeText={(text) => {
-                            const numValue = parseInt(text) || 0;
-                            setCurrentApartment({ ...currentApartment, bedrooms: numValue });
+                            setCurrentApartment({ ...currentApartment, bedrooms: text });
                             // Clear error when user starts typing
                             if (fieldErrors.bedrooms) {
                                 setFieldErrors(prev => {
@@ -1175,9 +1174,9 @@ const colorPalette = {
                                 });
                             }
                         }}
-                        placeholder="0"
+                        placeholder="e.g., 2, Studio, 1-bedroom"
                         placeholderTextColor={subtitleColor}
-                        keyboardType="numeric"
+                        keyboardType="default"
                     />
                     {fieldErrors.bedrooms && (
                         <ThemedText style={[styles.errorText, { color: dangerColor }]}>

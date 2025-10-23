@@ -44,7 +44,7 @@ export interface Apartment {
   amenities: string[]; // Array ng available amenities
   description: string; // Detailed description
   size: string; // Size ng apartment (e.g., "50 sqm")
-  bedrooms: number; // Number of bedrooms
+  bedrooms: string | number; // Number of bedrooms or description
   bathrooms: string; // Number of bathrooms or description
   available: boolean; // Availability status
   bedManagement: boolean; // Whether apartment uses individual bed management
