@@ -579,18 +579,27 @@ export default function AdminDashboard() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-              Dashboard
-            </ThemedText>
-            <ThemedText type="default" style={[styles.headerSubtitle, { color: textColor }]}>
-              Welcome back, {isSuperAdminUser ? 'Super Admin' : adminRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </ThemedText>
-            {!isSuperAdminUser && (
-              <ThemedText type="default" style={[styles.roleIndicator, { color: colorPalette.primary }]}>
-                {accessibleModules.length === 1 ? 'Single Module Access' : `${accessibleModules.length} Modules Access`}
+          <View style={styles.headerContent}>
+            <View style={styles.logoContainer}>
+              <RobustImage 
+                source={require('@/assets/images/logo.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+                Dashboard
               </ThemedText>
-            )}
+              <ThemedText type="default" style={[styles.headerSubtitle, { color: textColor }]}>
+                Welcome back, {isSuperAdminUser ? 'Super Admin' : adminRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </ThemedText>
+              {!isSuperAdminUser && (
+                <ThemedText type="default" style={[styles.roleIndicator, { color: colorPalette.primary }]}>
+                  {accessibleModules.length === 1 ? 'Single Module Access' : `${accessibleModules.length} Modules Access`}
+                </ThemedText>
+              )}
+            </View>
           </View>
           <View style={styles.headerButtons}>
             {/* <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/push-debugger')}>
@@ -1012,6 +1021,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
     marginTop: 24,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logoContainer: {
+    marginRight: 12,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,

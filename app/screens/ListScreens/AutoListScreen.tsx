@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-    AutoService,
-    getAutoServices,
+  AutoService,
+  getAutoServices,
 } from '../../services/autoService';
 import {
-    cacheAutoServices,
-    cacheMotorParts,
-    getCachedAutoServices,
-    getCachedMotorParts
+  cacheAutoServices,
+  cacheMotorParts,
+  getCachedAutoServices,
+  getCachedMotorParts
 } from '../../services/dataCache';
 import {
-    MotorPart,
-    getMotorParts,
+  MotorPart,
+  getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -42,6 +42,20 @@ const colorPalette = {
   dark: '#0051C1',
   darker: '#002F87',
   darkest: '#001A5C',
+  // Professional gradients
+  gradientStart: '#00B2FF',
+  gradientEnd: '#007BE5',
+  // Professional grays
+  gray50: '#FAFAFA',
+  gray100: '#F5F5F5',
+  gray200: '#EEEEEE',
+  gray300: '#E0E0E0',
+  gray400: '#BDBDBD',
+  gray500: '#9E9E9E',
+  gray600: '#757575',
+  gray700: '#616161',
+  gray800: '#424242',
+  gray900: '#212121',
 };
 
 export default function AutoListScreen() {
@@ -469,118 +483,94 @@ export default function AutoListScreen() {
 
   const renderAutoItem = ({ item }: { item: any }) => (
     <View
-      style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
+      style={[styles.autoCard, { backgroundColor: cardBgColor }]}
     >
-      {/* Image with Professional Overlay */}
+      {/* Clean Image Container */}
       <View style={styles.imageContainer}>
         <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
-        <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.1)' }]} />
         
-        {/* Availability Badge */}
+        {/* Simple Availability Badge */}
         <View style={[
           styles.availabilityBadge,
-          { backgroundColor: item.available ? '#4CAF50' : '#F44336' }
+          { 
+            backgroundColor: item.available ? '#4CAF50' : '#F44336',
+          }
         ]}>
-          <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
-            size={14} 
-            color="#fff" 
-          />
           <ThemedText style={styles.availabilityBadgeText}>
             {item.available ? "Available" : "Unavailable"}
           </ThemedText>
         </View>
         
+        {/* Clean Price Badge */}
+        <View style={styles.priceBadgeOverlay}>
+          <ThemedText style={[styles.priceBadgeText, { color: '#fff' }]}>
+            {formatPHP(item.price)}
+          </ThemedText>
+        </View>
       </View>
       
       <View style={styles.autoContent}>
+        {/* Simple Header */}
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
             {item.title}
           </ThemedText>
+          <View style={[styles.categoryBadge, { backgroundColor: colorPalette.primary }]}>
+            <ThemedText style={styles.categoryBadgeText}>
+              {item.category || 'Service'}
+            </ThemedText>
+          </View>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
           {item.description}
         </ThemedText>
         
-        {/* Professional Service Details Grid */}
-        <View style={styles.detailsGrid}>
-          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
-            <MaterialIcons name="attach-money" size={18} color={isDark ? '#fff' : '#000'} />
-            <View style={styles.detailContent}>
-              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Price</ThemedText>
-              <ThemedText style={[styles.detailValue, { color: textColor }]}> 
-                {formatPHP(item.price)}
-              </ThemedText>
-            </View>
+        {/* Simple Details Row */}
+        <View style={styles.simpleDetailsRow}>
+          <View style={styles.simpleDetailItem}>
+            <Ionicons name="timer-outline" size={16} color={colorPalette.primary} />
+            <ThemedText style={[styles.simpleDetailText, { color: textColor }]}>
+              {item.duration}
+            </ThemedText>
           </View>
           
-          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
-            <Ionicons name="timer-outline" size={18} color={isDark ? '#fff' : '#000'} />
-            <View style={styles.detailContent}>
-              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Duration</ThemedText>
-              <ThemedText style={[styles.detailValue, { color: textColor }]}>
-                {item.duration}
-              </ThemedText>
-            </View>
+          <View style={styles.simpleDetailItem}>
+            <MaterialIcons name="verified" size={16} color="#4CAF50" />
+            <ThemedText style={[styles.simpleDetailText, { color: textColor }]}>
+              Professional
+            </ThemedText>
           </View>
-          
         </View>
         
-        {/* Professional Services Section */}
-        <View style={styles.servicesSection}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="build" size={16} color={isDark ? '#fff' : '#000'} />
-            <ThemedText style={[styles.sectionLabel, { color: textColor }]}>
+        {/* Simple Services List */}
+        {Array.isArray(item.services) && item.services.length > 0 && (
+          <View style={styles.simpleServicesSection}>
+            <ThemedText style={[styles.simpleSectionTitle, { color: textColor }]}>
               Services Included
             </ThemedText>
-          </View>
-          <View style={styles.servicesContainer}>
-            {Array.isArray(item.services) &&
-              item.services.slice(0, 3).map((service: string, index: number) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.serviceBadge,
-                    { 
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                      borderWidth: 1
-                    },
-                  ]}
-                >
-                  <MaterialIcons name="check-circle" size={12} color={isDark ? '#fff' : '#000'} />
-                  <ThemedText style={[styles.serviceText, { color: textColor }]}>{service}</ThemedText>
+            <View style={styles.simpleServicesList}>
+              {item.services.slice(0, 3).map((service: string, index: number) => (
+                <View key={index} style={styles.simpleServiceItem}>
+                  <MaterialIcons name="check" size={14} color={colorPalette.primary} />
+                  <ThemedText style={[styles.simpleServiceText, { color: subtitleColor }]}>
+                    {service}
+                  </ThemedText>
                 </View>
               ))}
-            {Array.isArray(item.services) && item.services.length > 3 && (
-              <View style={[styles.serviceBadge, styles.moreBadge, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={[styles.serviceText, { color: '#fff' }]}>
-                  +{item.services.length - 3} more
+              {item.services.length > 3 && (
+                <ThemedText style={[styles.moreServicesText, { color: colorPalette.primary }]}>
+                  +{item.services.length - 3} more services
                 </ThemedText>
-              </View>
-            )}
-          </View>
-        </View>
-        
-        {/* Professional Price Section */}
-        <View style={styles.priceRow}>
-          <View style={styles.priceContainer}>
-            <View style={styles.priceHeader}>
-              <ThemedText type="subtitle" style={[styles.priceText, { color: textColor }]}>
-                {formatPHP(item.price)}
-              </ThemedText>
-              <View style={[styles.priceBadge, { backgroundColor: colorPalette.primary }]}>
-                <ThemedText style={styles.priceBadgeText}>Best Value</ThemedText>
-              </View>
+              )}
             </View>
-            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
-              Starting Price • No Hidden Fees
-            </ThemedText>
           </View>
+        )}
+        
+        {/* Clean Action Section */}
+        <View style={styles.actionSection}>
           <TouchableOpacity 
-            style={[styles.viewButton, styles.professionalButton]}
+            style={[styles.viewButton, { backgroundColor: colorPalette.primary }]}
             onPress={() => {
               setSelectedAutoService(item);
               setDetailModalVisible(true);
@@ -596,61 +586,78 @@ export default function AutoListScreen() {
 
   const renderMotorPartItem = ({ item }: { item: any }) => (
     <View
-      style={[styles.autoCard, { backgroundColor: cardBgColor, borderColor }]}
+      style={[styles.autoCard, { backgroundColor: cardBgColor }]}
     >
-      {/* Image with Professional Overlay */}
+      {/* Clean Image Container */}
       <View style={styles.imageContainer}>
         <RobustImage source={item.image} style={styles.autoImage} resizeMode="cover" />
-        <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.1)' }]} />
         
-        {/* Availability Badge */}
+        {/* Simple Availability Badge */}
         <View style={[
           styles.availabilityBadge,
-          { backgroundColor: item.available ? '#4CAF50' : '#F44336' }
+          { 
+            backgroundColor: item.available ? '#4CAF50' : '#F44336',
+          }
         ]}>
-          <MaterialIcons 
-            name={item.available ? "check-circle" : "cancel"} 
-            size={14} 
-            color="#fff" 
-          />
           <ThemedText style={styles.availabilityBadgeText}>
             {item.available ? "In Stock" : "Out of Stock"}
           </ThemedText>
         </View>
         
+        {/* Clean Price Badge */}
+        <View style={styles.priceBadgeOverlay}>
+          <ThemedText style={[styles.priceBadgeText, { color: '#fff' }]}>
+            {formatPHP(item.price)}
+          </ThemedText>
+        </View>
       </View>
       
       <View style={styles.autoContent}>
+        {/* Simple Header */}
         <View style={styles.autoHeader}>
           <ThemedText type="subtitle" style={[styles.autoTitle, { color: textColor }]}>
             {item.name}
           </ThemedText>
+          <View style={[styles.categoryBadge, { backgroundColor: '#8B5CF6' }]}>
+            <ThemedText style={styles.categoryBadgeText}>
+              {item.category || 'Part'}
+            </ThemedText>
+          </View>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
           {item.description}
         </ThemedText>
         
-        {/* Professional Part Details Grid */}
-        <View style={styles.detailsGrid}>
-          <View style={[styles.detailCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
-            <MaterialIcons name="category" size={18} color={isDark ? '#fff' : '#000'} />
-            <View style={styles.detailContent}>
-              <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Category</ThemedText>
-              <ThemedText style={[styles.detailValue, { color: textColor }]}>
-                {item.category}
-              </ThemedText>
-            </View>
+        {/* Simple Details Row */}
+        <View style={styles.simpleDetailsRow}>
+          <View style={styles.simpleDetailItem}>
+            <MaterialIcons name="category" size={16} color="#8B5CF6" />
+            <ThemedText style={[styles.simpleDetailText, { color: textColor }]}>
+              {item.category}
+            </ThemedText>
+          </View>
+          
+          <View style={styles.simpleDetailItem}>
+            <MaterialIcons name="verified" size={16} color="#4CAF50" />
+            <ThemedText style={[styles.simpleDetailText, { color: textColor }]}>
+              Genuine
+            </ThemedText>
           </View>
         </View>
         
-        {/* Professional Price Section */}
-        <View style={styles.priceRow}>
-          <View style={styles.priceContainer}>
-            <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>
-              Motor Parts & Accessories
-            </ThemedText>
-          </View>
+        {/* Clean Action Section */}
+        <View style={styles.actionSection}>
+          <TouchableOpacity 
+            style={[styles.viewButton, { backgroundColor: '#8B5CF6' }]}
+            onPress={() => {
+              setSelectedMotorPart(item);
+              setDetailModalVisible(true);
+            }}
+          >
+            <MaterialIcons name="visibility" size={16} color="#fff" />
+            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -718,46 +725,80 @@ export default function AutoListScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} />
-        </TouchableOpacity>
-        <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-          Car & Motor Services
-        </ThemedText>
-        <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => setSearchVisible(true)}
-        >
-          <MaterialIcons name="search" size={24} color={colorPalette.primary} />
-        </TouchableOpacity>
+      {/* Professional Header */}
+      <View style={[styles.header, { backgroundColor: cardBgColor }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <View style={[styles.iconButton, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray100 }]}>
+              <MaterialIcons name="arrow-back" size={20} color={colorPalette.primary} />
+            </View>
+          </TouchableOpacity>
+          
+          <View style={styles.headerTitleContainer}>
+            <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
+              Car & Motor Services
+            </ThemedText>
+            <ThemedText style={[styles.headerSubtitle, { color: subtitleColor }]}>
+              Professional automotive solutions
+            </ThemedText>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => setSearchVisible(true)}
+          >
+            <View style={[styles.iconButton, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray100 }]}>
+              <MaterialIcons name="search" size={20} color={colorPalette.primary} />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={[styles.tabContainer, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'services' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('services')}
-        >
-          <ThemedText style={[
-            styles.tabText, 
-            { color: activeTab === 'services' ? colorPalette.primary : subtitleColor }
-          ]}>
-            Services
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'parts' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('parts')}
-        >
-          <ThemedText style={[
-            styles.tabText, 
-            { color: activeTab === 'parts' ? colorPalette.primary : subtitleColor }
-          ]}>
-            Parts & Accessories
-          </ThemedText>
-        </TouchableOpacity>
+      {/* Professional Tab Navigation */}
+      <View style={[styles.tabContainer, { backgroundColor: cardBgColor }]}>
+        <View style={styles.tabWrapper}>
+          <TouchableOpacity
+            style={[
+              styles.tabButton, 
+              activeTab === 'services' && styles.tabButtonActive,
+              { backgroundColor: activeTab === 'services' ? colorPalette.primary : 'transparent' }
+            ]}
+            onPress={() => setActiveTab('services')}
+          >
+            <MaterialIcons 
+              name="build" 
+              size={18} 
+              color={activeTab === 'services' ? '#fff' : subtitleColor} 
+            />
+            <ThemedText style={[
+              styles.tabText, 
+              { color: activeTab === 'services' ? '#fff' : subtitleColor }
+            ]}>
+              Services
+            </ThemedText>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.tabButton, 
+              activeTab === 'parts' && styles.tabButtonActive,
+              { backgroundColor: activeTab === 'parts' ? colorPalette.primary : 'transparent' }
+            ]}
+            onPress={() => setActiveTab('parts')}
+          >
+            <MaterialIcons 
+              name="settings" 
+              size={18} 
+              color={activeTab === 'parts' ? '#fff' : subtitleColor} 
+            />
+            <ThemedText style={[
+              styles.tabText, 
+              { color: activeTab === 'parts' ? '#fff' : subtitleColor }
+            ]}>
+              Parts & Accessories
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content List */}
@@ -797,26 +838,34 @@ export default function AutoListScreen() {
         )
       )}
 
-      {/* Search Modal */}
+      {/* Professional Search Modal */}
       <Modal
         visible={searchVisible}
         animationType="slide"
         transparent={true}
         onRequestClose={() => setSearchVisible(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <View style={[styles.searchModal, { backgroundColor: cardBgColor }]}>
             <View style={styles.searchHeader}>
-              <ThemedText type="title" style={[styles.searchTitle, { color: textColor }]}>
-                Search Auto Services
-              </ThemedText>
-              <TouchableOpacity onPress={() => setSearchVisible(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
+              <View style={styles.searchTitleContainer}>
+                <View style={[styles.searchIcon, { backgroundColor: colorPalette.primary }]}>
+                  <MaterialIcons name="search" size={20} color="#fff" />
+                </View>
+                <ThemedText type="title" style={[styles.searchTitle, { color: textColor }]}>
+                  Search Services
+                </ThemedText>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setSearchVisible(false)}
+                style={[styles.closeButton, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray100 }]}
+              >
+                <MaterialIcons name="close" size={20} color={textColor} />
               </TouchableOpacity>
             </View>
             
-            <View style={[styles.searchInputContainer, { borderColor: borderColor }]}>
-              <MaterialIcons name="search" size={20} color={subtitleColor} />
+            <View style={[styles.searchInputContainer, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray50 }]}>
+              <MaterialIcons name="search" size={20} color={colorPalette.primary} />
               <TextInput
                 style={[styles.searchInput, { color: textColor }]}
                 placeholder="Search by service name, description..."
@@ -833,20 +882,24 @@ export default function AutoListScreen() {
             </View>
             
             <View style={styles.searchResults}>
-              <ThemedText style={[styles.resultsText, { color: subtitleColor }]}>
-                {filteredServices.length} results found
-              </ThemedText>
+              <View style={[styles.resultsContainer, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray50 }]}>
+                <MaterialIcons name="info" size={16} color={colorPalette.primary} />
+                <ThemedText style={[styles.resultsText, { color: textColor }]}>
+                  {filteredServices.length} results found
+                </ThemedText>
+              </View>
             </View>
             
             <TouchableOpacity 
               style={[styles.searchButton, { backgroundColor: colorPalette.primary }]}
               onPress={() => setSearchVisible(false)}
             >
+              <MaterialIcons name="check" size={18} color="#fff" />
               <ThemedText style={styles.searchButtonText}>Done</ThemedText>
             </TouchableOpacity>
           </View>
-                 </View>
-       </Modal>
+        </View>
+      </Modal>
 
        {/* Detail Modal */}
        <Modal
@@ -1323,17 +1376,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingTop: 20,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    marginTop: 20,
-    backgroundColor: '#fff',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -1358,9 +1434,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
-  searchButton: {
-    padding: 4,
-  },
   filtersContainer: {
     paddingVertical: 16,
   },
@@ -1379,18 +1452,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   listContainer: {
-    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   autoCard: {
-    borderRadius: 0,
-    marginBottom: 24,
-    borderWidth: 1,
+    marginBottom: 16,
+    marginHorizontal: 20,
+    borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
     backgroundColor: '#fff',
   },
   imageContainer: {
@@ -1402,7 +1476,6 @@ const styles = StyleSheet.create({
   autoImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 0,
   },
   imageOverlay: {
     position: 'absolute',
@@ -1416,23 +1489,123 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
     zIndex: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
   },
   availabilityBadgeText: {
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
-    marginLeft: 4,
+  },
+  priceBadgeOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    zIndex: 2,
+  },
+  priceBadgeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  categoryBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  actionSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  // New simplified styles
+  simpleDetailsRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 16,
+  },
+  simpleDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  simpleDetailText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  simpleServicesSection: {
+    marginBottom: 16,
+  },
+  simpleSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  simpleServicesList: {
+    gap: 4,
+  },
+  simpleServiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  simpleServiceText: {
+    marginLeft: 6,
+    fontSize: 13,
+  },
+  moreServicesText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  priceInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  valueBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  valueBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   autoContent: {
     padding: 16,
@@ -1605,13 +1778,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 8,
   },
-  priceBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   includesContainer: {
     marginBottom: 16,
   },
@@ -1687,86 +1853,127 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   viewButton: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  professionalButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colorPalette.primary,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  viewButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  searchModal: {
+    width: '100%',
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  searchTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  searchIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  searchTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  searchResults: {
+    marginBottom: 24,
+  },
+  resultsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  resultsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  searchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     shadowColor: colorPalette.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  viewButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
-    marginLeft: 6,
-    letterSpacing: 0.3,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  searchModal: {
-    width: '100%',
-    borderRadius: 16,
-    padding: 20,
-    maxHeight: '80%',
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  searchTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-  },
-  searchResults: {
-    marginBottom: 20,
-  },
-  resultsText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
   searchButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 16,
-    textAlign: 'center',
+    marginLeft: 8,
   },
   detailModal: {
     width: '100%',
     borderRadius: normalize(isTablet ? 20 : 16),
-    maxHeight: '90%',
+    maxHeight: '92%',
     overflow: 'hidden',
-    maxWidth: isTablet ? wp(80) : wp(95),
+    maxWidth: isTablet ? wp(85) : wp(98),
   },
   detailScrollView: {
     // flex: 1, // Removed to fix modal content visibility
@@ -1912,39 +2119,52 @@ const styles = StyleSheet.create({
     fontSize: normalize(isTablet ? 16 : 14),
     marginLeft: normalize(8),
   },
-  // Tab styles
+  // Professional Tab styles
   tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    marginTop: 0,
     backgroundColor: '#fff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabWrapper: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginVertical: 12,
+    backgroundColor: 'rgba(0, 178, 255, 0.1)',
+    borderRadius: 12,
+    padding: 4,
   },
   tabButton: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    position: 'relative',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginHorizontal: 2,
   },
   tabText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
     letterSpacing: 0.3,
   },
   tabButtonActive: {
-    borderBottomWidth: 3,
-    borderBottomColor: colorPalette.primary,
+    shadowColor: colorPalette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   // Service Type Modal Styles
   serviceTypeModal: {
-    width: '90%',
+    width: '100%',
     borderRadius: 16,
     padding: 20,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   serviceTypeHeader: {
     flexDirection: 'row',
@@ -1987,9 +2207,9 @@ const styles = StyleSheet.create({
   },
   // Home Service Modal Styles
   homeServiceModal: {
-    width: '95%',
+    width: '100%',
     borderRadius: 16,
-    maxHeight: '90%',
+    maxHeight: '92%',
   },
   homeServiceScrollContent: {
     padding: 20,

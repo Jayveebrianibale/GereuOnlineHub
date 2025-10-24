@@ -22,7 +22,7 @@ import {
     type Apartment,
     type Bed
 } from '../../services/apartmentService';
-import { convertImageToBase64 } from '../../utils/imageToBase64';
+import { convertBedImageToBase64, convertImageToBase64 } from '../../utils/imageToBase64';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
 const colorPalette = {
@@ -479,12 +479,12 @@ const colorPalette = {
             console.log('🛏️ Apartment ID:', currentApartment.id);
             
             if (isNewBed) {
-                // Convert bed image to base64 if it's a blob URL
+                // Convert bed image to base64 using the specialized function
                 let processedImage = currentBed.image;
-                if (currentBed.image && currentBed.image.startsWith('blob:')) {
+                if (currentBed.image && currentBed.image.trim() !== '') {
                     try {
-                        console.log('🖼️ Converting bed image to base64');
-                        processedImage = await convertImageToBase64(currentBed.image);
+                        console.log('🖼️ Converting bed image to base64 for new bed');
+                        processedImage = await convertBedImageToBase64(currentBed.image);
                     } catch (imageError) {
                         console.error('Error converting bed image to base64:', imageError);
                         // Keep original image if conversion fails
@@ -513,12 +513,12 @@ const colorPalette = {
                 
                 setToast({ visible: true, message: 'Bed added successfully', type: 'success' });
             } else {
-                // Convert bed image to base64 if it's a blob URL
+                // Convert bed image to base64 using the specialized function
                 let processedImage = currentBed.image;
-                if (currentBed.image && currentBed.image.startsWith('blob:')) {
+                if (currentBed.image && currentBed.image.trim() !== '') {
                     try {
-                        console.log('🖼️ Converting bed image to base64');
-                        processedImage = await convertImageToBase64(currentBed.image);
+                        console.log('🖼️ Converting bed image to base64 for bed update');
+                        processedImage = await convertBedImageToBase64(currentBed.image);
                     } catch (imageError) {
                         console.error('Error converting bed image to base64:', imageError);
                         // Keep original image if conversion fails
@@ -1893,7 +1893,7 @@ const colorPalette = {
         right: 12,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20,
+        borderRadius: 6,
     },
     statusOverlayText: {
         color: '#fff',

@@ -5,8 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
-import { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Animated, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { PaymentModal } from '../../components/PaymentModal';
 import { RobustImage } from '../../components/RobustImage';
@@ -17,8 +17,8 @@ import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import { getApartmentsWithBedStats, reserveBedInApartment, type Bed } from '../../services/apartmentService';
 import {
-    cacheApartments,
-    getCachedApartments
+  cacheApartments,
+  getCachedApartments
 } from '../../services/dataCache';
 import { notifyAdminByEmail, notifyAdmins } from '../../services/notificationService';
 import { PaymentData, isPaymentRequired } from '../../services/paymentService';
@@ -57,6 +57,8 @@ export default function ApartmentListScreen() {
   const modalMutedColor = isDark ? 'rgba(255,255,255,0.82)' : '#333';
 
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [selectedFloor, setSelectedFloor] = useState('all');
+  const [floorDropdownVisible, setFloorDropdownVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -77,6 +79,8 @@ export default function ApartmentListScreen() {
   const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  const [descriptionAnimations] = useState<Map<string, Animated.Value>>(new Map());
   const { reservedApartments, reserveApartment, removeReservation } = useReservation();
   const { addAdminReservation } = useAdminReservation();
   const { user } = useAuthContext();
@@ -145,6 +149,13 @@ export default function ApartmentListScreen() {
   const handleImagePress = (imageSource: string) => {
     setSelectedImage(imageSource);
     setImageViewerVisible(true);
+  };
+
+  // Close dropdown when clicking outside
+  const handleOutsidePress = () => {
+    if (floorDropdownVisible) {
+      setFloorDropdownVisible(false);
+    }
   };
 
   // Helper function to check if apartment is reserved by another user
@@ -659,20 +670,141 @@ export default function ApartmentListScreen() {
     </TouchableOpacity>
   );
 
-  // Filter apartments based on selected filter and search query
-  const getFilteredApartments = () => {
+  // Floor options for dropdown
+  const floorOptions = [
+    { id: 'all', label: 'All Floors', icon: 'home' },
+    { id: 'second', label: '2nd Floor', icon: 'stairs' },
+    { id: 'third', label: '3rd Floor', icon: 'stairs' }
+  ] as const;
+
+  // Get apartment count for each floor
+  const getFloorApartmentCount = (floorId: string) => {
+    if (floorId === 'all') return apartments.length;
+    
+    return apartments.filter((apt, index) => {
+      const title = apt.title?.toLowerCase() || '';
+      const location = apt.location?.toLowerCase() || '';
+      const address = apt.address?.toLowerCase() || '';
+      const description = apt.description?.toLowerCase() || '';
+      
+      // Combine all searchable text
+      const searchableText = `${title} ${location} ${address} ${description}`;
+      
+      // Check for explicit floor information first
+      let hasExplicitFloorInfo = false;
+      let explicitFloor = '';
+      
+      if (searchableText.includes('2nd') || searchableText.includes('second') || 
+                 searchableText.includes('floor 2') || searchableText.includes('level 2') || 
+                 searchableText.includes('2nd floor') || searchableText.includes('second floor')) {
+        hasExplicitFloorInfo = true;
+        explicitFloor = 'second';
+      } else if (searchableText.includes('3rd') || searchableText.includes('third') || 
+                 searchableText.includes('floor 3') || searchableText.includes('level 3') || 
+                 searchableText.includes('3rd floor') || searchableText.includes('third floor')) {
+        hasExplicitFloorInfo = true;
+        explicitFloor = 'third';
+      }
+      
+      // If apartment has explicit floor information, use it
+      if (hasExplicitFloorInfo) {
+        return explicitFloor === floorId;
+      }
+      
+      // Fallback: distribute apartments across floors based on index
+      const totalApartments = apartments.length;
+      const apartmentsPerFloor = Math.ceil(totalApartments / 2);
+      
+      switch (floorId) {
+        case 'second':
+          return index < apartmentsPerFloor;
+        case 'third':
+          return index >= apartmentsPerFloor;
+        default:
+          return true;
+      }
+    }).length;
+  };
+
+  // Filter apartments based on selected filter, floor, and search query
+  const filteredApartments = useMemo(() => {
+    console.log(`🔍 getFilteredApartments called - selectedFloor: ${selectedFloor}, selectedFilter: ${selectedFilter}, searchQuery: "${searchQuery}"`);
     let filteredData = apartments;
+    
+    // Apply floor filter first
+    if (selectedFloor !== 'all') {
+      console.log(`🏢 Filtering apartments by floor: ${selectedFloor}`);
+      console.log(`🏢 Total apartments before filtering: ${apartments.length}`);
+      
+      filteredData = apartments.filter((apt, index) => {
+        const title = apt.title?.toLowerCase() || '';
+        const location = apt.location?.toLowerCase() || '';
+        const address = apt.address?.toLowerCase() || '';
+        const description = apt.description?.toLowerCase() || '';
+        
+        // Combine all searchable text
+        const searchableText = `${title} ${location} ${address} ${description}`;
+        
+        // Check for explicit floor information first
+        let hasExplicitFloorInfo = false;
+        let explicitFloor = '';
+        
+        if (searchableText.includes('2nd') || searchableText.includes('second') || 
+                   searchableText.includes('floor 2') || searchableText.includes('level 2') || 
+                   searchableText.includes('2nd floor') || searchableText.includes('second floor')) {
+          hasExplicitFloorInfo = true;
+          explicitFloor = 'second';
+        } else if (searchableText.includes('3rd') || searchableText.includes('third') || 
+                   searchableText.includes('floor 3') || searchableText.includes('level 3') || 
+                   searchableText.includes('3rd floor') || searchableText.includes('third floor')) {
+          hasExplicitFloorInfo = true;
+          explicitFloor = 'third';
+        }
+        
+        let matches = false;
+        
+        // If apartment has explicit floor information, use it
+        if (hasExplicitFloorInfo) {
+          matches = explicitFloor === selectedFloor;
+          if (matches) {
+            console.log(`✅ Apartment matches explicit floor filter: ${apt.title} - Floor: ${explicitFloor}`);
+          }
+        } else {
+          // Fallback: distribute apartments across floors based on index
+          const totalApartments = apartments.length;
+          const apartmentsPerFloor = Math.ceil(totalApartments / 2);
+          
+          switch (selectedFloor) {
+            case 'second':
+              matches = index < apartmentsPerFloor;
+              break;
+            case 'third':
+              matches = index >= apartmentsPerFloor;
+              break;
+            default:
+              matches = true;
+          }
+          
+          if (matches) {
+            console.log(`✅ Apartment matches fallback floor filter: ${apt.title} - Index: ${index}, Floor: ${selectedFloor}`);
+          }
+        }
+        
+        return matches;
+      });
+      console.log(`🏢 Filtered ${filteredData.length} apartments for floor: ${selectedFloor}`);
+    }
     
     // Apply category filter
     switch (selectedFilter) {
       case 'studio':
-        filteredData = apartments.filter(apt => 
+        filteredData = filteredData.filter(apt => 
           apt.title?.toLowerCase().includes('studio') ||
           apt.type?.toLowerCase().includes('studio')
         );
         break;
       case '1bed':
-        filteredData = apartments.filter(apt => 
+        filteredData = filteredData.filter(apt => 
           apt.title?.toLowerCase().includes('1-bedroom') || 
           apt.title?.toLowerCase().includes('1 bedroom') ||
           apt.bedrooms === 1 ||
@@ -681,7 +813,7 @@ export default function ApartmentListScreen() {
         );
         break;
       case '2bed':
-        filteredData = apartments.filter(apt => 
+        filteredData = filteredData.filter(apt => 
           apt.title?.toLowerCase().includes('2-bedroom') || 
           apt.title?.toLowerCase().includes('2 bedroom') ||
           apt.bedrooms === 2 ||
@@ -690,7 +822,7 @@ export default function ApartmentListScreen() {
         );
         break;
       case 'luxury':
-        filteredData = apartments.filter(apt => 
+        filteredData = filteredData.filter(apt => 
           apt.title?.toLowerCase().includes('luxury') || 
           apt.title?.toLowerCase().includes('premium') || 
           apt.title?.toLowerCase().includes('executive') ||
@@ -698,7 +830,8 @@ export default function ApartmentListScreen() {
         );
         break;
       default:
-        filteredData = apartments;
+        // No additional filtering for 'all' category
+        break;
     }
     
     // Apply search query filter
@@ -713,11 +846,71 @@ export default function ApartmentListScreen() {
     }
     
     return filteredData;
+  }, [apartments, selectedFloor, selectedFilter, searchQuery]);
+
+  // Debug floor selection changes
+  useEffect(() => {
+    console.log(`🏢 selectedFloor state changed to: ${selectedFloor}`);
+    console.log(`🏢 Current apartments count: ${apartments.length}`);
+    if (selectedFloor !== 'all') {
+      console.log(`🏢 Filtered apartments count: ${filteredApartments.length}`);
+    }
+  }, [selectedFloor, apartments, filteredApartments]);
+
+  // Close dropdown when user scrolls
+  const handleScroll = () => {
+    if (floorDropdownVisible) {
+      setFloorDropdownVisible(false);
+    }
   };
 
   // Function to get image source from Firebase data
   const getApartmentImageSource = (apartment: any) => {
     return getImageSource(apartment.image);
+  };
+
+  // Helper function to get or create animation value for apartment
+  const getAnimationValue = (apartmentId: string) => {
+    if (!descriptionAnimations.has(apartmentId)) {
+      descriptionAnimations.set(apartmentId, new Animated.Value(0));
+    }
+    return descriptionAnimations.get(apartmentId)!;
+  };
+
+  // Helper function to toggle description expansion with animation
+  const toggleDescription = (apartmentId: string) => {
+    const animationValue = getAnimationValue(apartmentId);
+    const isCurrentlyExpanded = expandedDescriptions.has(apartmentId);
+    
+    setExpandedDescriptions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(apartmentId)) {
+        newSet.delete(apartmentId);
+      } else {
+        newSet.add(apartmentId);
+      }
+      return newSet;
+    });
+
+    // Animate the rotation of the arrow icon
+    Animated.timing(animationValue, {
+      toValue: isCurrentlyExpanded ? 0 : 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+
+  // Helper function to check if description should be truncated
+  const shouldTruncateDescription = (description: string, maxLength: number = 120) => {
+    return description && description.length > maxLength;
+  };
+
+  // Helper function to get truncated description
+  const getTruncatedDescription = (description: string, maxLength: number = 120) => {
+    if (!description) return 'No description available';
+    if (description.length <= maxLength) return description;
+    return description.substring(0, maxLength) + '...';
   };
 
   // Helper function to get appropriate icon for amenity
@@ -895,9 +1088,47 @@ export default function ApartmentListScreen() {
           })()}
         </View>
         
-        <ThemedText style={[styles.description, { color: textColor }]}>
-          {item.description || 'No description available'}
-        </ThemedText>
+        {/* Description with Dropdown */}
+        <View style={styles.descriptionContainer}>
+          <ThemedText style={[styles.description, { color: textColor }]}>
+            {(() => {
+              const description = item.description || 'No description available';
+              const isExpanded = expandedDescriptions.has(item.id);
+              const shouldTruncate = shouldTruncateDescription(description);
+              
+              if (!shouldTruncate || isExpanded) {
+                return description;
+              }
+              return getTruncatedDescription(description);
+            })()}
+          </ThemedText>
+          {shouldTruncateDescription(item.description) && (
+            <TouchableOpacity
+              style={styles.descriptionToggle}
+              onPress={() => toggleDescription(item.id)}
+            >
+              <ThemedText style={[styles.descriptionToggleText, { color: colorPalette.primary }]}>
+                {expandedDescriptions.has(item.id) ? 'Show Less' : 'Read More'}
+              </ThemedText>
+              <Animated.View
+                style={{
+                  transform: [{
+                    rotate: getAnimationValue(item.id).interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '180deg'],
+                    })
+                  }]
+                }}
+              >
+                <MaterialIcons
+                  name="keyboard-arrow-down"
+                  size={20}
+                  color={colorPalette.primary}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          )}
+        </View>
         
         {/* Apartment Specifications Grid */}
         <View style={styles.specsGrid}>
@@ -1035,33 +1266,137 @@ export default function ApartmentListScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}> 
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}> 
-          <MaterialIcons name="arrow-back" size={24} color={colorPalette.primary} /> 
+          <MaterialIcons name="arrow-back" size={24} color={textColor} /> 
         </TouchableOpacity> 
+        
         <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}> 
           Apartment Rentals 
-        </ThemedText> 
-        <TouchableOpacity 
-          style={styles.searchButton}
-          onPress={() => setSearchVisible(true)}
-        > 
-          <MaterialIcons name="search" size={24} color={colorPalette.primary} /> 
-        </TouchableOpacity> 
+        </ThemedText>
+        
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => setSearchVisible(true)}
+          > 
+            <MaterialIcons name="search" size={24} color={colorPalette.primary} /> 
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Floor Dropdown */}
+      <View style={[styles.floorSection, { backgroundColor: cardBgColor, borderBottomColor: borderColor }]}>
+        <View style={styles.floorDropdownContainer}>
+          <TouchableOpacity
+            style={[
+              styles.floorDropdownButton, 
+              { 
+                borderColor: borderColor,
+                backgroundColor: 'transparent'
+              }
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              setFloorDropdownVisible(!floorDropdownVisible);
+            }}
+          >
+            <MaterialIcons 
+              name={floorOptions.find(f => f.id === selectedFloor)?.icon || 'home'} 
+              size={16} 
+              color={colorPalette.primary} 
+            />
+            <ThemedText style={[
+              styles.floorDropdownText, 
+              { color: textColor }
+            ]}>
+              {floorOptions.find(f => f.id === selectedFloor)?.label || 'All Floors'}
+            </ThemedText>
+            <MaterialIcons 
+              name={floorDropdownVisible ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} 
+              size={20} 
+              color={colorPalette.primary} 
+            />
+          </TouchableOpacity>
+          
+          {/* Dropdown Menu */}
+          {floorDropdownVisible && (
+            <TouchableWithoutFeedback onPress={() => setFloorDropdownVisible(false)}>
+              <View style={[styles.floorDropdownMenu, { backgroundColor: cardBgColor, borderColor }]}>
+                {floorOptions.map((floor) => (
+                <TouchableOpacity
+                  key={floor.id}
+                  style={[
+                    styles.floorDropdownItem,
+                    { 
+                      backgroundColor: selectedFloor === floor.id ? colorPalette.primary : 'transparent',
+                      borderBottomColor: borderColor
+                    }
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    console.log(`🏢 Floor selected: ${floor.id} (${floor.label})`);
+                    setSelectedFloor(floor.id);
+                    setFloorDropdownVisible(false);
+                    console.log(`🏢 Floor dropdown closed, selectedFloor will be: ${floor.id}`);
+                  }}
+                >
+                  <MaterialIcons 
+                    name={floor.icon} 
+                    size={16} 
+                    color={selectedFloor === floor.id ? '#fff' : colorPalette.primary} 
+                  />
+                  <ThemedText style={[
+                    styles.floorDropdownItemText,
+                    { color: selectedFloor === floor.id ? '#fff' : textColor }
+                  ]}>
+                    {floor.label} ({getFloorApartmentCount(floor.id)})
+                  </ThemedText>
+                  {selectedFloor === floor.id && (
+                    <MaterialIcons name="check" size={16} color="#fff" />
+                  )}
+                </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          )}
+        </View>
+        
+        {selectedFloor !== 'all' && (
+          <TouchableOpacity 
+            style={styles.clearFilterButton}
+            onPress={() => setSelectedFloor('all')}
+          > 
+            <MaterialIcons name="clear" size={20} color={colorPalette.primary} /> 
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filter Status */}
+      {selectedFloor !== 'all' && (
+        <View style={[styles.filterStatusContainer, { backgroundColor: cardBgColor, borderColor }]}>
+          <MaterialIcons name="filter-list" size={16} color={colorPalette.primary} />
+          <ThemedText style={[styles.filterStatusText, { color: textColor }]}>
+            Showing {filteredApartments.length} apartments on {floorOptions.find(f => f.id === selectedFloor)?.label}
+          </ThemedText>
+        </View>
+      )}
+
       {/* Apartments List */}
-      {getFilteredApartments().length > 0 ? (
+      {filteredApartments.length > 0 ? (
         <FlatList 
-          data={getFilteredApartments()} 
+          data={filteredApartments} 
           renderItem={renderApartmentItem} 
           keyExtractor={(item) => item.id || Math.random().toString()} 
           contentContainerStyle={styles.listContainer} 
-          showsVerticalScrollIndicator={false} 
+          showsVerticalScrollIndicator={false}
+          key={`${selectedFloor}-${selectedFilter}-${searchQuery}`}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         /> 
       ) : (
         <View style={[styles.listContainer, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}> 
           <MaterialIcons name="apartment" size={48} color={subtitleColor} /> 
           <ThemedText style={[styles.emptyText, { color: subtitleColor }]}> 
-            No apartments found. 
+            {selectedFloor !== 'all' ? `No apartments found on ${floorOptions.find(f => f.id === selectedFloor)?.label}` : 'No apartments found.'}
           </ThemedText> 
         </View> 
       )}
@@ -1103,7 +1438,7 @@ export default function ApartmentListScreen() {
             
             <View style={styles.searchResults}>
               <ThemedText style={[styles.resultsText, { color: textColor }]}>
-                {getFilteredApartments().length} results found
+                {filteredApartments.length} results found
               </ThemedText>
             </View>
             
@@ -1891,14 +2226,98 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   backButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   searchButton: {
     padding: 4,
+  },
+  clearFilterButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  filterStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    marginTop: 8,
+  },
+  filterStatusText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Floor section styles
+  floorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  // Floor dropdown styles
+  floorDropdownContainer: {
+    position: 'relative',
+    zIndex: 1000,
+  },
+  floorDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+    minWidth: 140,
+    justifyContent: 'center',
+  },
+  floorDropdownText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginHorizontal: 6,
+  },
+  floorDropdownMenu: {
+    position: 'absolute',
+    top: 45,
+    left: 0,
+    minWidth: 180,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+    zIndex: 1001,
+  },
+  floorDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  floorDropdownItemText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
   },
   filtersContainer: {
     paddingVertical: 16,
@@ -1971,9 +2390,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   description: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 8,
+    fontWeight: '400',
+  },
+  descriptionContainer: {
+    marginBottom: 16,
+  },
+  descriptionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  descriptionToggleText: {
     fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
+    fontWeight: '600',
+    marginRight: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -2245,9 +2683,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   detailDescription: {
-    fontSize: normalize(isTablet ? 18 : 16),
-    lineHeight: normalize(isTablet ? 28 : 24),
+    fontSize: normalize(isTablet ? 20 : 18),
+    lineHeight: normalize(isTablet ? 32 : 28),
     marginBottom: normalize(20),
+    fontWeight: '400',
   },
   detailSpecs: {
     flexDirection: isTablet ? 'row' : 'column',

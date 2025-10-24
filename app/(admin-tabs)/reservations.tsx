@@ -543,11 +543,42 @@ export default function ReservationsScreen() {
               >
                 {/* Service Image */}
                 {reservation.serviceImage && (
-                  <RobustImage 
-                    source={reservation.serviceImage} 
-                    style={styles.reservationImage} 
-                    resizeMode="cover" 
-                  />
+                  <View style={styles.imageContainer}>
+                    <RobustImage 
+                      source={reservation.serviceImage} 
+                      style={styles.reservationImage} 
+                      resizeMode="cover" 
+                    />
+                    {/* Status and title overlay for apartment reservations */}
+                    {reservation.serviceType === 'apartment' && (
+                      <>
+                        {/* Apartment Rental Title Overlay */}
+                        <View style={[styles.titleOverlay, { 
+                          backgroundColor: 'rgba(0, 0, 0, 0.7)' // Semi-transparent black
+                        }]}>
+                          <MaterialIcons name="apartment" size={16} color="#FFFFFF" />
+                          <ThemedText style={[styles.titleOverlayText, { 
+                            color: '#FFFFFF',
+                            fontWeight: '600'
+                          }]}>
+                            Apartment Rental
+                          </ThemedText>
+                        </View>
+                        
+                        {/* Status Overlay */}
+                        <View style={[styles.statusOverlay, { 
+                          backgroundColor: getStatusColor(reservation.status) + 'E6' // 90% opacity
+                        }]}>
+                          <ThemedText style={[styles.statusOverlayText, { 
+                            color: '#FFFFFF',
+                            fontWeight: '700'
+                          }]}>
+                            {(reservation.status || 'pending').toUpperCase()}
+                          </ThemedText>
+                        </View>
+                      </>
+                    )}
+                  </View>
                 )}
                 
                 <View style={styles.reservationContent}>
@@ -1299,25 +1330,7 @@ export default function ReservationsScreen() {
                       backgroundColor: isDark ? '#1A1A1A' : '#F8FAFC',
                       borderColor: isDark ? '#333' : '#E2E8F0'
                     }]}>
-                      {/* Header with Status */}
-                      <View style={styles.apartmentSummaryHeader}>
-                        <View style={styles.apartmentSummaryTitleContainer}>
-                            <MaterialIcons name="apartment" size={20} color={textColor} />
-                          <ThemedText style={[styles.apartmentSummaryTitle, { color: textColor }]}>
-                            Apartment Rental
-                          </ThemedText>
-                        </View>
-                        <View style={[styles.apartmentStatusIndicator, { 
-                          backgroundColor: getStatusColor(reservation.status) + '15',
-                          borderColor: getStatusColor(reservation.status) + '40'
-                        }]}>
-                          <ThemedText style={[styles.apartmentStatusText, { 
-                            color: getStatusColor(reservation.status) 
-                          }]}>
-                            {(reservation.status || 'pending').toUpperCase()}
-                          </ThemedText>
-                        </View>
-                      </View>
+                      {/* Header removed - title and status moved to image overlay */}
 
                        {/* Professional Information Grid */}
                        <View style={[styles.apartmentInfoGrid, { 
@@ -2062,7 +2075,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reservationCard: {
-    borderRadius: 16,
+    borderRadius: 0,
     marginBottom: 20,
     borderWidth: 1,
     shadowColor: '#000',
@@ -2084,8 +2097,50 @@ const styles = StyleSheet.create({
   reservationImage: {
     width: '100%',
     height: 180,
-    borderRadius: 12,
+    borderRadius: 0,
+  },
+  imageContainer: {
+    position: 'relative',
     marginBottom: 16,
+  },
+  titleOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  titleOverlayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  statusOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  statusOverlayText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   reservationService: {
     fontWeight: '600',

@@ -371,11 +371,21 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
         // If this is a bed reservation, cancel the specific bed first
         if (firebaseReservation.bedId) {
           try {
+            console.log('🛏️ Attempting to cancel bed reservation:', { apartmentId, bedId: firebaseReservation.bedId });
             const { cancelBedReservation } = await import('../services/apartmentService');
             await cancelBedReservation(apartmentId, firebaseReservation.bedId);
             console.log('✅ Bed reservation cancelled successfully in context');
           } catch (bedError) {
             console.error('❌ Error cancelling bed reservation in context:', bedError);
+            
+            // Show user-friendly error message
+            const errorMessage = bedError.message || 'Unknown error occurred';
+            if (errorMessage.includes('Permission denied')) {
+              console.warn('⚠️ Permission denied when cancelling bed reservation. User may need to re-authenticate.');
+              // Don't throw here as the main reservation removal should still proceed
+            } else {
+              console.warn('⚠️ Bed cancellation failed but continuing with reservation removal:', errorMessage);
+            }
             // Continue with reservation removal even if bed cancellation fails
           }
         }

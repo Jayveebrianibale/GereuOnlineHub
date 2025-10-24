@@ -340,7 +340,21 @@ export const removeReservationCompletely = async (
         console.log('✅ Bed reservation cancelled and bed made available');
       } catch (bedError) {
         console.error('❌ Error cancelling bed reservation:', bedError);
+        
+        // Log specific error details for debugging
+        const errorMessage = bedError.message || 'Unknown error occurred';
+        if (errorMessage.includes('Permission denied')) {
+          console.warn('⚠️ Permission denied when cancelling bed reservation. This may indicate an authentication issue.');
+        } else if (errorMessage.includes('Apartment not found')) {
+          console.warn('⚠️ Apartment not found when cancelling bed reservation. The apartment may have been deleted.');
+        } else if (errorMessage.includes('Bed not found')) {
+          console.warn('⚠️ Bed not found when cancelling bed reservation. The bed may have been removed.');
+        } else {
+          console.warn('⚠️ Unexpected error when cancelling bed reservation:', errorMessage);
+        }
+        
         // Don't throw here as the main reservation removal was successful
+        // The bed will remain in occupied state, but the reservation is removed
       }
     }
     

@@ -13,9 +13,9 @@ import { useAuthContext } from './contexts/AuthContext';
 import { useReservation } from './contexts/ReservationContext';
 import { db } from './firebaseConfig';
 import {
-  cacheApartments,
-  cacheAutoServices,
-  cacheLaundryServices
+    cacheApartments,
+    cacheAutoServices,
+    cacheLaundryServices
 } from './services/dataCache';
 import { FirebaseUserReservation, getAdminReservations, listenToUserReservations } from './services/reservationService';
 import { formatPHP } from './utils/currency';
@@ -963,27 +963,36 @@ export default function UserHome() {
       <ScrollView contentContainerStyle={styles.scrollContainer}> 
         {/* Header */}
         <View style={styles.header}> 
-          <View> 
-                <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
-                  {`Welcome${firstName ? `, ${firstName}` : ''}!`}
-                </ThemedText>
-                <ThemedText type="default" style={[styles.subtitle, { color: textColor }]}> 
-                  Find the best services for your needs
-                </ThemedText>
-              </View>
-              <View style={styles.headerIcons}> 
-                <TouchableOpacity style={styles.iconButton} onPress={handleNotificationsPress}> 
-                  <View>
-                    <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
-                    {unreadCount > 0 && (
-                      <View style={styles.badge}> 
-                        <ThemedText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </View>
+          <View style={styles.headerContent}> 
+            <View style={styles.logoContainer}>
+              <RobustImage 
+                source={require('@/assets/images/logo.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
+            <View style={styles.welcomeTextContainer}>
+              <ThemedText type="title" style={[styles.title, { color: textColor }]}> 
+                {`Welcome${firstName ? `, ${firstName}` : ''}!`}
+              </ThemedText>
+              <ThemedText type="default" style={[styles.subtitle, { color: textColor }]}> 
+                Find the best services for your needs
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.headerIcons}> 
+            <TouchableOpacity style={styles.iconButton} onPress={handleNotificationsPress}> 
+              <View>
+                <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}> 
+                    <ThemedText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
 
             {/* Search Bar */}
             <View style={[styles.searchBar, { backgroundColor: cardBgColor, borderColor }]}>
@@ -1393,6 +1402,21 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 20,
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logoContainer: {
+    marginRight: 12,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+  },
+  welcomeTextContainer: {
+    flex: 1,
+  },
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1501,10 +1525,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     marginLeft: 8,
     marginRight: 'auto',
+    letterSpacing: 0.5,
+    fontFamily: 'System',
   },
   seeAllButton: {
     flexDirection: 'row',
@@ -1512,6 +1538,9 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    fontFamily: 'System',
   },
   carouselItem: {
     borderRadius: 0,
@@ -1553,7 +1582,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   priceTag: {
-    borderRadius: 20,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },

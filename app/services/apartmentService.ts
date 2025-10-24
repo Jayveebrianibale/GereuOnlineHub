@@ -8,7 +8,7 @@
 // Import ng Firebase Database functions
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
-import { convertImageToBase64, isBase64DataUrl, isFirebaseStorageUrl } from '../utils/imageToBase64';
+import { convertBedImageToBase64, convertImageToBase64, isBase64DataUrl, isFirebaseStorageUrl } from '../utils/imageToBase64';
 // Removed bed service imports - now handling beds directly in apartment
 
 // ========================================
@@ -25,6 +25,8 @@ export interface Bed {
   price?: string; // Individual bed price (optional)
   description?: string; // Bed description (optional)
   amenities?: string[]; // Bed-specific amenities (optional)
+  createdAt?: string; // Timestamp when bed was created
+  updatedAt?: string; // Timestamp when bed was last updated
 }
 
 // ========================================
@@ -253,8 +255,8 @@ export const updateApartmentBedStats = async (apartmentId: string) => {
     
     // Calculate bed statistics
     const totalBeds = beds.length;
-    const availableBeds = beds.filter(bed => bed.status === 'available').length;
-    const occupiedBeds = beds.filter(bed => bed.status === 'occupied').length;
+    const availableBeds = beds.filter((bed: Bed) => bed.status === 'available').length;
+    const occupiedBeds = beds.filter((bed: Bed) => bed.status === 'occupied').length;
     
     const bedStats = {
       totalBeds,
@@ -293,10 +295,37 @@ export const addBedToApartment = async (apartmentId: string, bedData: Omit<Bed, 
     const apartment = { id: apartmentId, ...snapshot.val() };
     const beds = apartment.beds || [];
     
-    // Create new bed with unique ID
+    // ========================================
+    // CONVERT BED IMAGE TO BASE64
+    // ========================================
+    let processedBedData = { ...bedData };
+    
+    if (bedData.image && bedData.image.trim() !== '') {
+      try {
+        console.log('Converting bed image to base64 for new bed...');
+        const base64Image = await convertBedImageToBase64(bedData.image);
+        processedBedData = {
+          ...bedData,
+          image: base64Image
+        };
+        console.log('Bed image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting bed image to base64:', imageError);
+        // Use a placeholder image if conversion fails
+        processedBedData = {
+          ...bedData,
+          image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='
+        };
+        console.log('Using placeholder image due to conversion error');
+      }
+    }
+    
+    // Create new bed with unique ID and processed image
     const newBed: Bed = {
-      ...bedData,
-      id: `bed_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+      ...processedBedData,
+      id: `bed_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     // Add bed to apartment
@@ -306,7 +335,7 @@ export const addBedToApartment = async (apartmentId: string, bedData: Omit<Bed, 
     // Update bed statistics
     await updateApartmentBedStats(apartmentId);
     
-    console.log('Bed added successfully:', newBed);
+    console.log('Bed added successfully with base64 image:', newBed);
     return newBed;
   } catch (error) {
     console.error('Error adding bed to apartment: ', error);
@@ -333,9 +362,34 @@ export const updateBedInApartment = async (apartmentId: string, bedId: string, b
     const apartment = { id: apartmentId, ...snapshot.val() };
     const beds = apartment.beds || [];
     
-    // Find and update the bed
-    const updatedBeds = beds.map(bed => 
-      bed.id === bedId ? { ...bed, ...bedData } : bed
+    // ========================================
+    // CONVERT BED IMAGE TO BASE64 IF PROVIDED
+    // ========================================
+    let processedBedData = { ...bedData };
+    
+    if (bedData.image && bedData.image.trim() !== '') {
+      try {
+        console.log('Converting bed image to base64 for bed update...');
+        const base64Image = await convertBedImageToBase64(bedData.image);
+        processedBedData = {
+          ...bedData,
+          image: base64Image
+        };
+        console.log('Bed image converted to base64 successfully');
+      } catch (imageError) {
+        console.error('Error converting bed image to base64:', imageError);
+        // Keep the original image if conversion fails
+        console.log('Keeping original image due to conversion error');
+      }
+    }
+    
+    // Find and update the bed with processed data
+    const updatedBeds = beds.map((bed: Bed) => 
+      bed.id === bedId ? { 
+        ...bed, 
+        ...processedBedData,
+        updatedAt: new Date().toISOString()
+      } : bed
     );
     
     await update(apartmentRef, { beds: updatedBeds });
@@ -343,8 +397,8 @@ export const updateBedInApartment = async (apartmentId: string, bedId: string, b
     // Update bed statistics
     await updateApartmentBedStats(apartmentId);
     
-    console.log('Bed updated successfully');
-    return updatedBeds.find(bed => bed.id === bedId);
+    console.log('Bed updated successfully with base64 image');
+    return updatedBeds.find((bed: Bed) => bed.id === bedId);
   } catch (error) {
     console.error('Error updating bed in apartment: ', error);
     throw error;
@@ -371,7 +425,7 @@ export const deleteBedFromApartment = async (apartmentId: string, bedId: string)
     const beds = apartment.beds || [];
     
     // Remove the bed
-    const updatedBeds = beds.filter(bed => bed.id !== bedId);
+    const updatedBeds = beds.filter((bed: Bed) => bed.id !== bedId);
     await update(apartmentRef, { beds: updatedBeds });
     
     // Update bed statistics
@@ -405,7 +459,7 @@ export const reserveBedInApartment = async (apartmentId: string, bedId: string, 
     const beds = apartment.beds || [];
     
     // Find the bed
-    const bed = beds.find(b => b.id === bedId);
+    const bed = beds.find((b: Bed) => b.id === bedId);
     if (!bed) {
       throw new Error('Bed not found');
     }
@@ -415,7 +469,7 @@ export const reserveBedInApartment = async (apartmentId: string, bedId: string, 
     }
     
     // Update bed status
-    const updatedBeds = beds.map(b => 
+    const updatedBeds = beds.map((b: Bed) => 
       b.id === bedId ? { 
         ...b, 
         status: 'occupied' as const,
@@ -430,11 +484,21 @@ export const reserveBedInApartment = async (apartmentId: string, bedId: string, 
     await updateApartmentBedStats(apartmentId);
     
     console.log('Bed reserved successfully');
-    return updatedBeds.find(b => b.id === bedId);
+    return updatedBeds.find((b: Bed) => b.id === bedId);
   } catch (error) {
     console.error('Error reserving bed in apartment: ', error);
     throw error;
   }
+};
+
+// ========================================
+// FUNCTION: CHECK USER AUTHENTICATION
+// ========================================
+// Helper function to check if user is authenticated
+const checkUserAuthentication = () => {
+  // This function can be expanded to check Firebase Auth state
+  // For now, we'll rely on Firebase rules to handle authentication
+  return true;
 };
 
 // ========================================
@@ -443,7 +507,17 @@ export const reserveBedInApartment = async (apartmentId: string, bedId: string, 
 // Ang function na ito ay nagca-cancel ng bed reservation
 export const cancelBedReservation = async (apartmentId: string, bedId: string) => {
   try {
-    console.log('Cancelling bed reservation:', apartmentId, bedId);
+    console.log('🛏️ Cancelling bed reservation:', { apartmentId, bedId });
+    
+    // Check user authentication
+    if (!checkUserAuthentication()) {
+      throw new Error('User not authenticated. Please log in again.');
+    }
+    
+    // Validate input parameters
+    if (!apartmentId || !bedId) {
+      throw new Error('Apartment ID and Bed ID are required');
+    }
     
     // Get current apartment data
     const apartmentRef = ref(db, `${COLLECTION_NAME}/${apartmentId}`);
@@ -456,26 +530,55 @@ export const cancelBedReservation = async (apartmentId: string, bedId: string) =
     const apartment = { id: apartmentId, ...snapshot.val() };
     const beds = apartment.beds || [];
     
-    // Update bed status
-    const updatedBeds = beds.map(b => 
+    // Find the specific bed
+    const bed = beds.find((b: Bed) => b.id === bedId);
+    if (!bed) {
+      throw new Error('Bed not found in apartment');
+    }
+    
+    // Check if bed is actually occupied
+    if (bed.status !== 'occupied') {
+      console.log('⚠️ Bed is not occupied, no need to cancel');
+      return bed;
+    }
+    
+    // Update bed status to available
+    const updatedBeds = beds.map((b: Bed) => 
       b.id === bedId ? { 
         ...b, 
         status: 'available' as const,
         reservedBy: null,
-        reservedAt: null
+        reservedAt: null,
+        updatedAt: new Date().toISOString()
       } : b
     );
     
-    await update(apartmentRef, { beds: updatedBeds });
+    // Update the apartment with new bed data
+    await update(apartmentRef, { 
+      beds: updatedBeds,
+      updatedAt: new Date().toISOString()
+    });
     
     // Update bed statistics
     await updateApartmentBedStats(apartmentId);
     
-    console.log('Bed reservation cancelled successfully');
-    return updatedBeds.find(b => b.id === bedId);
+    console.log('✅ Bed reservation cancelled successfully');
+    return updatedBeds.find((b: Bed) => b.id === bedId);
   } catch (error) {
-    console.error('Error cancelling bed reservation: ', error);
-    throw error;
+    console.error('❌ Error cancelling bed reservation:', error);
+    
+    // Provide more specific error messages
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    if (errorMessage.includes('Permission denied')) {
+      throw new Error('Permission denied: Unable to cancel bed reservation. Please check your authentication status.');
+    } else if (errorMessage.includes('Apartment not found')) {
+      throw new Error('Apartment not found: The specified apartment does not exist.');
+    } else if (errorMessage.includes('Bed not found')) {
+      throw new Error('Bed not found: The specified bed does not exist in this apartment.');
+    } else {
+      throw new Error(`Failed to cancel bed reservation: ${errorMessage}`);
+    }
   }
 };
 
