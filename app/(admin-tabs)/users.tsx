@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
 import { autoUpdateUserStatus, deleteUser, formatLastActive, listenToUsers, UserData } from '../../utils/userUtils';
+import NotificationTester from '../components/NotificationTester';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
@@ -72,6 +73,8 @@ export default function UsersScreen() {
   const [search, setSearch] = useState(''); // Search query
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all'); // Status filter
   const [userProfilePictures, setUserProfilePictures] = useState<{[key: string]: string}>({}); // Profile pictures cache
+  const [updatingProfilePictures, setUpdatingProfilePictures] = useState<{[key: string]: boolean}>({}); // Profile picture update status
+  const [showNotificationTester, setShowNotificationTester] = useState(false); // Notification tester visibility
 
   // Fetch users from Firebase on component mount
   useEffect(() => {
@@ -156,13 +159,76 @@ export default function UsersScreen() {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  // Set up real-time listener for profile picture changes
+  useEffect(() => {
+    const profileImagesRef = ref(db, 'userProfileImages');
+    const unsubscribe = onValue(profileImagesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const profileImagesData = snapshot.val();
+        const updatedProfilePictures: {[key: string]: string} = {};
+        const updatedUserIds: string[] = [];
+        
+        // Process all profile image updates
+        Object.keys(profileImagesData).forEach(userId => {
+          const imageData = profileImagesData[userId];
+          if (imageData && imageData.url) {
+            updatedProfilePictures[userId] = imageData.url;
+            updatedUserIds.push(userId);
+          }
+        });
+        
+        // Show brief loading indicator for updated users
+        if (updatedUserIds.length > 0) {
+          setUpdatingProfilePictures(prev => {
+            const newState = { ...prev };
+            updatedUserIds.forEach(userId => {
+              newState[userId] = true;
+            });
+            return newState;
+          });
+          
+          // Clear loading indicator after a short delay
+          setTimeout(() => {
+            setUpdatingProfilePictures(prev => {
+              const newState = { ...prev };
+              updatedUserIds.forEach(userId => {
+                delete newState[userId];
+              });
+              return newState;
+            });
+          }, 1000);
+        }
+        
+        // Update the profile pictures state
+        setUserProfilePictures(prev => ({
+          ...prev,
+          ...updatedProfilePictures
+        }));
+        
+        console.log('Profile pictures updated in real-time:', updatedProfilePictures);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Fetch user profile pictures from Firebase Database
   const fetchUserProfilePictures = async (usersList: UserData[]) => {
     try {
       const profilePictures: {[key: string]: string} = {};
       
+      // Only fetch profile pictures for users that don't already have them cached
+      const usersToFetch = usersList.filter(user => !userProfilePictures[user.id]);
+      
+      if (usersToFetch.length === 0) {
+        console.log('All profile pictures already cached, skipping fetch');
+        return;
+      }
+      
+      console.log(`Fetching profile pictures for ${usersToFetch.length} users`);
+      
       // Fetch profile pictures for each user with immediate updates
-      const promises = usersList.map(async (user) => {
+      const promises = usersToFetch.map(async (user) => {
         try {
           const imageRef = ref(db, `userProfileImages/${user.id}/url`);
           const snapshot = await get(imageRef);
@@ -185,7 +251,10 @@ export default function UsersScreen() {
       
       await Promise.all(promises);
       // Final update with all collected pictures
-      setUserProfilePictures(profilePictures);
+      setUserProfilePictures(prev => ({
+        ...prev,
+        ...profilePictures
+      }));
     } catch (error) {
       console.error('Error fetching profile pictures:', error);
     }
@@ -314,18 +383,6 @@ export default function UsersScreen() {
     const safeEmail = (user.email || '').toLowerCase();
     const searchText = (search || '').toLowerCase();
     
-    // Exclude specific admin users
-    const isExcludedAdmin = 
-      safeName.includes('alfredo sayson jr') || 
-      safeName.includes('jeibii') ||
-      safeName.includes('car') ||
-      safeName.includes('motor part') ||
-      safeName.includes('laundry');
-    
-    if (isExcludedAdmin) {
-      return false;
-    }
-    
     const matchesSearch =
       safeName.includes(searchText) ||
       safeEmail.includes(searchText);
@@ -385,7 +442,20 @@ export default function UsersScreen() {
               Manage user accounts and permissions
             </ThemedText>
           </View>
+          <TouchableOpacity
+            style={[styles.notificationTestButton, { backgroundColor: colorPalette.primary }]}
+            onPress={() => setShowNotificationTester(!showNotificationTester)}
+          >
+            <Ionicons name="notifications-outline" size={20} color="white" />
+          </TouchableOpacity>
         </View>
+
+        {/* Notification Tester */}
+        {showNotificationTester && (
+          <View style={[styles.notificationTesterContainer, { backgroundColor: cardBgColor, borderColor }]}>
+            <NotificationTester />
+          </View>
+        )}
 
         {/* Search and Filter */}
         <View style={[styles.searchContainer, { backgroundColor: cardBgColor, borderColor }]}>
@@ -449,7 +519,7 @@ export default function UsersScreen() {
           <View style={styles.statusIndicatorContent}>
             <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
             <ThemedText style={[styles.statusIndicatorText, { color: subtitleColor }]}>
-              Real-time status updates enabled
+              Real-time updates enabled
             </ThemedText>
           </View>
           <View style={styles.statusIndicatorContent}>
@@ -496,7 +566,9 @@ export default function UsersScreen() {
               {/* User first */}
               <View style={[styles.userInfo, { flex: 3 }]}>
                 <View style={[styles.avatar, { backgroundColor: colorPalette.primaryLight }]}>
-                  {userProfilePictures[userData.id] ? (
+                  {updatingProfilePictures[userData.id] ? (
+                    <ActivityIndicator size="small" color={colorPalette.primary} />
+                  ) : userProfilePictures[userData.id] ? (
                     <Image
                       source={{ uri: userProfilePictures[userData.id] }}
                       style={styles.avatarImage}
@@ -856,5 +928,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
+  },
+  notificationTestButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+  },
+  notificationTesterContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+    padding: 16,
   },
 });

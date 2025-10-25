@@ -84,7 +84,7 @@ export const signIn = async (data: SignInData): Promise<User> => {
       data.password
     );
     
-    // Update user's last active time
+    // Ensure user exists in database and update last active time
     await updateUserLastActive(userCredential.user.uid, userCredential.user.email || '', userCredential.user.displayName || undefined);
     
     // Log login activity

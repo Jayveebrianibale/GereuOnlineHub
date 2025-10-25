@@ -1,0 +1,137 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>App Icon Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .preview {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .current-icon {
+            text-align: center;
+        }
+        .new-icon {
+            text-align: center;
+        }
+        .icon {
+            width: 200px;
+            height: 200px;
+            border: 3px solid #ddd;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .current-icon .icon {
+            background: transparent;
+        }
+        .new-icon .icon {
+            background: white;
+        }
+        .logo {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+        }
+        h3 {
+            color: #333;
+            margin: 10px 0;
+        }
+        .instructions {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .download-btn {
+            background: #4caf50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 App Icon Preview</h1>
+    
+    <div class="preview">
+        <div class="current-icon">
+            <h3>Current Icon</h3>
+            <div class="icon">
+                <img src="../assets/images/logo.png" alt="Current Logo" class="logo">
+            </div>
+            <p>Your current logo</p>
+        </div>
+        
+        <div class="new-icon">
+            <h3>New Icon (Preview)</h3>
+            <div class="icon">
+                <img src="../assets/images/logo.png" alt="New Logo" class="logo">
+            </div>
+            <p>White background + 70% logo size</p>
+            <button class="download-btn" onclick="downloadNewIcon()">Download New Icon</button>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>📋 How to Apply Changes:</h3>
+        <ol>
+            <li>Click "Download New Icon" button above</li>
+            <li>Save the image as "logo.png"</li>
+            <li>Replace your current assets/images/logo.png with the new file</li>
+            <li>Run: <code>npx expo prebuild --clean</code></li>
+            <li>Build your app: <code>eas build --profile development --platform android</code></li>
+        </ol>
+    </div>
+    
+    <script>
+        function downloadNewIcon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            // Fill with white background
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, 1024, 1024);
+            
+            // Draw logo at 70% size
+            const logo = document.querySelector('.logo');
+            const logoSize = 1024 * 0.7; // 70% of icon size
+            const x = (1024 - logoSize) / 2;
+            const y = (1024 - logoSize) / 2;
+            
+            ctx.drawImage(logo, x, y, logoSize, logoSize);
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = 'logo_white_bg.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>

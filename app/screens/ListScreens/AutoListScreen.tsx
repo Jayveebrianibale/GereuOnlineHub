@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-  AutoService,
-  getAutoServices,
+    AutoService,
+    getAutoServices,
 } from '../../services/autoService';
 import {
-  cacheAutoServices,
-  cacheMotorParts,
-  getCachedAutoServices,
-  getCachedMotorParts
+    cacheAutoServices,
+    cacheMotorParts,
+    getCachedAutoServices,
+    getCachedMotorParts
 } from '../../services/dataCache';
 import {
-  MotorPart,
-  getMotorParts,
+    MotorPart,
+    getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -742,15 +742,6 @@ export default function AutoListScreen() {
               Professional automotive solutions
             </ThemedText>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={() => setSearchVisible(true)}
-          >
-            <View style={[styles.iconButton, { backgroundColor: isDark ? colorPalette.gray800 : colorPalette.gray100 }]}>
-              <MaterialIcons name="search" size={20} color={colorPalette.primary} />
-            </View>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1458,7 +1449,6 @@ const styles = StyleSheet.create({
   autoCard: {
     marginBottom: 16,
     marginHorizontal: 20,
-    borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.08,

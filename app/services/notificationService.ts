@@ -11,7 +11,7 @@ type ExpoPushMessage = {
 };
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
-const SERVER_API_BASE = 'http://localhost:3001/api'; // Update this to your server URL
+const SERVER_API_BASE = __DEV__ ? 'http://localhost:3001/api' : 'https://your-production-server.com/api';
 
 // Simplified notification service - Expo Push only
 // This eliminates all server connection issues
@@ -96,14 +96,9 @@ export async function getAdminPushTokens(): Promise<string[]> {
         const isValidExpoToken = hasToken && (u.expoPushToken.startsWith('ExponentPushToken[') || u.expoPushToken.startsWith('ExpoPushToken['));
         console.log(`User ${u.email || 'unknown'}: role=${u.role}, hasToken=${hasToken}, isValidExpoToken=${isValidExpoToken}, token=${u.expoPushToken?.substring(0, 20)}...`);
         return isAdmin && hasToken && isValidExpoToken;
-        // Check for both Expo and FCM tokens
-        const hasExpoToken = typeof u.expoPushToken === 'string' && u.expoPushToken.startsWith('ExpoPushToken[');
-        const hasFcmToken = typeof u.fcmToken === 'string' && u.fcmToken.length > 0;
-        console.log(`User ${u.email || 'unknown'}: role=${u.role}, hasExpoToken=${hasExpoToken}, hasFcmToken=${hasFcmToken}`);
-        return isAdmin && (hasExpoToken || hasFcmToken);
       })
       .map((u: any) => u.fcmToken || u.expoPushToken) // Prefer FCM token, fallback to Expo
-      .filter(token => token); // Remove any null/undefined tokens
+      .filter((token): token is string => token !== null && token !== undefined); // Remove any null/undefined tokens
     
     console.log(`Found ${adminTokens.length} valid admin Expo push tokens:`, adminTokens);
     return adminTokens;
@@ -221,6 +216,12 @@ export async function sendExpoPushAsync(message: ExpoPushMessage): Promise<void>
       const json: any = await (response as any).json().catch(() => null);
       if (!response.ok) {
         console.error('❌ Expo push HTTP error:', response.status, json || (await (response as any).text().catch(() => '')));
+        console.error('❌ Full response details:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: json
+        });
         throw new Error(`Expo push failed with status ${response.status}`);
       }
 
@@ -280,6 +281,11 @@ export async function notifyAdmins(title: string, body: string, data?: Record<st
       return;
     }
 
+    // Additional check for production builds
+    if (__DEV__ === false) {
+      console.log('🏭 Running in production build - Push notifications should work');
+    }
+
     // Clean up any invalid tokens first
     await cleanupInvalidTokens();
     
@@ -327,7 +333,7 @@ export async function notifyUser(userId: string, title: string, body: string, da
     // Get both Expo and FCM tokens for the user
     const expoToken = await getUserPushToken(userId);
     const fcmToken = await getUserFcmToken(userId);
-    const tokens = [expoToken, fcmToken].filter(token => token); // Remove null/undefined tokens
+    const tokens = [expoToken, fcmToken].filter((token): token is string => token !== null && token !== undefined); // Remove null/undefined tokens
     
     if (tokens.length === 0) {
       console.warn(`No push tokens found for user ${userId}, skipping notification`);

@@ -2233,8 +2233,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    letterSpacing: 0.5,
   },
   headerRight: {
     flexDirection: 'row',
@@ -2603,9 +2605,11 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    opacity: 1,
+    paddingTop: normalize(12),
+    paddingLeft: normalize(12),
   },
   detailContent: {
     padding: normalize(isTablet ? 24 : 20),

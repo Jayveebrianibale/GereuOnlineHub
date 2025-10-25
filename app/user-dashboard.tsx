@@ -983,7 +983,7 @@ export default function UserHome() {
           <View style={styles.headerIcons}> 
             <TouchableOpacity style={styles.iconButton} onPress={handleNotificationsPress}> 
               <View>
-                <MaterialIcons name="notifications-none" size={28} color={colorPalette.primary} />
+                <MaterialIcons name="notifications-none" size={32} color={isDark ? colorPalette.primaryLight : colorPalette.primaryDark} />
                 {unreadCount > 0 && (
                   <View style={styles.badge}> 
                     <ThemedText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</ThemedText>

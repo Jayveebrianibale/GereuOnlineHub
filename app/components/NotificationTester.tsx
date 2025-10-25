@@ -1,70 +1,30 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getAdminPushTokens, notifyAdmins, sendExpoPushAsync } from '../services/notificationService';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuthContext } from '../contexts/AuthContext';
+import { notifyAdmins, notifyUser } from '../services/notificationService';
 
 export default function NotificationTester() {
   const [isLoading, setIsLoading] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  const { user } = useAuthContext();
 
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-  };
-
-  const testAdminTokens = async () => {
-    setIsLoading(true);
-    addLog('🔍 Testing admin token detection...');
-    
-    try {
-      const tokens = await getAdminPushTokens();
-      addLog(`📊 Found ${tokens.length} admin tokens`);
-      
-      tokens.forEach((token, index) => {
-        addLog(`   Token ${index + 1}: ${token.substring(0, 30)}...`);
-      });
-      
-      if (tokens.length > 0) {
-        addLog('✅ Admin tokens detected successfully!');
-        Alert.alert('Success', `Found ${tokens.length} admin tokens`);
-      } else {
-        addLog('⚠️ No admin tokens found');
-        Alert.alert('Warning', 'No admin tokens found');
-      }
-    } catch (error) {
-      addLog(`❌ Error getting admin tokens: ${error}`);
-      Alert.alert('Error', `Error getting admin tokens: ${error}`);
-    } finally {
-      setIsLoading(false);
+  const testUserNotification = async () => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'User not logged in');
+      return;
     }
-  };
 
-  const testDirectExpoPush = async () => {
     setIsLoading(true);
-    addLog('🧪 Testing direct Expo Push...');
-    
     try {
-      const tokens = await getAdminPushTokens();
-      
-      if (tokens.length === 0) {
-        addLog('⚠️ No admin tokens found for testing');
-        Alert.alert('Warning', 'No admin tokens found for testing');
-        return;
-      }
-      
-      await sendExpoPushAsync({
-        to: tokens,
-        title: 'Direct Expo Push Test',
-        body: 'This notification was sent directly via Expo Push API',
-        data: { test: 'true', source: 'direct-expo' },
-        priority: 'high',
-        sound: 'default'
-      });
-      
-      addLog('✅ Direct Expo Push test completed');
-      Alert.alert('Success', 'Direct Expo Push test completed');
+      await notifyUser(
+        user.uid,
+        '🧪 Test Notification',
+        'This is a test push notification! If you see this, push notifications are working.',
+        { type: 'test', timestamp: Date.now() }
+      );
+      Alert.alert('Success', 'Test notification sent! Check your notification bar.');
     } catch (error) {
-      addLog(`❌ Direct Expo Push test failed: ${error}`);
-      Alert.alert('Error', `Direct Expo Push test failed: ${error}`);
+      console.error('Test notification failed:', error);
+      Alert.alert('Error', 'Failed to send test notification. Check console for details.');
     } finally {
       setIsLoading(false);
     }
@@ -72,89 +32,73 @@ export default function NotificationTester() {
 
   const testAdminNotification = async () => {
     setIsLoading(true);
-    addLog('🧪 Testing admin notification (with fallback)...');
-    
     try {
       await notifyAdmins(
-        'Test Notification',
-        'This is a test notification to all admins',
-        { test: 'true', timestamp: Date.now().toString() }
+        '🧪 Admin Test Notification',
+        'This is a test admin notification! If you see this, admin notifications are working.',
+        { type: 'admin_test', timestamp: Date.now() }
       );
-      
-      addLog('✅ Admin notification test completed');
-      Alert.alert('Success', 'Admin notification test completed');
+      Alert.alert('Success', 'Test admin notification sent! Check admin devices.');
     } catch (error) {
-      addLog(`❌ Admin notification test failed: ${error}`);
-      Alert.alert('Error', `Admin notification test failed: ${error}`);
+      console.error('Test admin notification failed:', error);
+      Alert.alert('Error', 'Failed to send test admin notification. Check console for details.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const clearLogs = () => {
-    setLogs([]);
+  const checkExpoGoStatus = () => {
+    Alert.alert(
+      'Expo Go Status',
+      'If you are running in Expo Go, push notifications will NOT work. You need to create a development build or production build for push notifications to work.',
+      [
+        { text: 'OK' },
+        { text: 'Create Build', onPress: () => {
+          Alert.alert(
+            'Create Build',
+            'Run: eas build --profile development --platform android',
+            [{ text: 'OK' }]
+          );
+        }}
+      ]
+    );
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Notification Tester</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Push Notification Tester</Text>
       
-      <View style={styles.section}>
-        <TouchableOpacity 
-          style={[styles.button, styles.primaryButton, isLoading && styles.buttonDisabled]} 
-          onPress={testAdminTokens}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>Test Admin Token Detection</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={testDirectExpoPush}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>Test Direct Expo Push</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
-          onPress={testAdminNotification}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>Test Admin Notification</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.logHeader}>
-          <Text style={styles.sectionTitle}>Test Logs</Text>
-          <TouchableOpacity onPress={clearLogs} style={styles.clearButton}>
-            <Text style={styles.clearButtonText}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.logContainer}>
-          {logs.length === 0 ? (
-            <Text style={styles.noLogs}>No logs yet. Run a test to see results.</Text>
-          ) : (
-            logs.map((log, index) => (
-              <Text key={index} style={styles.logText}>{log}</Text>
-            ))
-          )}
-        </View>
-      </View>
-
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>ℹ️ What this tests:</Text>
-        <Text style={styles.infoText}>
-          • Admin token detection from Firebase database{'\n'}
-          • Direct Expo Push API calls{'\n'}
-          • Admin notification with automatic fallback{'\n'}
-          • Error handling and logging{'\n'}
-          • Works without Firebase Admin SDK server
+      <TouchableOpacity 
+        style={[styles.button, styles.userButton]} 
+        onPress={testUserNotification}
+        disabled={isLoading}
+      >
+        <Text style={styles.buttonText}>
+          {isLoading ? 'Testing...' : 'Test User Notification'}
         </Text>
-      </View>
-    </ScrollView>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.button, styles.adminButton]} 
+        onPress={testAdminNotification}
+        disabled={isLoading}
+      >
+        <Text style={styles.buttonText}>
+          {isLoading ? 'Testing...' : 'Test Admin Notification'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.button, styles.infoButton]} 
+        onPress={checkExpoGoStatus}
+      >
+        <Text style={styles.buttonText}>Check Expo Go Status</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.note}>
+        Note: Push notifications only work in development builds or production builds, not in Expo Go.
+      </Text>
+    </View>
   );
 }
 
@@ -162,6 +106,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    justifyContent: 'center',
     backgroundColor: '#f5f5f5',
   },
   title: {
@@ -171,90 +116,31 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     color: '#333',
   },
-  section: {
-    marginBottom: 30,
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
   button: {
-    backgroundColor: '#007AFF',
     padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    borderRadius: 10,
+    marginBottom: 15,
     alignItems: 'center',
   },
-  primaryButton: {
-    backgroundColor: '#34C759',
+  userButton: {
+    backgroundColor: '#007AFF',
   },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
+  adminButton: {
+    backgroundColor: '#FF9500',
+  },
+  infoButton: {
+    backgroundColor: '#34C759',
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  logHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  clearButton: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 5,
-  },
-  clearButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  logContainer: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    borderRadius: 8,
-    maxHeight: 300,
-  },
-  noLogs: {
-    color: '#666',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  logText: {
-    fontSize: 12,
-    color: '#333',
-    marginBottom: 5,
-    fontFamily: 'monospace',
-  },
-  infoSection: {
-    backgroundColor: '#E3F2FD',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  infoTitle: {
-    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#1976D2',
   },
-  infoText: {
-    fontSize: 14,
-    color: '#1976D2',
-    lineHeight: 20,
+  note: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
+    fontStyle: 'italic',
   },
 });

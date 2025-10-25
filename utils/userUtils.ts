@@ -80,6 +80,7 @@ export const updateUserLastActive = async (userId: string, email?: string, displ
     const snapshot = await get(userRef);
     if (snapshot.exists()) {
       // User exists, only update specific fields to preserve existing data
+      console.log(`User ${email || userId} exists in database, updating last active time`);
       const updates = {
         lastActive: new Date().toISOString(),
         status: 'active',
@@ -92,8 +93,10 @@ export const updateUserLastActive = async (userId: string, email?: string, displ
         set(ref(db, `users/${userId}/status`), updates.status),
         set(ref(db, `users/${userId}/updatedAt`), updates.updatedAt)
       ]);
+      console.log(`Successfully updated user ${email || userId} last active time`);
     } else {
       // User doesn't exist in database, create entry with existing data
+      console.log(`User ${email || userId} not found in database, creating new entry`);
       if (email) {
         await ensureUserExists(userId, email, displayName);
       } else {
@@ -187,6 +190,9 @@ export const ensureUserExists = async (userId: string, email: string, displayNam
       };
       
       await set(userRef, userData);
+      console.log(`Successfully created user database entry:`, userData);
+    } else {
+      console.log(`User ${email} already exists in database`);
     }
   } catch (error) {
     console.error('Error ensuring user exists:', error);
