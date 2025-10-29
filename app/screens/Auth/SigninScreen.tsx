@@ -12,22 +12,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Toast from '../../../components/Toast';
 import { signIn } from '../../../utils/authUtils';
+import { saveRememberUserPreference } from '../../../utils/persistentAuthUtils';
 import { isAdminEmail } from '../../config/adminConfig';
 
 // ========================================
@@ -207,11 +208,7 @@ export default function SigninScreen() {
       const user = await signIn({ email, password });
 
       // Handle remember me functionality
-      if (rememberMe) {
-        await saveCredentials(email, password);
-      } else {
-        await clearSavedCredentials();
-      }
+      await saveRememberUserPreference(rememberMe);
 
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 

@@ -19,11 +19,13 @@ import 'react-native-reanimated';
 // Import ng custom providers at components na ginagamit sa buong app
 import { ColorSchemeProvider, useColorScheme } from '../components/ColorSchemeContext';
 import PushRegistrar from './components/PushRegistrar';
+import { RouteTracker } from './components/RouteTracker';
 import { ToastProvider } from './components/Toast';
 import { AdminReservationProvider } from './contexts/AdminReservationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
 import { ReservationProvider } from './contexts/ReservationContext';
+import { SessionProvider } from './contexts/SessionContext';
 import { useUserHeartbeat } from './hooks/useUserHeartbeat';
 
 // ========================================
@@ -39,6 +41,7 @@ function AppContent() {
   
   return (
     <ThemeProvider value={DefaultTheme}>
+      <RouteTracker />
       <Stack>
         {/* ========================================
             MAIN SCREENS - AUTHENTICATION
@@ -106,6 +109,7 @@ function AppContent() {
         <Stack.Screen name="test-admin" options={{ headerShown: false }} /> {/* Admin testing */}
         <Stack.Screen name="debug-tabs" options={{ headerShown: false }} /> {/* Debug tabs */}
         <Stack.Screen name="push-debugger" options={{ headerShown: false }} /> {/* Push notification debugger */}
+        <Stack.Screen name="persistent-auth-test" options={{ headerShown: false }} /> {/* Persistent auth testing */}
         
         {/* ========================================
             ERROR SCREEN
@@ -141,25 +145,28 @@ export default function RootLayout() {
           ========================================
           Ang order ng providers ay important:
           1. AuthProvider - Authentication state
-          2. MessageProvider - Chat/messaging state  
-          3. ReservationProvider - Reservation state
-          4. AdminReservationProvider - Admin reservation management
-          5. ColorSchemeProvider - Theme management
-          6. ToastProvider - Toast notifications
+          2. SessionProvider - Session management
+          3. MessageProvider - Chat/messaging state  
+          4. ReservationProvider - Reservation state
+          5. AdminReservationProvider - Admin reservation management
+          6. ColorSchemeProvider - Theme management
+          7. ToastProvider - Toast notifications
       */}
       <AuthProvider>
-        <MessageProvider>
-          <ReservationProvider>
-            <AdminReservationProvider>
-              <ColorSchemeProvider>
-                <ToastProvider>
-                  <AppContent />
-                  <PushRegistrar />
-                </ToastProvider>
-              </ColorSchemeProvider>
-            </AdminReservationProvider>
-          </ReservationProvider>
-        </MessageProvider>
+        <SessionProvider>
+          <MessageProvider>
+            <ReservationProvider>
+              <AdminReservationProvider>
+                <ColorSchemeProvider>
+                  <ToastProvider>
+                    <AppContent />
+                    <PushRegistrar />
+                  </ToastProvider>
+                </ColorSchemeProvider>
+              </AdminReservationProvider>
+            </ReservationProvider>
+          </MessageProvider>
+        </SessionProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

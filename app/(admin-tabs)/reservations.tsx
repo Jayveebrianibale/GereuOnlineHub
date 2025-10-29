@@ -435,62 +435,96 @@ export default function ReservationsScreen() {
             animationType="fade"
             onRequestClose={() => setFilterVisible(false)}
           >
-            <View style={styles.filterModalOverlay}>
-              <View style={[styles.filterModal, { backgroundColor: cardBgColor, borderColor }]}> 
-                <View style={styles.filterModalHeader}>
-                  <ThemedText type="subtitle" style={[styles.filterTitle, { color: textColor }]}>Filter by Status</ThemedText>
-                  <TouchableOpacity onPress={() => setFilterVisible(false)}>
-                    <MaterialIcons name="close" size={22} color={textColor} />
-                  </TouchableOpacity>
-                </View>
-                {[
-                  { id: 'all', label: 'All', count: statusCounts.all },
-                  { id: 'pending', label: 'Pending', count: statusCounts.pending },
-                  { id: 'confirmed', label: 'Confirmed', count: statusCounts.confirmed },
-                  { id: 'completed', label: 'Completed', count: statusCounts.completed },
-                  { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
-                  { id: 'declined', label: 'Declined', count: statusCounts.declined },
-                ].map((opt: any) => {
-                  const active = statusFilter === opt.id;
-                  return (
-                    <TouchableOpacity
-                      key={opt.id}
-                      style={[
-                        styles.filterOption,
-                        { borderColor, backgroundColor: active ? colorPalette.primary + '20' : 'transparent' }
-                      ]}
-                      onPress={() => {
-                        setStatusFilter(opt.id);
-                        setFilterVisible(false);
-                      }}
+            <TouchableOpacity 
+              style={styles.filterModalOverlay}
+              activeOpacity={1}
+              onPress={() => setFilterVisible(false)}
+            >
+              <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+                <View style={[styles.filterModal, { backgroundColor: cardBgColor, borderColor }]}> 
+                  {/* Header Section */}
+                  <View style={styles.filterModalHeader}>
+                    <View>
+                      <ThemedText type="subtitle" style={[styles.filterTitle, { color: textColor }]}>
+                        Filter Reservations
+                      </ThemedText>
+                      <ThemedText style={[styles.filterSubtitle, { color: subtitleColor }]}>
+                        Select status to filter
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => setFilterVisible(false)}
+                      style={styles.closeButton}
                     >
-                      <View style={styles.filterOptionContent}>
-                        <ThemedText style={{ color: active ? colorPalette.primary : subtitleColor }}>
-                          {opt.label}
-                        </ThemedText>
-                        <View style={[
-                          styles.countBadge,
-                          { 
-                            backgroundColor: active ? colorPalette.primary + '20' : subtitleColor + '20',
-                            borderColor: active ? colorPalette.primary : subtitleColor
-                          }
-                        ]}>
-                          <ThemedText style={[
-                            styles.countText,
-                            { color: active ? colorPalette.primary : subtitleColor }
-                          ]}>
-                            {opt.count}
-                          </ThemedText>
-                        </View>
-                      </View>
-                      {active && (
-                        <MaterialIcons name="check" size={18} color={colorPalette.primary} />
-                      )}
+                      <MaterialIcons name="close" size={24} color={textColor} />
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+                  </View>
+
+                  {/* Divider */}
+                  <View style={[styles.filterDivider, { backgroundColor: borderColor }]} />
+
+                  {/* Filter Options */}
+                  <View style={styles.filterOptionsContainer}>
+                    {[
+                      { id: 'all', label: 'All Reservations', count: statusCounts.all, icon: 'list' },
+                      { id: 'pending', label: 'Pending', count: statusCounts.pending, icon: 'schedule' },
+                      { id: 'confirmed', label: 'Confirmed', count: statusCounts.confirmed, icon: 'check-circle' },
+                      { id: 'completed', label: 'Completed', count: statusCounts.completed, icon: 'done-all' },
+                      { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled, icon: 'cancel' },
+                      { id: 'declined', label: 'Declined', count: statusCounts.declined, icon: 'block' },
+                    ].map((opt: any) => {
+                      const active = statusFilter === opt.id;
+                      return (
+                        <TouchableOpacity
+                          key={opt.id}
+                          style={[
+                            styles.filterOption,
+                            { 
+                              borderColor: active ? colorPalette.primary : borderColor,
+                              backgroundColor: active ? colorPalette.primary + '15' : 'transparent',
+                              shadowColor: active ? colorPalette.primary : 'transparent',
+                              shadowOpacity: active ? 0.1 : 0,
+                            }
+                          ]}
+                          onPress={() => {
+                            setStatusFilter(opt.id);
+                            setFilterVisible(false);
+                          }}
+                        >
+                          <View style={styles.filterOptionContent}>
+                            <MaterialIcons 
+                              name={opt.icon} 
+                              size={22} 
+                              color={active ? colorPalette.primary : subtitleColor}
+                              style={styles.filterOptionIcon}
+                            />
+                            <View style={styles.filterOptionTextContainer}>
+                              <ThemedText style={[
+                                styles.filterOptionLabel,
+                                { color: active ? colorPalette.primary : textColor }
+                              ]}>
+                                {opt.label}
+                              </ThemedText>
+                              <ThemedText style={[
+                                styles.filterOptionCountLabel,
+                                { color: subtitleColor }
+                              ]}>
+                                {opt.count} reservation{opt.count !== 1 ? 's' : ''}
+                              </ThemedText>
+                            </View>
+                          </View>
+                          {active && (
+                            <View style={[styles.activeIndicator, { backgroundColor: colorPalette.primary }]}>
+                              <MaterialIcons name="check" size={16} color="#FFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
           </Modal>
           {loading ? (
             <View style={styles.loadingState}>
@@ -2025,41 +2059,101 @@ const styles = StyleSheet.create({
   },
   filterModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   filterModal: {
     width: '100%',
-    borderRadius: 12,
+    maxWidth: 500,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
+    padding: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
   },
   filterModalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    padding: 24,
+    paddingBottom: 16,
   },
   filterTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  filterSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  filterDivider: {
+    height: 1,
+    width: '100%',
+    marginHorizontal: 24,
+  },
+  filterOptionsContainer: {
+    padding: 16,
+    gap: 8,
   },
   filterOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    shadowOpacity: 0.15,
+    elevation: 2,
   },
   filterOptionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  filterOptionIcon: {
+    marginRight: 12,
+  },
+  filterOptionTextContainer: {
+    flex: 1,
+  },
+  filterOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  filterOptionCountLabel: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  activeIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   countBadge: {
     marginLeft: 8,

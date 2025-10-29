@@ -65,6 +65,11 @@ export const signUp = async (data: SignUpData): Promise<User> => {
     // I-store ang user data sa Firebase Realtime Database
     await storeUserData(userCredential.user, data.fullName);
     
+    // Save persistent user data for session restoration
+    const userRole = getUserRole(userCredential.user);
+    const { savePersistentUserData } = await import('./persistentAuthUtils');
+    await savePersistentUserData(userCredential.user, userRole);
+    
     return userCredential.user;
   } catch (error: any) {
     // I-throw ang error na may proper formatting
@@ -94,6 +99,10 @@ export const signIn = async (data: SignInData): Promise<User> => {
       userCredential.user.email || '',
       userRole
     );
+
+    // Save persistent user data for session restoration
+    const { savePersistentUserData } = await import('./persistentAuthUtils');
+    await savePersistentUserData(userCredential.user, userRole);
     
     return userCredential.user;
   } catch (error: any) {
@@ -128,6 +137,10 @@ export const signOutUser = async (): Promise<void> => {
       // Set user status to inactive before signing out
       await setUserInactive(currentUser.uid);
     }
+    
+    // Clear persistent storage before signing out
+    const { clearPersistentUserData } = await import('./persistentAuthUtils');
+    await clearPersistentUserData();
     
     await signOut(auth);
     console.log('=== SIGNOUT COMPLETE ===');

@@ -4,11 +4,19 @@
 // Ang file na ito ay naghahandle ng authentication state management
 // May real-time monitoring ng authentication status
 // I-update ang user status at role automatically
+// May persistent authentication support para sa app restart
 
 // Import ng Firebase Auth at React hooks
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { getUserRole } from '../../utils/authUtils';
+import {
+    clearPersistentUserData,
+    getRememberUserPreference,
+    isPersistentUserDataValid,
+    restorePersistentUserData,
+    savePersistentUserData
+} from '../../utils/persistentAuthUtils';
 import { updateUserLastActive } from '../../utils/userUtils';
 import { auth } from '../firebaseConfig';
 
@@ -23,6 +31,7 @@ export interface AuthState {
   role: 'admin' | 'user' | null; // User role (admin o user)
   isLoading: boolean; // Loading state para sa authentication operations
   isAuthenticated: boolean; // Boolean na nag-indicate kung naka-authenticate ang user
+  isRestoringSession: boolean; // Loading state para sa session restoration
 }
 
 // ========================================
@@ -39,7 +48,63 @@ export const useAuth = () => {
     role: null, // Initial role state
     isLoading: true, // Initial loading state
     isAuthenticated: false, // Initial authentication state
+    isRestoringSession: false, // Initial session restoration state
   });
+
+  // ========================================
+  // USEEFFECT: PERSISTENT AUTHENTICATION RESTORATION
+  // ========================================
+  // I-restore ang user session mula sa AsyncStorage kapag nag-start ang app
+  useEffect(() => {
+    const restoreUserSession = async () => {
+      try {
+        setAuthState(prev => ({ ...prev, isRestoringSession: true }));
+        
+        // I-check kung gusto ng user na ma-remember
+        const rememberUser = await getRememberUserPreference();
+        if (!rememberUser) {
+          console.log('User chose not to be remembered, skipping session restoration');
+          setAuthState(prev => ({ ...prev, isRestoringSession: false, isLoading: false }));
+          return;
+        }
+
+        // I-restore ang persistent user data
+        const persistentUserData = await restorePersistentUserData();
+        if (!persistentUserData) {
+          console.log('No persistent user data found');
+          setAuthState(prev => ({ ...prev, isRestoringSession: false, isLoading: false }));
+          return;
+        }
+
+        // I-check kung valid pa ang persistent data
+        if (!isPersistentUserDataValid(persistentUserData)) {
+          console.log('Persistent user data expired, clearing...');
+          await clearPersistentUserData();
+          setAuthState(prev => ({ ...prev, isRestoringSession: false, isLoading: false }));
+          return;
+        }
+
+        console.log('Restoring user session for:', persistentUserData.email);
+        
+        // I-set ang auth state base sa persistent data
+        // Note: Hindi namin i-restore ang actual Firebase user object dito
+        // Ang onAuthStateChanged listener ang magha-handle ng actual authentication
+        setAuthState(prev => ({
+          ...prev,
+          isRestoringSession: false,
+          isLoading: false,
+          // Hindi namin i-set ang user at isAuthenticated dito
+          // Dahil kailangan namin i-wait ang Firebase auth state
+        }));
+
+      } catch (error) {
+        console.error('Error restoring user session:', error);
+        setAuthState(prev => ({ ...prev, isRestoringSession: false, isLoading: false }));
+      }
+    };
+
+    restoreUserSession();
+  }, []);
 
   // ========================================
   // USEEFFECT: AUTHENTICATION STATE MONITORING
@@ -64,12 +129,20 @@ export const useAuth = () => {
           console.error('Error setting user status:', error);
           // Don't throw the error to prevent app crash, just log it
         }
+
+        // I-save ang user data sa persistent storage
+        try {
+          await savePersistentUserData(user, role);
+        } catch (error) {
+          console.error('Error saving persistent user data:', error);
+        }
         
         setAuthState({
           user,
           role,
           isLoading: false,
           isAuthenticated: true,
+          isRestoringSession: false,
         });
       } else {
         // ========================================
@@ -77,11 +150,20 @@ export const useAuth = () => {
         // ========================================
         // Note: Hindi namin i-set ang user inactive dito dahil baka nag-logout lang
         // Ang signOutUser function ang magha-handle ng pag-set ng status to inactive
+        
+        // I-clear ang persistent data kapag nag-logout
+        try {
+          await clearPersistentUserData();
+        } catch (error) {
+          console.error('Error clearing persistent user data:', error);
+        }
+
         setAuthState({
           user: null,
           role: null,
           isLoading: false,
           isAuthenticated: false,
+          isRestoringSession: false,
         });
       }
     });

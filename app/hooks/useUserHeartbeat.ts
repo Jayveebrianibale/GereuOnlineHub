@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 
 export const useUserHeartbeat = () => {
   const { user, isAuthenticated } = useAuth();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -34,7 +34,7 @@ export const useUserHeartbeat = () => {
         intervalRef.current = null;
       }
     };
-  }, [user, isAuthenticated]);
+  }, [isAuthenticated, user?.uid, user?.email, user?.displayName]);
 
   return null;
 };

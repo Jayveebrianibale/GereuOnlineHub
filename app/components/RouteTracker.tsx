@@ -6,7 +6,7 @@
 // I-track ang navigation changes para sa session management
 
 import { usePathname } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSession } from '../contexts/SessionContext';
 
 // ========================================
@@ -19,17 +19,13 @@ export const RouteTracker: React.FC = () => {
   const { saveAppState, updateActivity } = useSession();
   const lastPathnameRef = useRef<string | null>(null);
 
-  const handleRouteChange = useCallback(() => {
+  useEffect(() => {
     if (pathname && pathname !== lastPathnameRef.current) {
       lastPathnameRef.current = pathname;
       saveAppState(pathname);
       updateActivity();
     }
   }, [pathname, saveAppState, updateActivity]);
-
-  useEffect(() => {
-    handleRouteChange();
-  }, [handleRouteChange]);
 
   // Hindi nagre-render ng visible content
   return null;

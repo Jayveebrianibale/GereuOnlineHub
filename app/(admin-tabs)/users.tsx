@@ -17,7 +17,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { isMigrationNeeded, migrateExistingUsers } from '../../utils/migrationUtils';
 import { autoUpdateUserStatus, deleteUser, formatLastActive, listenToUsers, UserData } from '../../utils/userUtils';
-import NotificationTester from '../components/NotificationTester';
 import { useAuthContext } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
@@ -74,7 +73,6 @@ export default function UsersScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all'); // Status filter
   const [userProfilePictures, setUserProfilePictures] = useState<{[key: string]: string}>({}); // Profile pictures cache
   const [updatingProfilePictures, setUpdatingProfilePictures] = useState<{[key: string]: boolean}>({}); // Profile picture update status
-  const [showNotificationTester, setShowNotificationTester] = useState(false); // Notification tester visibility
 
   // Fetch users from Firebase on component mount
   useEffect(() => {
@@ -442,20 +440,7 @@ export default function UsersScreen() {
               Manage user accounts and permissions
             </ThemedText>
           </View>
-          <TouchableOpacity
-            style={[styles.notificationTestButton, { backgroundColor: colorPalette.primary }]}
-            onPress={() => setShowNotificationTester(!showNotificationTester)}
-          >
-            <Ionicons name="notifications-outline" size={20} color="white" />
-          </TouchableOpacity>
         </View>
-
-        {/* Notification Tester */}
-        {showNotificationTester && (
-          <View style={[styles.notificationTesterContainer, { backgroundColor: cardBgColor, borderColor }]}>
-            <NotificationTester />
-          </View>
-        )}
 
         {/* Search and Filter */}
         <View style={[styles.searchContainer, { backgroundColor: cardBgColor, borderColor }]}>
@@ -928,19 +913,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
-  },
-  notificationTestButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-  },
-  notificationTesterContainer: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 20,
-    padding: 16,
   },
 });

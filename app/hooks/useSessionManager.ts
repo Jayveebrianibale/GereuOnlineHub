@@ -4,12 +4,17 @@
 // Ang file na ito ay naghahandle ng session management
 // May automatic logout after 15 minutes of inactivity
 // May app state persistence para sa quick app restoration
+// May persistent authentication support para sa app restart
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { signOutUser } from '../../utils/authUtils';
+import {
+    clearPersistentAppState,
+    savePersistentAppState
+} from '../../utils/persistentAuthUtils';
 import { useAuth } from './useAuth';
 
 // ========================================
@@ -63,14 +68,15 @@ export const useSessionManager = () => {
       await AsyncStorage.setItem(
         SESSION_STORAGE_KEY,
         JSON.stringify({
-          ...sessionState,
           isActive: false,
+          lastActivity: Date.now(),
+          sessionStartTime: Date.now(),
           sessionEndTime: Date.now(),
         })
       );
 
-      // Clear app state
-      await AsyncStorage.removeItem(APP_STATE_STORAGE_KEY);
+      // Clear persistent app state
+      await clearPersistentAppState();
 
       // Sign out user
       await signOutUser();
@@ -80,7 +86,7 @@ export const useSessionManager = () => {
     } catch (error) {
       console.error('Error during session timeout:', error);
     }
-  }, [sessionState, router]);
+  }, [router]);
 
   const resetSessionTimeout = useCallback(() => {
     // Clear existing timeout
@@ -89,8 +95,31 @@ export const useSessionManager = () => {
     }
 
     // Set new timeout
-    timeoutRef.current = setTimeout(() => {
-      handleSessionTimeout();
+    timeoutRef.current = setTimeout(async () => {
+      console.log('Session timeout - logging out user');
+      try {
+        // Save session end time
+        await AsyncStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({
+            isActive: false,
+            lastActivity: Date.now(),
+            sessionStartTime: Date.now(),
+            sessionEndTime: Date.now(),
+          })
+        );
+
+        // Clear persistent app state
+        await clearPersistentAppState();
+
+        // Sign out user
+        await signOutUser();
+        
+        // Navigate to login
+        router.replace('/signin');
+      } catch (error) {
+        console.error('Error during session timeout:', error);
+      }
     }, SESSION_TIMEOUT);
 
     // Update last activity
@@ -100,7 +129,7 @@ export const useSessionManager = () => {
       ...prev,
       lastActivity: now,
     }));
-  }, [handleSessionTimeout]);
+  }, [router]);
 
   // ========================================
   // APP STATE PERSISTENCE
@@ -109,16 +138,10 @@ export const useSessionManager = () => {
     if (!isAuthenticated || !user) return;
 
     try {
-      const appStateData: AppStateData = {
-        currentRoute: route,
-        timestamp: Date.now(),
-        userRole: user.email?.includes('admin') ? 'admin' : 'user',
-      };
-
-      await AsyncStorage.setItem(
-        APP_STATE_STORAGE_KEY,
-        JSON.stringify(appStateData)
-      );
+      const userRole = user.email?.includes('admin') ? 'admin' : 'user';
+      
+      // I-save ang app state sa persistent storage
+      await savePersistentAppState(route, userRole);
       
       console.log('App state saved:', route);
     } catch (error) {
@@ -128,10 +151,11 @@ export const useSessionManager = () => {
 
   const restoreAppState = useCallback(async (): Promise<AppStateData | null> => {
     try {
-      const savedState = await AsyncStorage.getItem(APP_STATE_STORAGE_KEY);
-      if (!savedState) return null;
+      // I-restore ang app state mula sa persistent storage
+      const appState = await AsyncStorage.getItem(APP_STATE_STORAGE_KEY);
+      if (!appState) return null;
 
-      const appStateData: AppStateData = JSON.parse(savedState);
+      const appStateData: AppStateData = JSON.parse(appState);
       const timeSinceLastSave = Date.now() - appStateData.timestamp;
 
       // Only restore if it's within the quick restore threshold
@@ -161,13 +185,84 @@ export const useSessionManager = () => {
       sessionStartTime: now,
     });
 
-    resetSessionTimeout();
-  }, [isAuthenticated, user, resetSessionTimeout]);
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout
+    timeoutRef.current = setTimeout(async () => {
+      console.log('Session timeout - logging out user');
+      try {
+        // Save session end time
+        await AsyncStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({
+            isActive: false,
+            lastActivity: Date.now(),
+            sessionStartTime: Date.now(),
+            sessionEndTime: Date.now(),
+          })
+        );
+
+        // Clear persistent app state
+        await clearPersistentAppState();
+
+        // Sign out user
+        await signOutUser();
+        
+        // Navigate to login
+        router.replace('/signin');
+      } catch (error) {
+        console.error('Error during session timeout:', error);
+      }
+    }, SESSION_TIMEOUT);
+  }, [isAuthenticated, user, router]);
 
   const updateActivity = useCallback(() => {
     if (!sessionState.isActive) return;
-    resetSessionTimeout();
-  }, [sessionState.isActive, resetSessionTimeout]);
+    
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout
+    timeoutRef.current = setTimeout(async () => {
+      console.log('Session timeout - logging out user');
+      try {
+        // Save session end time
+        await AsyncStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({
+            isActive: false,
+            lastActivity: Date.now(),
+            sessionStartTime: Date.now(),
+            sessionEndTime: Date.now(),
+          })
+        );
+
+        // Clear persistent app state
+        await clearPersistentAppState();
+
+        // Sign out user
+        await signOutUser();
+        
+        // Navigate to login
+        router.replace('/signin');
+      } catch (error) {
+        console.error('Error during session timeout:', error);
+      }
+    }, SESSION_TIMEOUT);
+
+    // Update last activity
+    const now = Date.now();
+    lastActivityRef.current = now;
+    setSessionState(prev => ({
+      ...prev,
+      lastActivity: now,
+    }));
+  }, [sessionState.isActive, router]);
 
   const endSession = useCallback(async () => {
     // Clear timeout
@@ -176,8 +271,8 @@ export const useSessionManager = () => {
       timeoutRef.current = null;
     }
 
-    // Clear app state
-    await AsyncStorage.removeItem(APP_STATE_STORAGE_KEY);
+    // Clear persistent app state
+    await clearPersistentAppState();
 
     setSessionState({
       isActive: false,
@@ -204,7 +299,48 @@ export const useSessionManager = () => {
         });
 
         // Update activity and reset timeout
-        updateActivity();
+        if (sessionState.isActive) {
+          // Clear existing timeout
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+
+          // Set new timeout
+          timeoutRef.current = setTimeout(async () => {
+            console.log('Session timeout - logging out user');
+            try {
+              // Save session end time
+              await AsyncStorage.setItem(
+                SESSION_STORAGE_KEY,
+                JSON.stringify({
+                  isActive: false,
+                  lastActivity: Date.now(),
+                  sessionStartTime: Date.now(),
+                  sessionEndTime: Date.now(),
+                })
+              );
+
+              // Clear app state
+              await AsyncStorage.removeItem(APP_STATE_STORAGE_KEY);
+
+              // Sign out user
+              await signOutUser();
+              
+              // Navigate to login
+              router.replace('/signin');
+            } catch (error) {
+              console.error('Error during session timeout:', error);
+            }
+          }, SESSION_TIMEOUT);
+
+          // Update last activity
+          const now = Date.now();
+          lastActivityRef.current = now;
+          setSessionState(prev => ({
+            ...prev,
+            lastActivity: now,
+          }));
+        }
       }
     } else if (appStateRef.current === 'active' && nextAppState.match(/inactive|background/)) {
       // App is going to background
@@ -218,7 +354,7 @@ export const useSessionManager = () => {
     }
 
     appStateRef.current = nextAppState;
-  }, [isAuthenticated, user, restoreAppState, updateActivity, saveAppState, router]);
+  }, [isAuthenticated, user, restoreAppState, saveAppState, router, sessionState.isActive]);
 
   // ========================================
   // EFFECTS

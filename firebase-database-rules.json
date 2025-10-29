@@ -29,11 +29,32 @@
     },
     "users": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid == $userId || root.child('users').child(auth.uid).child('role').val() == 'admin')",
+        "lastActive": {
+          ".write": "auth != null && auth.uid == $userId"
+        },
+        "status": {
+          ".write": "auth != null && auth.uid == $userId"
+        },
+        "updatedAt": {
+          ".write": "auth != null && auth.uid == $userId"
+        }
+      }
     },
     "reservations": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "adminReservations": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      "$reservationId": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      }
     },
     "apartments": {
       ".read": "auth != null",
