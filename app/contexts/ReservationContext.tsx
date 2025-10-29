@@ -9,11 +9,11 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { notifyAdmins } from '../services/notificationService';
 import {
-    getUserReservations,
-    listenToUserReservations,
-    removeUserReservation,
-    saveUserReservation,
-    updateUserReservationStatus
+  getUserReservations,
+  listenToUserReservations,
+  removeUserReservation,
+  saveUserReservation,
+  updateUserReservationStatus
 } from '../services/reservationService';
 import { mapServiceToReservation, parsePrice } from '../utils/reservationUtils';
 import { useAuthContext } from './AuthContext';
@@ -379,7 +379,8 @@ export const ReservationProvider = ({ children }: { children: ReactNode }) => {
             console.error('❌ Error cancelling bed reservation in context:', bedError);
             
             // Show user-friendly error message
-            const errorMessage = bedError.message || 'Unknown error occurred';
+            const errorMessage =
+              bedError instanceof Error ? bedError.message : String(bedError || 'Unknown error occurred');
             if (errorMessage.includes('Permission denied')) {
               console.warn('⚠️ Permission denied when cancelling bed reservation. User may need to re-authenticate.');
               // Don't throw here as the main reservation removal should still proceed

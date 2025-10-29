@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-    getAdminFcmTokens,
-    notifyAdmins,
-    notifyUser,
-    sendFCMNotificationDirect,
-    sendFCMNotificationMulticast
+  getAdminFcmTokens,
+  notifyAdmins,
+  notifyUser
 } from '../services/notificationService';
 
 export default function FCMNotificationTester() {
@@ -22,18 +20,18 @@ export default function FCMNotificationTester() {
     addLog('🧪 Testing direct FCM notification...');
     
     try {
-      // This is a test - you'll need to replace with actual FCM tokens
-      const testToken = 'test-fcm-token-here';
+      // Note: Direct FCM notification requires server-side implementation
+      // Using notifyAdmins as a fallback for testing
+      addLog('⚠️ Direct FCM function not available, using admin notification test instead');
       
-      await sendFCMNotificationDirect(
-        testToken,
-        'Direct FCM Test',
-        'This is a test notification sent via FCM REST API',
+      await notifyAdmins(
+        'Direct FCM Test (via Admin)',
+        'This is a test notification sent via FCM',
         { test: 'true', source: 'fcm-direct' }
       );
       
-      addLog('✅ Direct FCM test completed');
-      Alert.alert('Success', 'Direct FCM notification test completed');
+      addLog('✅ FCM notification test completed (via admin notification)');
+      Alert.alert('Success', 'FCM notification test completed');
     } catch (error) {
       addLog(`❌ Direct FCM test failed: ${error}`);
       Alert.alert('Error', `Direct FCM test failed: ${error}`);
@@ -97,23 +95,18 @@ export default function FCMNotificationTester() {
       const adminTokens = await getAdminFcmTokens();
       
       if (adminTokens.length === 0) {
-        addLog('⚠️ No admin FCM tokens found, using test tokens');
-        const testTokens = ['test-token-1', 'test-token-2'];
-        
-        await sendFCMNotificationMulticast(
-          testTokens,
-          'FCM Multicast Test',
-          'This notification was sent to multiple tokens via FCM',
-          { test: 'true', source: 'fcm-multicast' }
-        );
+        addLog('⚠️ No admin FCM tokens found');
+        addLog('📝 Using notifyAdmins to send to all admins instead');
       } else {
-        await sendFCMNotificationMulticast(
-          adminTokens,
-          'FCM Multicast Test',
-          'This notification was sent to all admins via FCM',
-          { test: 'true', source: 'fcm-multicast' }
-        );
+        addLog(`📊 Found ${adminTokens.length} admin FCM tokens`);
       }
+      
+      // Use notifyAdmins which handles both FCM and Expo tokens
+      await notifyAdmins(
+        'FCM Multicast Test',
+        'This notification was sent to all admins via FCM',
+        { test: 'true', source: 'fcm-multicast' }
+      );
       
       addLog('✅ FCM multicast test completed');
       Alert.alert('Success', 'FCM multicast notification test completed');

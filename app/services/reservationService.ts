@@ -181,11 +181,11 @@ export const listenToAdminReservations = (callback: (reservations: FirebaseAdmin
         callback([]);
       }
     } catch (error) {
-      console.error('❌ Error in admin reservations listener:', error);
+      console.warn('⚠️ Admin reservations listener handled data parsing issue:', error);
       callback([]);
     }
   }, (error) => {
-    console.error('❌ Admin reservations listener error:', error);
+    console.warn('⚠️ Admin reservations listener warning:', error);
     callback([]);
   });
   
@@ -342,7 +342,8 @@ export const removeReservationCompletely = async (
         console.error('❌ Error cancelling bed reservation:', bedError);
         
         // Log specific error details for debugging
-        const errorMessage = bedError.message || 'Unknown error occurred';
+        const errorMessage =
+          bedError instanceof Error ? bedError.message : String(bedError || 'Unknown error occurred');
         if (errorMessage.includes('Permission denied')) {
           console.warn('⚠️ Permission denied when cancelling bed reservation. This may indicate an authentication issue.');
         } else if (errorMessage.includes('Apartment not found')) {

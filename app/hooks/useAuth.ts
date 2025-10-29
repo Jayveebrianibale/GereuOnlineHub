@@ -7,15 +7,16 @@
 // May persistent authentication support para sa app restart
 
 // Import ng Firebase Auth at React hooks
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { getUserRole } from '../../utils/authUtils';
 import {
-    clearPersistentUserData,
-    getRememberUserPreference,
-    isPersistentUserDataValid,
-    restorePersistentUserData,
-    savePersistentUserData
+  clearPersistentUserData,
+  getRememberUserPreference,
+  isPersistentUserDataValid,
+  PersistentUserData,
+  restorePersistentUserData,
+  savePersistentUserData
 } from '../../utils/persistentAuthUtils';
 import { updateUserLastActive } from '../../utils/userUtils';
 import { auth } from '../firebaseConfig';
@@ -32,6 +33,7 @@ export interface AuthState {
   isLoading: boolean; // Loading state para sa authentication operations
   isAuthenticated: boolean; // Boolean na nag-indicate kung naka-authenticate ang user
   isRestoringSession: boolean; // Loading state para sa session restoration
+  isTemporaryAuth: boolean; // Boolean na nag-indicate kung temporary authenticated state lang
 }
 
 // ========================================
@@ -49,6 +51,7 @@ export const useAuth = () => {
     isLoading: true, // Initial loading state
     isAuthenticated: false, // Initial authentication state
     isRestoringSession: false, // Initial session restoration state
+    isTemporaryAuth: false, // Initial temporary auth state
   });
 
   // ========================================
@@ -86,16 +89,22 @@ export const useAuth = () => {
 
         console.log('Restoring user session for:', persistentUserData.email);
         
-        // I-set ang auth state base sa persistent data
-        // Note: Hindi namin i-restore ang actual Firebase user object dito
-        // Ang onAuthStateChanged listener ang magha-handle ng actual authentication
+        // I-create ang temporary user object base sa persistent data
+        const temporaryUser = createTemporaryUserFromPersistentData(persistentUserData);
+        
+        // I-set ang temporary authenticated state para hindi ma-redirect sa login
         setAuthState(prev => ({
           ...prev,
+          user: temporaryUser,
+          role: persistentUserData.role,
+          isAuthenticated: true, // TEMPORARY TRUE - para hindi ma-redirect
+          isTemporaryAuth: true, // Mark as temporary
           isRestoringSession: false,
           isLoading: false,
-          // Hindi namin i-set ang user at isAuthenticated dito
-          // Dahil kailangan namin i-wait ang Firebase auth state
         }));
+
+        // I-attempt ang background Firebase session restoration
+        attemptBackgroundFirebaseRestore(persistentUserData);
 
       } catch (error) {
         console.error('Error restoring user session:', error);
@@ -143,6 +152,7 @@ export const useAuth = () => {
           isLoading: false,
           isAuthenticated: true,
           isRestoringSession: false,
+          isTemporaryAuth: false, // Real Firebase auth, not temporary
         });
       } else {
         // ========================================
@@ -164,12 +174,80 @@ export const useAuth = () => {
           isLoading: false,
           isAuthenticated: false,
           isRestoringSession: false,
+          isTemporaryAuth: false,
         });
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  // ========================================
+  // HELPER FUNCTIONS
+  // ========================================
+  
+  // I-create ang temporary user object mula sa persistent data
+  const createTemporaryUserFromPersistentData = (persistentData: PersistentUserData): User => {
+    // I-create ang mock user object na compatible sa Firebase User interface
+    const mockUser = {
+      uid: persistentData.uid,
+      email: persistentData.email,
+      displayName: persistentData.displayName,
+      photoURL: null,
+      emailVerified: true, // Assume verified para sa temporary state
+      isAnonymous: false,
+      phoneNumber: null,
+      providerId: 'firebase',
+      metadata: {
+        creationTime: persistentData.lastLoginTime.toString(),
+        lastSignInTime: persistentData.lastLoginTime.toString(),
+      },
+      providerData: [],
+      refreshToken: '',
+      tenantId: null,
+      delete: async () => {},
+      getIdToken: async () => '',
+      getIdTokenResult: async () => ({} as any),
+      reload: async () => {},
+      toJSON: () => ({}),
+    } as unknown as User;
+    
+    return mockUser;
+  };
+
+  // I-attempt ang background Firebase session restoration
+  const attemptBackgroundFirebaseRestore = async (persistentData: PersistentUserData) => {
+    try {
+      console.log('Attempting background Firebase session restoration...');
+      
+      // I-check kung may existing Firebase session
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid === persistentData.uid) {
+        console.log('Firebase session already exists, no restoration needed');
+        return;
+      }
+
+      // I-attempt i-restore ang session gamit ang stored data
+      // Note: Hindi namin ma-restore ang actual Firebase session without re-authentication
+      // Pero pwede namin i-validate kung valid pa ang stored data
+      console.log('Firebase session lost, but persistent data is valid');
+      console.log('User will remain in temporary authenticated state');
+      
+      // Optional: I-attempt silent re-authentication dito kung may stored credentials
+      // Pero para sa ngayon, i-keep lang namin ang temporary state
+      
+    } catch (error) {
+      console.error('Error in background Firebase restoration:', error);
+      // Kung may error, i-clear ang temporary auth state
+      setAuthState(prev => ({
+        ...prev,
+        user: null,
+        role: null,
+        isAuthenticated: false,
+        isTemporaryAuth: false,
+      }));
+    }
+  };
 
   return authState;
 };

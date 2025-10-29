@@ -10,11 +10,11 @@ import { get, ref, set, update } from 'firebase/database';
 import { db } from '../firebaseConfig';
 import { getAdminPaymentSettings } from './adminPaymentService';
 import {
-    createGCashSource,
-    createPaymentFromSource,
-    getPaymentStatus,
-    generateReferenceNumber as paymongoGenerateReferenceNumber,
-    verifyPayment as paymongoVerifyPayment
+  createGCashSource,
+  createPaymentFromSource,
+  getPaymentStatus,
+  generateReferenceNumber as paymongoGenerateReferenceNumber,
+  verifyPayment as paymongoVerifyPayment
 } from './paymongoService';
 
 // ========================================
@@ -409,12 +409,12 @@ export async function verifyPayment(paymentId: string): Promise<boolean> {
                   
                   // I-check ang final payment status
                   const finalStatus = await getPaymentStatus(paymentResult.paymentId);
-                  if (finalStatus === 'paid') {
+                  if (finalStatus.success && finalStatus.status === 'paid') {
                     await updatePaymentStatus(paymentId, 'paid');
                     console.log('✅ PayMongo payment created and verified successfully');
                     return true;
                   } else {
-                    console.log('⚠️ PayMongo payment not yet paid:', finalStatus);
+                    console.log('⚠️ PayMongo payment not yet paid:', finalStatus.status || finalStatus.error);
                     return false;
                   }
                 } else {
@@ -424,12 +424,12 @@ export async function verifyPayment(paymentId: string): Promise<boolean> {
               } else if (payment.paymongoPaymentId) {
                 // I-check ang existing payment status
                 const finalStatus = await getPaymentStatus(payment.paymongoPaymentId);
-                if (finalStatus === 'paid') {
+                if (finalStatus.success && finalStatus.status === 'paid') {
                   await updatePaymentStatus(paymentId, 'paid');
                   console.log('✅ PayMongo payment verified successfully');
                   return true;
                 } else {
-                  console.log('⚠️ PayMongo payment not yet paid:', finalStatus);
+                  console.log('⚠️ PayMongo payment not yet paid:', finalStatus.status || finalStatus.error);
                   return false;
                 }
               } else {

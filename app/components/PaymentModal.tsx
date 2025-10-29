@@ -12,14 +12,14 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { getAdminPaymentSettings } from '../services/adminPaymentService';
 import { PaymentData, createPayment, verifyPayment } from '../services/paymentService';
@@ -228,7 +228,7 @@ export function PaymentModal({
         serviceId, // Service ID
         fullAmount, // Full amount
         'gcash', // Payment method (GCash)
-        selectedPaymentType // Payment type (QR code or PayMongo)
+        selectedPaymentType ?? undefined // Payment type (QR code or PayMongo)
       );
       setPayment(newPayment); // I-set ang payment sa state
     } catch (error: any) {
@@ -996,6 +996,13 @@ const styles = StyleSheet.create({
   },
   // PayMongo Styles
   paymongoContainer: {
+    margin: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 178, 255, 0.2)',
+  },
+  qrCodeContainer: {
     margin: 20,
     padding: 16,
     borderRadius: 12,

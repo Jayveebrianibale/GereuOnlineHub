@@ -10,9 +10,9 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    getRememberUserPreference,
-    restorePersistentAppState,
-    restorePersistentUserData
+  getRememberUserPreference,
+  restorePersistentAppState,
+  restorePersistentUserData
 } from '../../utils/persistentAuthUtils';
 import { useAuth } from '../hooks/useAuth';
 
@@ -26,7 +26,7 @@ export const AuthGuard: React.FC = () => {
   // HOOKS AT STATE
   // ========================================
   // Galing sa auth hook: info ng user, role, at kung logged in/loading
-  const { user, role, isLoading, isAuthenticated, isRestoringSession } = useAuth();
+  const { user, role, isLoading, isAuthenticated, isRestoringSession, isTemporaryAuth } = useAuth();
   const router = useRouter();
   const [hasAttemptedRestore, setHasAttemptedRestore] = useState(false);
 
@@ -93,10 +93,12 @@ export const AuthGuard: React.FC = () => {
     if (!isLoading && !isRestoringSession && hasAttemptedRestore) {
       if (isAuthenticated && user && role) {
         // ========================================
-        // AUTHENTICATED USER ROUTING
+        // AUTHENTICATED USER ROUTING (REAL O TEMPORARY)
         // ========================================
         // Logged in: i-redirect sa tamang dashboard base sa role
-        console.log('User is authenticated, redirecting to:', role === 'admin' ? 'admin' : 'user', 'dashboard');
+        const authType = isTemporaryAuth ? 'temporary' : 'real';
+        console.log(`User is ${authType} authenticated, redirecting to:`, role === 'admin' ? 'admin' : 'user', 'dashboard');
+        
         if (role === 'admin') {
           router.replace('/(admin-tabs)'); // I-redirect sa admin dashboard
         } else {
@@ -111,7 +113,7 @@ export const AuthGuard: React.FC = () => {
         router.replace('/onboarding');
       }
     }
-  }, [user, role, isLoading, isAuthenticated, isRestoringSession, hasAttemptedRestore, router]);
+  }, [user, role, isLoading, isAuthenticated, isRestoringSession, isTemporaryAuth, hasAttemptedRestore, router]);
 
   // ========================================
   // RENDER

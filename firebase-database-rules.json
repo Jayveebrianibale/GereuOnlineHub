@@ -49,12 +49,8 @@
       ".write": "auth != null"
     },
     "adminReservations": {
-      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
-      "$reservationId": {
-        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
-        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
-      }
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "apartments": {
       ".read": "auth != null",

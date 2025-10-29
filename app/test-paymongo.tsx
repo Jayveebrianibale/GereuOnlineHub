@@ -13,12 +13,12 @@ import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Import ng PayMongo services
-import { getEnvironmentInfo } from './config/paymongoConfig';
+import { getEnvironment, isDevelopment, validatePayMongoKeys } from './config/paymongoConfig';
 import {
-    createGCashSource,
-    generateReferenceNumber,
-    getAvailablePaymentMethods,
-    validatePayMongoAmount
+  createGCashSource,
+  generateReferenceNumber,
+  getAvailablePaymentMethods,
+  validatePayMongoAmount
 } from './services/paymongoService';
 
 // ========================================
@@ -47,12 +47,14 @@ export default function PayMongoTest() {
       setLoading(true);
       addTestResult('Testing PayMongo configuration...');
       
-      const envInfo = getEnvironmentInfo();
-      addTestResult(`Environment: ${envInfo.environment}`);
-      addTestResult(`Is Development: ${envInfo.isDevelopment}`);
-      addTestResult(`Has Valid Keys: ${envInfo.hasValidKeys}`);
+      const env = getEnvironment();
+      const dev = isDevelopment();
+      const hasValidKeys = validatePayMongoKeys();
+      addTestResult(`Environment: ${env}`);
+      addTestResult(`Is Development: ${dev}`);
+      addTestResult(`Has Valid Keys: ${hasValidKeys}`);
       
-      if (envInfo.hasValidKeys) {
+      if (hasValidKeys) {
         addTestResult('✅ Configuration test passed');
       } else {
         addTestResult('❌ Configuration test failed - Invalid API keys');
