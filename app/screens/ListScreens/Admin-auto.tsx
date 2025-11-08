@@ -10,18 +10,18 @@ import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpa
 import Toast from '../../../components/Toast';
 import { RobustImage } from '../../components/RobustImage';
 import {
-    createAutoService,
-    deleteAutoService,
-    getAutoServices,
-    updateAutoService,
-    type AutoService
+  createAutoService,
+  deleteAutoService,
+  getAutoServices,
+  updateAutoService,
+  type AutoService
 } from '../../services/autoService';
 import {
-    createMotorPart,
-    deleteMotorPart,
-    getMotorParts,
-    updateMotorPart,
-    type MotorPart
+  createMotorPart,
+  deleteMotorPart,
+  getMotorParts,
+  updateMotorPart,
+  type MotorPart
 } from '../../services/motorPartsService';
 import { addRecentImage, clearRecentImages, getRecentImages, removeRecentImage } from '../../utils/recentImages';
 
@@ -277,9 +277,7 @@ export default function AdminAutoManagement() {
       errors.title = 'Service title must be at least 3 characters';
     }
     
-    if (currentService.price && !currentService.price.match(/^[Pp]?[\d,]+[\/\-]?\w*$/)) {
-      errors.price = 'Please enter a valid price (e.g., P300, 20,000)';
-      }
+    // Price validation removed to allow text input (e.g., "Contact for price", "Free", etc.)
     } else {
       // Required field validations for parts
       if (!currentPart.name || currentPart.name.trim() === '') {
@@ -634,7 +632,7 @@ export default function AdminAutoManagement() {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <ThemedText type="title" style={[styles.headerTitle, { color: textColor }]}>
-            Auto Service Management
+            Car and Motor Service Management
           </ThemedText>
           <ThemedText style={[styles.headerSubtitle, { color: isDark ? '#B0B0B0' : '#666' }]}>
             Manage your automotive services and parts
@@ -835,7 +833,7 @@ export default function AdminAutoManagement() {
                         });
                       }
                     }}
-                    placeholder="e.g. P300 or From P200"
+                    placeholder="e.g. P300, From P200, Contact for price, or any text"
                     placeholderTextColor={subtitleColor}
                   />
                   {fieldErrors.price && (

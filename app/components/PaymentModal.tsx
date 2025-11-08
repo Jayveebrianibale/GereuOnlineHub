@@ -75,9 +75,8 @@ export function PaymentModal({
   const [loading, setLoading] = useState(false); // Loading state
   const [verifying, setVerifying] = useState(false); // Verification state
   const [step, setStep] = useState<'payment' | 'verification' | 'success'>('payment'); // Current step
+  const [selectedPaymentType, setSelectedPaymentType] = useState<'qr_code' | 'paymongo' | null>(null); // Selected payment type
   const [adminPaymentSettings, setAdminPaymentSettings] = useState<any>(null); // Admin payment settings
-  const [showPayMongoOption, setShowPayMongoOption] = useState(true); // Show PayMongo option
-  const [selectedPaymentType, setSelectedPaymentType] = useState<'qr_code' | 'paymongo' | null>(null); // Selected payment type (null = not selected)
 
   // ========================================
   // PAYMENT CALCULATIONS
@@ -103,9 +102,18 @@ export function PaymentModal({
   // I-reset ang state kapag nag-close ang modal
   useEffect(() => {
     if (visible) {
-      // I-load ang admin payment settings at i-initialize ang payment
-      loadAdminPaymentSettings();
-      initializePayment();
+      // Fetch admin payment settings
+      const fetchAdminSettings = async () => {
+        try {
+          const settings = await getAdminPaymentSettings();
+          setAdminPaymentSettings(settings);
+        } catch (error) {
+          console.error('Failed to fetch admin payment settings:', error);
+        }
+      };
+      fetchAdminSettings();
+      // Don't auto-initialize - let user choose payment method first
+      // initializePayment(); // Commented out to allow user to select payment method
     } else {
       // ========================================
       // RESET STATE - MODAL CLOSE
@@ -115,108 +123,44 @@ export function PaymentModal({
       setStep('payment'); // Reset to payment step
       setLoading(false); // Clear loading state
       setVerifying(false); // Clear verification state
-      setAdminPaymentSettings(null); // Clear admin settings
+      setSelectedPaymentType(null); // Reset payment type selection
     }
   }, [visible]);
 
   // ========================================
-  // LOAD ADMIN PAYMENT SETTINGS FUNCTION
+  // HANDLE PAYMENT METHOD SELECTION
   // ========================================
-  // I-load ang admin payment settings mula sa database
-  // Ginagamit para sa payment configuration
-  const loadAdminPaymentSettings = async () => {
-    try {
-      console.log('🔄 Loading admin payment settings...');
-      const settings = await getAdminPaymentSettings(); // I-fetch ang admin payment settings
-      console.log('✅ Admin payment settings loaded:', settings);
-      setAdminPaymentSettings(settings); // I-set ang settings sa state
-      
-      // ========================================
-      // CHECK ADMIN GCASH INFORMATION
-      // ========================================
-      // I-check kung may admin GCash information para sa QR code payment only
-      // PayMongo payments don't need admin GCash information
-      if (settings) {
-        const hasGCashNumber = settings.gcashNumber && settings.gcashNumber.trim() !== '';
-        const hasQRCode = settings.qrCodeImageUrl && settings.qrCodeImageUrl.trim() !== '';
-        
-        console.log('🔍 Admin GCash information check:', {
-          hasGCashNumber,
-          hasQRCode,
-          gcashNumber: settings.gcashNumber,
-          qrCodeImageUrl: settings.qrCodeImageUrl
-        });
-        
-        // I-show ang warning alert if admin GCash information is incomplete
-        if (!hasGCashNumber || !hasQRCode) {
-          console.warn('⚠️ Admin GCash information incomplete:', {
-            hasGCashNumber,
-            hasQRCode,
-            gcashNumber: settings.gcashNumber,
-            qrCodeImageUrl: settings.qrCodeImageUrl
-          });
-          
-          // I-show ang warning alert
-          Alert.alert(
-            'QR Code Payment Unavailable',
-            'Admin has not yet uploaded complete GCash payment information.\n\nTo use QR code payment, admin must upload:\n• GCash number\n• QR code image\n\nQR code payment is currently unavailable.\n\nPlease use PayMongo payment instead, or contact admin to complete the setup.',
-            [
-              { text: 'Use PayMongo', onPress: () => setSelectedPaymentType('paymongo') },
-              { text: 'OK', style: 'cancel' }
-            ]
-          );
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to load admin payment settings:', error); // I-log ang error
-    }
-  };
-
-  // ========================================
-  // PAYMENT METHOD SELECTION FUNCTION
-  // ========================================
-  // I-handle ang payment method selection at i-create ang payment
+  // I-handle ang payment method selection
+  // I-initialize ang payment based sa selected method
   const handlePaymentMethodSelection = async (paymentType: 'qr_code' | 'paymongo') => {
     try {
-      setSelectedPaymentType(paymentType);
-      setLoading(true);
+      setSelectedPaymentType(paymentType); // I-set ang selected payment type
+      setLoading(true); // I-set ang loading state
       
-      // I-load ang admin payment settings kung QR code ang selected
-      if (paymentType === 'qr_code') {
-        console.log('🔄 Loading admin payment settings for QR code payment...');
-        await loadAdminPaymentSettings();
-      }
-      
-      // I-create ang payment record
-      const newPayment = await createPayment(
-        userId,
-        reservationId,
-        serviceType,
-        serviceId,
-        fullAmount,
-        'gcash',
-        paymentType
+      const newPayment = await createPayment( // I-create ang payment record
+        userId, // User ID
+        reservationId, // Reservation ID
+        serviceType, // Service type
+        serviceId, // Service ID
+        fullAmount, // Full amount
+        'gcash', // Payment method (GCash)
+        paymentType // Payment type (QR code or PayMongo)
       );
       
-      setPayment(newPayment);
-      // I-stay sa payment step para ma-show ang QR code information
-      
-    } catch (error) {
-      console.error('Failed to create payment:', error);
-      Alert.alert(
-        'Payment Failed',
-        'Failed to initialize payment. Please try again.',
-        [{ text: 'OK' }]
-      );
+      setPayment(newPayment); // I-set ang payment sa state
+    } catch (error: any) {
+      console.error('Failed to create payment:', error); // I-log ang error
+      Alert.alert('Error', 'Failed to initialize payment. Please try again.');
+      setSelectedPaymentType(null); // I-reset ang selection
     } finally {
-      setLoading(false);
+      setLoading(false); // I-clear ang loading state
     }
   };
 
   // ========================================
   // INITIALIZE PAYMENT FUNCTION
   // ========================================
-  // I-initialize ang payment process
+  // I-initialize ang PayMongo payment process
   // I-create ang payment record sa database
   const initializePayment = async () => {
     try {
@@ -228,38 +172,18 @@ export function PaymentModal({
         serviceId, // Service ID
         fullAmount, // Full amount
         'gcash', // Payment method (GCash)
-        selectedPaymentType ?? undefined // Payment type (QR code or PayMongo)
+        'paymongo' // Always use PayMongo
       );
       setPayment(newPayment); // I-set ang payment sa state
     } catch (error: any) {
       console.error('Failed to create payment:', error); // I-log ang error
-      
-      // ========================================
-      // ERROR ALERT - PAYMENT INITIALIZATION FAILED
-      // ========================================
-      // I-check kung specific error about admin GCash information
-      if (error.message && error.message.includes('Admin GCash information is not yet uploaded')) {
-        Alert.alert(
-          'Payment Setup Required',
-          'Admin has not yet uploaded GCash payment information.\n\nTo complete your payment, please:\n\n1. Contact the admin to set up GCash details\n2. Ask admin to upload GCash number and QR code\n3. Try again once admin has completed the setup\n\nYou can also try using PayMongo payment if available.',
-          [
-            { text: 'OK', onPress: () => onClose() },
-            { text: 'Try PayMongo', onPress: () => {
-              // I-try ang PayMongo payment as alternative
-              setSelectedPaymentType('paymongo');
-              initializePayment();
-            }}
-          ]
-        );
-      } else {
-        // I-display ang generic error alert for other errors
-        Alert.alert('Error', 'Failed to initialize payment. Please try again.');
-        onClose(); // I-close ang modal
-      }
+      Alert.alert('Error', 'Failed to initialize payment. Please try again.');
+      onClose(); // I-close ang modal
     } finally {
       setLoading(false); // I-clear ang loading state
     }
   };
+
 
   // ========================================
   // HANDLE VERIFY PAYMENT FUNCTION
@@ -274,111 +198,41 @@ export function PaymentModal({
       setStep('verification'); // I-set ang step to verification
       
       // ========================================
-      // PAYMENT VERIFICATION BASED ON TYPE
+      // PAYMONGO GCASH PAYMENT VERIFICATION
       // ========================================
-      if (payment.paymentMethod === 'gcash') {
-        if (payment.paymongoSourceId && payment.checkoutUrl) {
-          // ========================================
-          // PAYMONGO GCASH PAYMENT VERIFICATION
-          // ========================================
-          console.log('🔄 Verifying PayMongo GCash payment...');
-          
-          const isVerified = await verifyPayment(payment.id);
-          
-          if (isVerified) {
-            // ========================================
-            // PAYMONGO PAYMENT SUCCESS - REDIRECT TO BOOKINGS
-            // ========================================
-            setStep('success');
-            
-            Alert.alert(
-              'Payment Successful!',
-              'Your PayMongo GCash payment has been processed successfully. Redirecting to your bookings...',
-              [
-                { 
-                  text: 'View Bookings', 
-                  onPress: () => {
-                    onPaymentSuccess(payment);
-                    onClose();
-                    // I-redirect sa bookings page
-                    router.push('/(user-tabs)/bookings');
-                  }
-                }
-              ]
-            );
-          } else {
-            Alert.alert(
-              'Payment Verification Failed',
-              'We could not verify your PayMongo payment. Please try again or contact support.',
-              [
-                { text: 'OK', onPress: () => setStep('payment') }
-              ]
-            );
-          }
-        } else if (payment.qrCode) {
-          // ========================================
-          // DIRECT QR CODE PAYMENT VERIFICATION
-          // ========================================
-          console.log('🔄 Verifying direct QR code payment...');
-          
-          const isVerified = await verifyPayment(payment.id);
-          
-          if (isVerified) {
-            // ========================================
-            // QR CODE PAYMENT SUBMITTED - AWAITING ADMIN CONFIRMATION
-            // ========================================
-            setStep('success');
-            
-            Alert.alert(
-              'Payment Submitted Successfully',
-              'Your QR code payment has been submitted and is awaiting admin confirmation. You will be notified once the payment is verified.',
-              [
-                { 
-                  text: 'OK', 
-                  onPress: () => {
-                    onPaymentSuccess(payment);
-                    onClose();
-                  }
-                }
-              ]
-            );
-          } else {
-            Alert.alert(
-              'Payment Verification Failed',
-              'We could not verify your payment. Please try again or contact support if the problem persists.',
-              [
-                { text: 'OK', onPress: () => setStep('payment') }
-              ]
-            );
-          }
-        } else {
-          Alert.alert(
-            'Payment Error',
-            'No payment method found. Please try again.',
-            [
-              { text: 'OK', onPress: () => setStep('payment') }
-            ]
-          );
-        }
-      } else {
+      console.log('🔄 Verifying PayMongo GCash payment...');
+      
+      const isVerified = await verifyPayment(payment.id);
+      
+      if (isVerified) {
         // ========================================
-        // LEGACY PAYMENT VERIFICATION
+        // PAYMONGO PAYMENT SUCCESS - REDIRECT TO BOOKINGS
         // ========================================
-        const isVerified = await verifyPayment(payment.id);
+        setStep('success');
         
-        if (isVerified) {
-          setStep('success');
-          setTimeout(() => {
-            onPaymentSuccess(payment);
-            onClose();
-          }, 2000);
-        } else {
-          Alert.alert(
-            'Payment Verification Failed',
-            'Your payment could not be verified. Please try again or contact support.',
-            [{ text: 'OK', onPress: () => setStep('payment') }]
-          );
-        }
+        Alert.alert(
+          'Payment Successful!',
+          'Your PayMongo GCash payment has been processed successfully. Redirecting to your bookings...',
+          [
+            { 
+              text: 'View Bookings', 
+              onPress: () => {
+                onPaymentSuccess(payment);
+                onClose();
+                // I-redirect sa bookings page
+                router.push('/(user-tabs)/bookings');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Payment Verification Failed',
+          'We could not verify your PayMongo payment. Please try again or contact support.',
+          [
+            { text: 'OK', onPress: () => setStep('payment') }
+          ]
+        );
       }
     } catch (error) {
       console.error('Payment verification failed:', error); // I-log ang error
@@ -537,12 +391,13 @@ export function PaymentModal({
         </View>
       </View>
 
-      {/* Payment Type Selection */}
+      {/* Payment Method Selection */}
       <View style={[styles.paymentTypeSection, { backgroundColor: isDark ? '#2A2A2A' : '#f8f9fa' }]}>
         <ThemedText style={[styles.paymentTypeTitle, { color: textColor }]}>
-          Choose Payment Method
+          Select Payment Method
         </ThemedText>
-        
+
+        {/* QR Code Payment Option */}
         <TouchableOpacity
           style={[
             styles.paymentTypeOption,
@@ -621,6 +476,7 @@ export function PaymentModal({
           })()}
         </TouchableOpacity>
 
+        {/* PayMongo Payment Option */}
         <TouchableOpacity
           style={[
             styles.paymentTypeOption,
@@ -668,7 +524,6 @@ export function PaymentModal({
           {/* QR Code Payment Display */}
           {selectedPaymentType === 'qr_code' && (
             <View style={[styles.qrCodeContainer, { backgroundColor: isDark ? '#2A2A2A' : '#f8f9fa' }]}>
-
               {adminPaymentSettings && adminPaymentSettings.gcashNumber && adminPaymentSettings.qrCodeImageUrl ? (
                 <QRCodeDisplay
                   qrCode={payment.qrCode || ''}
@@ -751,30 +606,30 @@ export function PaymentModal({
         </>
       )}
 
-      {/* Action Buttons - Only show if payment method is selected */}
-      {selectedPaymentType && (
+      {/* Action Buttons */}
+      {payment && (
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[styles.verifyButton, { backgroundColor: '#00B2FF' }]}
             onPress={handleVerifyPayment}
             disabled={!payment || verifying}
           >
-          <MaterialIcons name="verified" size={20} color="#fff" />
-          <ThemedText style={styles.verifyButtonText}>
-            I've Made the Payment
-          </ThemedText>
-        </TouchableOpacity>
-
-        {serviceType !== 'apartment' && (
-          <TouchableOpacity
-            style={[styles.skipButton, { borderColor: '#6c757d' }]}
-            onPress={handleSkipPayment}
-          >
-            <ThemedText style={[styles.skipButtonText, { color: '#6c757d' }]}>
-              Skip Payment
+            <MaterialIcons name="verified" size={20} color="#fff" />
+            <ThemedText style={styles.verifyButtonText}>
+              I've Made the Payment
             </ThemedText>
           </TouchableOpacity>
-        )}
+
+          {serviceType !== 'apartment' && (
+            <TouchableOpacity
+              style={[styles.skipButton, { borderColor: '#6c757d' }]}
+              onPress={handleSkipPayment}
+            >
+              <ThemedText style={[styles.skipButtonText, { color: '#6c757d' }]}>
+                Skip Payment
+              </ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </ScrollView>
@@ -1038,14 +893,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  paymongoToggle: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  paymongoToggleText: {
-    fontSize: 14,
-    textDecorationLine: 'underline',
   },
   // Payment Type Selection Styles
   paymentTypeSection: {

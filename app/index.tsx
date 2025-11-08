@@ -17,14 +17,9 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Show splash screen first
-  if (showSplash) {
+  // Show ProfessionalSplashScreen first - i-show agad para hindi makita ang native splash
+  if (showSplash || isLoading) {
     return <ProfessionalSplashScreen onFinish={() => setShowSplash(false)} />;
-  }
-
-  // Kung nagche-check pa ng login, huwag munang mag-render
-  if (isLoading) {
-    return null;
   }
 
   // Si AuthGuard ang bahala mag-redirect (admin/user/onboarding)

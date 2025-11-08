@@ -12,8 +12,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { get, onValue, orderByChild, query, ref, update } from "firebase/database";
-import { useEffect, useState } from 'react';
+import { get, limitToLast, onValue, orderByChild, query, ref, update } from "firebase/database";
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ADMIN_EMAILS } from '../config/adminConfig';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -99,13 +99,16 @@ export default function MessagesScreen() {
   const [adminStatus, setAdminStatus] = useState<{[key: string]: boolean}>({});
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [loadingProfilePictures, setLoadingProfilePictures] = useState<{[key: string]: boolean}>({});
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
 
   // Get current user email from auth context
   const currentUserEmail = user?.email || '';
 
-  // ✅ Fetch admin users from Firebase
+  // ✅ Fetch admin users from Firebase - optimized for faster loading
   const fetchAdminUsers = async () => {
     try {
+      setIsLoadingAdmins(true);
       const usersRef = ref(db, 'users');
       const snapshot = await get(usersRef);
       
@@ -113,16 +116,14 @@ export default function MessagesScreen() {
         const usersData = snapshot.val();
         const adminUsersList: any[] = [];
         
-        // Find users with admin emails
-        Object.keys(usersData).forEach(userId => {
+        // Find users with admin emails - optimized loop
+        for (const userId in usersData) {
           const userData = usersData[userId];
           if (ADMIN_EMAILS.includes(userData.email)) {
             // Filter out admin with name "Jeibii" or "Super Admin" (case-insensitive)
             const adminName = userData.name || 'Admin';
             const safeName = adminName.toLowerCase().trim();
-            console.log('Checking admin:', { adminName, safeName, email: userData.email });
             if (!safeName.includes('jeibii') && !safeName.includes('super admin')) {
-              console.log('Adding admin to list:', adminName);
               adminUsersList.push({
                 id: userId,
                 name: adminName,
@@ -130,17 +131,27 @@ export default function MessagesScreen() {
                 avatar: userData.avatar || adminName?.charAt(0)?.toUpperCase() || 'A',
                 role: userData.role || 'admin'
               });
-            } else {
-              console.log('Filtering out admin:', adminName);
             }
           }
-        });
+        }
         
-        console.log('Fetched admin users:', adminUsersList);
+        // Set admin users immediately so UI can render
         setAdminUsers(adminUsersList);
+        setIsLoadingAdmins(false);
+        
+        // Fetch profile pictures in background (non-blocking) - pass adminUsersList directly
+        if (adminUsersList.length > 0) {
+          // Use setTimeout to ensure state update completes first, then fetch in background
+          setTimeout(() => {
+            fetchAdminProfilePictures(adminUsersList);
+          }, 0);
+        }
+      } else {
+        setIsLoadingAdmins(false);
       }
     } catch (error) {
       console.error('Error fetching admin users:', error);
+      setIsLoadingAdmins(false);
     }
   };
 
@@ -148,13 +159,6 @@ export default function MessagesScreen() {
   useEffect(() => {
     fetchAdminUsers();
   }, []);
-
-  // ✅ Fetch profile pictures when admin users change
-  useEffect(() => {
-    if (adminUsers.length > 0) {
-      fetchAdminProfilePictures();
-    }
-  }, [adminUsers]);
 
   // ✅ Real-time admin status listener
   useEffect(() => {
@@ -191,59 +195,44 @@ export default function MessagesScreen() {
     }
   }, [currentUserEmail]);
 
-  // ✅ Real-time listener
+  // ✅ Real-time listener with optimized query
   useEffect(() => {
-    if (!currentUserEmail) return;
+    if (!currentUserEmail) {
+      setIsLoadingMessages(false);
+      return;
+    }
 
-    const messagesRef = query(ref(db, "messages"), orderByChild("time"));
+    // Limit to last 500 messages for better performance
+    const messagesRef = query(
+      ref(db, "messages"), 
+      orderByChild("time"),
+      limitToLast(500)
+    );
+
+    setIsLoadingMessages(true);
 
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         
-        console.log('User - Raw Firebase data:', data);
-        console.log('User email:', currentUserEmail);
+        // Process messages more efficiently
+        const messagesMap = new Map<string, any>();
         
-        // Convert object to array and process messages
-        const fetched = Object.keys(data)
-          .map((key) => ({
-            id: key,
-            ...data[key],
-          }))
-          // Filter messages where user is recipient or sender
-          .filter((msg: any) => {
-            const isUserRecipient = msg.recipientEmail === currentUserEmail;
-            const isUserSender = msg.senderEmail === currentUserEmail;
-            
-            // Check if this message has been deleted for the user
-            const deletedFor = msg.deletedFor || [];
-            const isDeletedForUser = deletedFor.includes(currentUserEmail);
-            
-            console.log('User message filter:', {
-              messageId: msg.id,
-              recipientEmail: msg.recipientEmail,
-              senderEmail: msg.senderEmail,
-              userEmail: currentUserEmail,
-              isUserRecipient,
-              isUserSender,
-              isDeletedForUser,
-              deletedFor,
-              included: (isUserRecipient || isUserSender) && !isDeletedForUser,
-              text: msg.text
-            });
-            
-            // Only include messages that are for the user AND haven't been deleted for the user
-            return (isUserRecipient || isUserSender) && !isDeletedForUser;
-          })
-          // Group by chatId and get the latest message from each chat
-          .reduce((acc: any[], msg: any) => {
-            const existingChat = acc.find(chat => chat.chatId === msg.chatId);
+        // Process all messages in a single pass
+        Object.keys(data).forEach((key) => {
+          const msg = { id: key, ...data[key] };
+          const isUserRecipient = msg.recipientEmail === currentUserEmail;
+          const isUserSender = msg.senderEmail === currentUserEmail;
+          const deletedFor = msg.deletedFor || [];
+          const isDeletedForUser = deletedFor.includes(currentUserEmail);
+          
+          // Only process messages that are for the user AND haven't been deleted
+          if ((isUserRecipient || isUserSender) && !isDeletedForUser) {
             const messageTime = msg.timestamp || msg.time;
+            const existingChat = messagesMap.get(msg.chatId);
             
+            // Keep only the latest message per chat
             if (!existingChat || messageTime > existingChat.time) {
-              // Remove existing chat and add this one
-              const filtered = acc.filter(chat => chat.chatId !== msg.chatId);
-              
               // Get consistent admin name from adminUsers array
               const getAdminName = (email: string) => {
                 const admin = adminUsers.find(admin => admin.email === email);
@@ -260,88 +249,98 @@ export default function MessagesScreen() {
                 avatar: msg.senderEmail === currentUserEmail ? 
                   getAdminName(msg.recipientEmail || '').charAt(0).toUpperCase() : 
                   getAdminName(msg.senderEmail || '').charAt(0).toUpperCase(),
-                unread: msg.senderEmail !== currentUserEmail, // Mark as unread if not sent by user
+                unread: msg.senderEmail !== currentUserEmail,
                 chatId: msg.chatId,
                 senderEmail: msg.senderEmail,
                 recipientEmail: msg.recipientEmail,
                 recipientName: msg.recipientName,
               };
               
-              console.log('User - Adding chat message:', chatMessage);
-              
-              return [...filtered, chatMessage];
+              messagesMap.set(msg.chatId, chatMessage);
             }
-            return acc;
-          }, [])
-          // Sort by time (newest first)
+          }
+        });
+
+        // Convert map to array and sort
+        const fetched = Array.from(messagesMap.values())
           .sort((a, b) => b.time - a.time);
 
         setMessages(fetched);
+        setIsLoadingMessages(false);
         
-        // Fetch profile pictures for admin users in messages (additional ones not already loaded)
-        fetchMessageAdminProfilePictures(fetched);
+        // Fetch profile pictures for admin users in messages (debounced)
+        if (fetched.length > 0) {
+          fetchMessageAdminProfilePictures(fetched);
+        }
       } else {
         setMessages([]);
+        setIsLoadingMessages(false);
       }
     });
 
     return () => unsubscribe();
   }, [currentUserEmail, adminUsers]);
 
-  // Fetch admin profile pictures from Firebase Database - independent of messages
-  const fetchAdminProfilePictures = async () => {
+  // Fetch admin profile pictures from Firebase Database - optimized to fetch users collection once
+  const fetchAdminProfilePictures = async (adminsToFetch?: any[]) => {
     try {
-      if (adminUsers.length === 0) {
-        console.log('No admin users to fetch profile pictures for');
+      // Use provided admins or fallback to state
+      const admins = adminsToFetch || adminUsers;
+      if (admins.length === 0) {
         return;
       }
 
-      const profilePictures: {[key: string]: string} = {};
+      // Only fetch pictures for admins we don't already have
+      const adminEmails = admins
+        .map((admin: any) => admin.email)
+        .filter((email: string) => !adminProfilePictures[email] && !loadingProfilePictures[email]);
       
-      // Only use admin emails from adminUsers (not from messages)
-      const adminEmails = adminUsers.map(admin => admin.email);
-      
-      console.log('Fetching profile pictures for admin emails:', adminEmails);
+      if (adminEmails.length === 0) {
+        return;
+      }
       
       // Set loading state for all admin emails
       const loadingState: {[key: string]: boolean} = {};
       adminEmails.forEach(email => {
         loadingState[email] = true;
       });
-      setLoadingProfilePictures(loadingState);
+      setLoadingProfilePictures(prev => ({ ...prev, ...loadingState }));
       
-      // Fetch profile pictures for each admin
+      // Fetch users collection once instead of per email
+      const usersRef = ref(db, 'users');
+      const usersSnapshot = await get(usersRef);
+      const usersData = usersSnapshot.exists() ? usersSnapshot.val() : {};
+      
+      // Create email to userId mapping
+      const emailToUserId: {[email: string]: string} = {};
+      Object.keys(usersData).forEach(userId => {
+        const userData = usersData[userId];
+        if (userData.email && userData.role === 'admin' && adminEmails.includes(userData.email)) {
+          emailToUserId[userData.email] = userId;
+        }
+      });
+      
+      // Fetch profile pictures for each admin in parallel
       const promises = adminEmails.map(async (email) => {
         try {
-          // Find admin user ID from email in users collection
-          const usersRef = ref(db, 'users');
-          const usersSnapshot = await get(usersRef);
-          if (usersSnapshot.exists()) {
-            const usersData = usersSnapshot.val();
-            for (const userId in usersData) {
-              if (usersData[userId].email === email && usersData[userId].role === 'admin') {
-                console.log(`Found admin user ${userId} for email ${email}`);
-                
-                // Try to get profile picture from userProfileImages
-                const imageRef = ref(db, `userProfileImages/${userId}/url`);
-                const imageSnapshot = await get(imageRef);
-                if (imageSnapshot.exists()) {
-                  const imageUrl = imageSnapshot.val();
-                  if (imageUrl && imageUrl.trim() !== '') {
-                    console.log(`Found profile picture for ${email}: ${imageUrl}`);
-                    profilePictures[email] = imageUrl;
-                  } else {
-                    console.log(`Empty profile picture URL for ${email}`);
-                  }
-                } else {
-                  console.log(`No profile picture found for ${email}`);
-                }
-                break;
-              }
+          const userId = emailToUserId[email];
+          if (!userId) {
+            return null;
+          }
+          
+          // Try to get profile picture from userProfileImages
+          const imageRef = ref(db, `userProfileImages/${userId}/url`);
+          const imageSnapshot = await get(imageRef);
+          if (imageSnapshot.exists()) {
+            const imageUrl = imageSnapshot.val();
+            if (imageUrl && imageUrl.trim() !== '') {
+              return { email, imageUrl };
             }
           }
+          return null;
         } catch (error) {
           console.error(`Error fetching profile picture for ${email}:`, error);
+          return null;
         } finally {
           // Remove loading state for this email
           setLoadingProfilePictures(prev => {
@@ -352,24 +351,30 @@ export default function MessagesScreen() {
         }
       });
       
-      await Promise.all(promises);
-      console.log('Final profile pictures:', profilePictures);
+      const results = await Promise.all(promises);
+      const profilePictures: {[key: string]: string} = {};
       
-      // Merge with existing profile pictures to preserve any that might already be loaded
-      setAdminProfilePictures(prev => ({
-        ...prev,
-        ...profilePictures
-      }));
+      results.forEach(result => {
+        if (result && result.imageUrl) {
+          profilePictures[result.email] = result.imageUrl;
+        }
+      });
+      
+      // Merge with existing profile pictures
+      if (Object.keys(profilePictures).length > 0) {
+        setAdminProfilePictures(prev => ({
+          ...prev,
+          ...profilePictures
+        }));
+      }
     } catch (error) {
       console.error('Error fetching admin profile pictures:', error);
     }
   };
 
-  // Fetch profile pictures for admin users in messages (for message cards)
+  // Fetch profile pictures for admin users in messages (for message cards) - optimized with caching
   const fetchMessageAdminProfilePictures = async (messagesList: any[]) => {
     try {
-      const profilePictures: {[key: string]: string} = {};
-      
       // Get unique admin emails from messages only
       const adminEmails = new Set<string>();
       messagesList.forEach(message => {
@@ -387,11 +392,8 @@ export default function MessagesScreen() {
       );
       
       if (emailsToFetch.length === 0) {
-        console.log('All message admin profile pictures already loaded');
         return;
       }
-      
-      console.log('Fetching additional profile pictures for message admins:', emailsToFetch);
       
       // Set loading state for emails we need to fetch
       const loadingState: {[key: string]: boolean} = {};
@@ -400,38 +402,38 @@ export default function MessagesScreen() {
       });
       setLoadingProfilePictures(prev => ({ ...prev, ...loadingState }));
       
+      // Fetch all users once instead of per email
+      const usersRef = ref(db, 'users');
+      const usersSnapshot = await get(usersRef);
+      const usersData = usersSnapshot.exists() ? usersSnapshot.val() : {};
+      
       // Fetch profile pictures for each admin
       const promises = emailsToFetch.map(async (email) => {
         try {
           // Find admin user ID from email in users collection
-          const usersRef = ref(db, 'users');
-          const usersSnapshot = await get(usersRef);
-          if (usersSnapshot.exists()) {
-            const usersData = usersSnapshot.val();
-            for (const userId in usersData) {
-              if (usersData[userId].email === email && usersData[userId].role === 'admin') {
-                console.log(`Found admin user ${userId} for email ${email}`);
-                
-                // Try to get profile picture from userProfileImages
-                const imageRef = ref(db, `userProfileImages/${userId}/url`);
-                const imageSnapshot = await get(imageRef);
-                if (imageSnapshot.exists()) {
-                  const imageUrl = imageSnapshot.val();
-                  if (imageUrl && imageUrl.trim() !== '') {
-                    console.log(`Found profile picture for ${email}: ${imageUrl}`);
-                    profilePictures[email] = imageUrl;
-                  } else {
-                    console.log(`Empty profile picture URL for ${email}`);
-                  }
-                } else {
-                  console.log(`No profile picture found for ${email}`);
-                }
-                break;
+          let userId: string | null = null;
+          for (const uid in usersData) {
+            if (usersData[uid].email === email && usersData[uid].role === 'admin') {
+              userId = uid;
+              break;
+            }
+          }
+          
+          if (userId) {
+            // Try to get profile picture from userProfileImages
+            const imageRef = ref(db, `userProfileImages/${userId}/url`);
+            const imageSnapshot = await get(imageRef);
+            if (imageSnapshot.exists()) {
+              const imageUrl = imageSnapshot.val();
+              if (imageUrl && imageUrl.trim() !== '') {
+                return { email, imageUrl };
               }
             }
           }
+          return null;
         } catch (error) {
           console.error(`Error fetching profile picture for ${email}:`, error);
+          return null;
         } finally {
           // Remove loading state for this email
           setLoadingProfilePictures(prev => {
@@ -442,32 +444,44 @@ export default function MessagesScreen() {
         }
       });
       
-      await Promise.all(promises);
-      console.log('Additional profile pictures:', profilePictures);
+      const results = await Promise.all(promises);
+      const profilePictures: {[key: string]: string} = {};
+      
+      results.forEach(result => {
+        if (result && result.imageUrl) {
+          profilePictures[result.email] = result.imageUrl;
+        }
+      });
       
       // Merge with existing profile pictures
-      setAdminProfilePictures(prev => ({
-        ...prev,
-        ...profilePictures
-      }));
+      if (Object.keys(profilePictures).length > 0) {
+        setAdminProfilePictures(prev => ({
+          ...prev,
+          ...profilePictures
+        }));
+      }
     } catch (error) {
       console.error('Error fetching message admin profile pictures:', error);
     }
   };
 
-  // Filtering
-  const filteredMessages = messages.filter(message => {
-    // Add null checks and fallbacks for potentially undefined properties
-    const messageName = message.name || '';
-    const messageLastMessage = message.lastMessage || '';
+  // Optimized filtering with useMemo
+  const filteredMessages = useMemo(() => {
+    if (!search && filter === 'all') {
+      return messages; // No filtering needed
+    }
     
-    const matchesSearch =
-      messageName.toLowerCase().includes(search.toLowerCase()) ||
-      messageLastMessage.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter =
-      filter === 'all' ? true : message.unread; 
-    return matchesSearch && matchesFilter;
-  });
+    return messages.filter(message => {
+      const messageName = message.name || '';
+      const messageLastMessage = message.lastMessage || '';
+      
+      const matchesSearch = !search ||
+        messageName.toLowerCase().includes(search.toLowerCase()) ||
+        messageLastMessage.toLowerCase().includes(search.toLowerCase());
+      const matchesFilter = filter === 'all' ? true : message.unread; 
+      return matchesSearch && matchesFilter;
+    });
+  }, [messages, search, filter]);
 
   const handleAdminChat = (admin: any) => {
     // Check if user is authenticated
@@ -665,7 +679,44 @@ export default function MessagesScreen() {
             <View style={[styles.sectionUnderline, { backgroundColor: colorPalette.light }]} />
           </View>
           
-          {adminUsers.map((admin, index) => (
+          {isLoadingAdmins ? (
+            <View style={[styles.adminCard, { 
+              backgroundColor: cardBgColor, 
+              borderColor: isDark ? '#333' : colorPalette.lightest,
+            }]}>
+              <View style={styles.adminCardContent}>
+                <View style={styles.adminInfo}>
+                  <View style={[styles.adminAvatar, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="hourglass-empty" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.adminDetails}>
+                    <ThemedText type="subtitle" style={[styles.adminName, { color: textColor }]}>
+                      Loading admins...
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : adminUsers.length === 0 ? (
+            <View style={[styles.adminCard, { 
+              backgroundColor: cardBgColor, 
+              borderColor: isDark ? '#333' : colorPalette.lightest,
+            }]}>
+              <View style={styles.adminCardContent}>
+                <View style={styles.adminInfo}>
+                  <View style={[styles.adminAvatar, { backgroundColor: colorPalette.primary }]}>
+                    <MaterialIcons name="info" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.adminDetails}>
+                    <ThemedText type="subtitle" style={[styles.adminName, { color: textColor }]}>
+                      No admins available
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : (
+            adminUsers.map((admin, index) => (
             <TouchableOpacity 
               key={admin.id}
               style={[styles.adminCard, { 
@@ -743,7 +794,8 @@ export default function MessagesScreen() {
                 </View>
               </View>
             </TouchableOpacity>
-          ))}
+            ))
+          )}
         </View>
 
         {/* Stats removed as requested */}
@@ -758,7 +810,19 @@ export default function MessagesScreen() {
           </View>
 
           {/* Enhanced Message List */}
-          {filteredMessages.length === 0 ? (
+          {isLoadingMessages ? (
+            <View style={[styles.emptyState, { 
+              backgroundColor: cardBgColor, 
+              borderColor: isDark ? '#333' : colorPalette.lightest,
+            }]}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: colorPalette.lightest }]}>
+                <MaterialIcons name="hourglass-empty" size={32} color={colorPalette.primary} />
+              </View>
+              <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
+                Loading messages...
+              </ThemedText>
+            </View>
+          ) : filteredMessages.length === 0 ? (
             <View style={[styles.emptyState, { 
               backgroundColor: cardBgColor, 
               borderColor: isDark ? '#333' : colorPalette.lightest,

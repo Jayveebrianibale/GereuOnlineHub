@@ -23,6 +23,14 @@ import { notifyAdmins } from "../services/notificationService";
 import { calculateDownPayment, isPaymentRequired } from "../services/paymentService";
 import { getAdminReservations, updateAdminReservationStatus } from "../services/reservationService";
 import { formatPHP } from "../utils/currency";
+import { isSmallScreen, isTablet, normalize } from "../utils/responsiveUtils";
+
+// Helper function to format price for car and motor services (replace commas with dashes)
+function formatAutoPrice(value: number | string): string {
+  const formatted = formatPHP(value);
+  // Replace commas with " - " for car and motor services
+  return formatted.replace(/,/g, ' - ');
+}
 
 // ========================================
 // COLOR PALETTE CONFIGURATION
@@ -723,7 +731,7 @@ export default function Bookings() {
                  <View style={styles.priceContainer}>
                    <ThemedText style={[styles.priceLabel, { color: subtitleColor }]}>Total</ThemedText>
                    <ThemedText style={[styles.priceAmount, { color: textColor }]}>
-                     {formatPHP((svc as any).servicePrice ?? (svc as any).price ?? 0)}
+                     {formatAutoPrice((svc as any).servicePrice ?? (svc as any).price ?? 0)}
                    </ThemedText>
                  </View>
                </View>
@@ -834,7 +842,7 @@ export default function Bookings() {
                          {(() => {
                            const servicePrice = (svc as any).servicePrice ?? (svc as any).price ?? 0;
                            const downPayment = calculateDownPayment(servicePrice, 'auto');
-                           return formatPHP(downPayment);
+                           return formatAutoPrice(downPayment);
                          })()}
                        </ThemedText>
                      </View>
@@ -1031,7 +1039,7 @@ export default function Bookings() {
                     <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Parts & service</ThemedText>
                   </View>
                   <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
-                    {formatPHP(i.amount)}
+                    {formatAutoPrice(i.amount)}
                   </ThemedText>
                 </View>
               ))}
@@ -1039,7 +1047,7 @@ export default function Bookings() {
               <View style={styles.professionalBillRow}>
                 <ThemedText style={[styles.billSubtotalLabel, { color: textColor }]}>Subtotal</ThemedText>
                 <ThemedText style={[styles.billSubtotalAmount, { color: colorPalette.primary }]}>
-                  {formatPHP(totals.auto)}
+                  {formatAutoPrice(totals.auto)}
                 </ThemedText>
               </View>
             </View>
@@ -1071,46 +1079,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    padding: 20,
+    padding: normalize(isTablet ? 24 : 20),
   },
   header: {
-    marginBottom: 24,
+    marginBottom: normalize(isTablet ? 28 : 24),
   },
   title: {
-    fontSize: 24,
+    fontSize: normalize(isTablet ? 28 : isSmallScreen ? 22 : 24),
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: normalize(8),
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
     opacity: 0.8,
   },
   bookingCard: {
-    borderRadius: 16,
+    borderRadius: normalize(isTablet ? 20 : 16),
     padding: 0,
-    marginBottom: 16,
+    marginBottom: normalize(isTablet ? 20 : 16),
     borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: normalize(8),
+    shadowOffset: { width: 0, height: normalize(4) },
     elevation: 4,
     overflow: 'hidden',
   },
   coverImage: {
     width: '100%',
-    height: 160,
+    height: normalize(isTablet ? 200 : isSmallScreen ? 140 : 160),
   },
   cardBody: {
-    padding: 16,
+    padding: normalize(isTablet ? 20 : 16),
   },
   bookingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    marginBottom: normalize(isTablet ? 20 : 16),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
+    paddingTop: normalize(isTablet ? 16 : 12),
   },
   serviceInfo: {
     flexDirection: 'row',
@@ -1118,54 +1126,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   serviceDetails: {
-    marginLeft: 12,
+    marginLeft: normalize(isTablet ? 16 : 12),
     flex: 1,
   },
   serviceName: {
-    fontSize: 16,
+    fontSize: normalize(isTablet ? 18 : isSmallScreen ? 15 : 16),
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: normalize(4),
   },
   bedInfo: {
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
     fontWeight: '600',
   },
   reservationDate: {
-    fontSize: 12,
+    fontSize: normalize(isTablet ? 14 : 12),
     fontStyle: 'italic',
   },
   serviceType: {
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: normalize(isTablet ? 16 : 12),
+    paddingVertical: normalize(isTablet ? 8 : 6),
+    borderRadius: normalize(isTablet ? 16 : 12),
   },
   statusText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: normalize(isTablet ? 14 : 12),
     fontWeight: '600',
   },
   bookingDetails: {
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    marginBottom: normalize(isTablet ? 20 : 16),
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: normalize(8),
   },
   detailText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: normalize(isTablet ? 12 : 8),
+    fontSize: normalize(isTablet ? 16 : 14),
   },
   bookingActions: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
+    paddingBottom: normalize(isTablet ? 20 : 16),
   },
   buttonSpacer: {
     flex: 1,
@@ -1173,14 +1181,14 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: normalize(isTablet ? 12 : 8),
   },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: normalize(isTablet ? 16 : 12),
+    paddingVertical: normalize(isTablet ? 10 : 8),
+    borderRadius: normalize(isTablet ? 12 : 8),
     backgroundColor: 'rgba(244, 67, 54, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(244, 67, 54, 0.3)',
@@ -1188,47 +1196,47 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 0,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: normalize(isTablet ? 12 : 8),
+    paddingVertical: normalize(isTablet ? 12 : 10),
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: normalize(isTablet ? 20 : 16),
   },
   viewDetailsButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: normalize(isTablet ? 12 : 8),
+    borderRadius: normalize(isTablet ? 12 : 8),
     backgroundColor: 'rgba(0, 178, 255, 0.1)',
   },
   cancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: normalize(isTablet ? 16 : 12),
+    paddingVertical: normalize(isTablet ? 10 : 8),
+    borderRadius: normalize(isTablet ? 12 : 8),
     backgroundColor: 'rgba(244, 67, 54, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(244, 67, 54, 0.3)',
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
     fontWeight: '600',
   },
   // Tabs
   tabBar: {
-    marginTop: 40,
+    marginTop: normalize(isTablet ? 48 : 40),
     flexDirection: 'row',
     borderBottomWidth: 1,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: normalize(isTablet ? 16 : 12),
   },
   tabButtonActive: {
     borderBottomWidth: 2,
     borderBottomColor: '#00B2FF',
   },
   tabButtonText: {
-    fontSize: 14,
+    fontSize: normalize(isTablet ? 16 : 14),
     fontWeight: '700',
   },
   // Bills

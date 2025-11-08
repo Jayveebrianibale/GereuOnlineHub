@@ -5,7 +5,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
@@ -15,18 +15,18 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useReservation } from '../../contexts/ReservationContext';
 import { db } from '../../firebaseConfig';
 import {
-    AutoService,
-    getAutoServices,
+  AutoService,
+  getAutoServices,
 } from '../../services/autoService';
 import {
-    cacheAutoServices,
-    cacheMotorParts,
-    getCachedAutoServices,
-    getCachedMotorParts
+  cacheAutoServices,
+  cacheMotorParts,
+  getCachedAutoServices,
+  getCachedMotorParts
 } from '../../services/dataCache';
 import {
-    MotorPart,
-    getMotorParts,
+  MotorPart,
+  getMotorParts,
 } from '../../services/motorPartsService';
 import { notifyAdmins } from '../../services/notificationService';
 import { formatPHP } from '../../utils/currency';
@@ -500,13 +500,6 @@ export default function AutoListScreen() {
             {item.available ? "Available" : "Unavailable"}
           </ThemedText>
         </View>
-        
-        {/* Clean Price Badge */}
-        <View style={styles.priceBadgeOverlay}>
-          <ThemedText style={[styles.priceBadgeText, { color: '#fff' }]}>
-            {formatPHP(item.price)}
-          </ThemedText>
-        </View>
       </View>
       
       <View style={styles.autoContent}>
@@ -520,6 +513,19 @@ export default function AutoListScreen() {
               {item.category || 'Service'}
             </ThemedText>
           </View>
+        </View>
+        
+        {/* Price Display - Below Image */}
+        <View style={styles.priceContainer}>
+          <ThemedText style={[
+            styles.priceText,
+            {
+              color: colorPalette.primary,
+              fontSize: normalize(isTablet ? 24 : isSmallScreen ? 20 : 22),
+            }
+          ]}>
+            {formatPHP(item.price)}
+          </ThemedText>
         </View>
         
         <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
@@ -603,13 +609,6 @@ export default function AutoListScreen() {
             {item.available ? "In Stock" : "Out of Stock"}
           </ThemedText>
         </View>
-        
-        {/* Clean Price Badge */}
-        <View style={styles.priceBadgeOverlay}>
-          <ThemedText style={[styles.priceBadgeText, { color: '#fff' }]}>
-            {formatPHP(item.price)}
-          </ThemedText>
-        </View>
       </View>
       
       <View style={styles.autoContent}>
@@ -624,6 +623,21 @@ export default function AutoListScreen() {
             </ThemedText>
           </View>
         </View>
+        
+        {/* Price Display - Below Image */}
+        {item.price && (
+          <View style={styles.priceContainer}>
+            <ThemedText style={[
+              styles.priceText,
+              {
+                color: '#8B5CF6',
+                fontSize: normalize(isTablet ? 24 : isSmallScreen ? 20 : 22),
+              }
+            ]}>
+              {formatPHP(item.price)}
+            </ThemedText>
+          </View>
+        )}
         
         <ThemedText style={[styles.description, { color: subtitleColor }]} numberOfLines={2}>
           {item.description}
@@ -644,20 +658,6 @@ export default function AutoListScreen() {
               Genuine
             </ThemedText>
           </View>
-        </View>
-        
-        {/* Clean Action Section */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity 
-            style={[styles.viewButton, { backgroundColor: '#8B5CF6' }]}
-            onPress={() => {
-              setSelectedMotorPart(item);
-              setDetailModalVisible(true);
-            }}
-          >
-            <MaterialIcons name="visibility" size={16} color="#fff" />
-            <ThemedText style={styles.viewButtonText}>View Details</ThemedText>
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -1141,7 +1141,7 @@ export default function AutoListScreen() {
                              return (
                                <MaterialIcons
                                  name={active ? 'check-circle' : 'bookmark-border'}
-                                 size={20}
+                                 size={16}
                                  color={active ? '#fff' : colorPalette.primary}
                                />
                              );
@@ -1217,19 +1217,6 @@ export default function AutoListScreen() {
                     We'll come to your location
                   </ThemedText>
                 </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.serviceTypeOption, { backgroundColor: cardBgColor, borderColor }]}
-                  onPress={() => handleServiceTypeChoice('shop')}
-                >
-                  <MaterialIcons name="store" size={32} color={colorPalette.primary} />
-                  <ThemedText type="subtitle" style={[styles.serviceTypeOptionTitle, { color: textColor }]}>
-                    Shop Service
-                  </ThemedText>
-                  <ThemedText style={[styles.serviceTypeOptionDesc, { color: subtitleColor }]}>
-                    Bring your vehicle to our shop
-                  </ThemedText>
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -1242,9 +1229,18 @@ export default function AutoListScreen() {
           transparent={true}
           onRequestClose={() => setHomeServiceModalVisible(false)}
         >
-          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-            <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
-              <ScrollView contentContainerStyle={styles.homeServiceScrollContent}>
+          <KeyboardAvoidingView 
+            style={{ flex: 1 }} 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+              <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
+                <ScrollView 
+                  contentContainerStyle={styles.homeServiceScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                >
                 <View style={styles.homeServiceHeader}>
                   <ThemedText type="title" style={[styles.homeServiceTitle, { color: textColor }]}>
                     Home Service Details
@@ -1340,6 +1336,7 @@ export default function AutoListScreen() {
               </ScrollView>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Full Screen Image Viewer */}
@@ -1491,18 +1488,14 @@ const styles = StyleSheet.create({
   },
   priceBadgeOverlay: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
     zIndex: 2,
+    // Responsive values are applied inline in component
   },
   priceBadgeText: {
-    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+    // Responsive fontSize is applied inline in component
   },
   categoryBadge: {
     paddingHorizontal: 8,
@@ -1749,7 +1742,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   priceContainer: {
-    flex: 1,
+    marginTop: normalize(8),
+    marginBottom: normalize(12),
   },
   priceHeader: {
     flexDirection: 'row',
@@ -1804,14 +1798,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   priceText: {
-    fontSize: 18,
     fontWeight: 'bold',
+    // Responsive fontSize is applied inline in component
   },
   bookButton: {
     flex: 1,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1819,7 +1813,7 @@ const styles = StyleSheet.create({
   bookButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 12,
   },
   unavailableContainer: {
     flexDirection: 'row',
@@ -2203,6 +2197,7 @@ const styles = StyleSheet.create({
   },
   homeServiceScrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   homeServiceHeader: {
     flexDirection: 'row',

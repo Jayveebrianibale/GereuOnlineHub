@@ -31,18 +31,18 @@ export function formatPHP(value: number | string): string {
   const trimmed = (value ?? '').toString().trim();
   if (trimmed.length === 0) return '₱0';
 
-  // I-convert ang $ sign to ₱ sign
-  if (/^\$/.test(trimmed)) {
-    return trimmed.replace(/^\$/, '₱');
+  // I-remove ang lahat ng $ signs completely (walang dollar sign dapat)
+  let cleaned = trimmed.replace(/\$/g, '').trim();
+  
+  if (cleaned.length === 0) return '₱0';
+
+  // I-add ang ₱ sign kung walang currency symbol at may number
+  if (!/^₱/.test(cleaned) && /^\d|^\.\d/.test(cleaned)) {
+    return `₱${cleaned}`;
   }
 
-  // I-add ang ₱ sign kung walang currency symbol
-  if (!/^₱/.test(trimmed) && /^\d|^\.\d/.test(trimmed)) {
-    return `₱${trimmed}`;
-  }
-
-  // I-replace ang lahat ng $ signs with ₱
-  return trimmed.replace(/\$/g, '₱');
+  // Return cleaned value (walang $ sign na natira)
+  return cleaned;
 }
 
 

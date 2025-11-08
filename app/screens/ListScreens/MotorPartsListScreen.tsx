@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { RobustImage } from '../../components/RobustImage';
@@ -531,9 +531,18 @@ export default function MotorPartsListScreen() {
         transparent={true}
         onRequestClose={() => setHomeServiceModalVisible(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
-            <ScrollView contentContainerStyle={styles.homeServiceScrollContent}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+            <View style={[styles.homeServiceModal, { backgroundColor: cardBgColor }]}>
+              <ScrollView 
+                contentContainerStyle={styles.homeServiceScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+              >
               <View style={styles.homeServiceHeader}>
                 <ThemedText type="title" style={[styles.homeServiceTitle, { color: textColor }]}>
                   Home Service Details
@@ -629,6 +638,7 @@ export default function MotorPartsListScreen() {
             </ScrollView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
         
       {/* Full Screen Image Viewer */}
@@ -1003,7 +1013,7 @@ const styles = StyleSheet.create({
     maxWidth: isTablet ? wp(80) : wp(95),
   },
   homeServiceScrollContent: {
-    paddingBottom: normalize(20),
+    paddingBottom: normalize(40),
   },
   homeServiceHeader: {
     flexDirection: 'row',

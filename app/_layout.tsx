@@ -9,7 +9,9 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -38,6 +40,12 @@ function AppContent() {
   
   // I-initialize ang user heartbeat para sa real-time status tracking
   useUserHeartbeat();
+
+  // Update status bar color - light blue background with light icons
+  useEffect(() => {
+    StatusBar.setBarStyle('light-content', true);
+    StatusBar.setBackgroundColor('#00B2FF', true);
+  }, [colorScheme]);
   
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -116,7 +124,11 @@ function AppContent() {
             ======================================== */}
         <Stack.Screen name="+not-found" /> {/* 404 Not Found screen */}
       </Stack>
-      <StatusBar style="light" backgroundColor="#00B2FF" />
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor="#00B2FF"
+        translucent={false}
+      />
     </ThemeProvider>
   );
 }
@@ -132,6 +144,17 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // I-hide ang native splash screen immediately - super saglit lang dapat
+  useEffect(() => {
+    // Hide agad ang native splash screen pagkatapos ng minimal initialization
+    // Use requestAnimationFrame para mas mabilis
+    requestAnimationFrame(() => {
+      SplashScreen.hideAsync().catch(() => {
+        // Ignore errors if splash screen is already hidden
+      });
+    });
+  }, []);
 
   // I-show ang loading state habang naglo-load ang fonts
   if (!loaded) {

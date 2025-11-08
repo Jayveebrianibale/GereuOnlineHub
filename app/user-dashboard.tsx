@@ -537,10 +537,20 @@ export default function UserHome() {
         <View style={[
           styles.priceTag,
           { 
-            backgroundColor: '#333333'
+            backgroundColor: '#333333',
+            paddingHorizontal: isLargeScreen ? 14 : isTablet ? 12 : 10,
+            paddingVertical: isLargeScreen ? 8 : isTablet ? 6 : 5,
+            borderRadius: isLargeScreen ? 8 : 6,
           }
         ]}> 
-          <ThemedText style={styles.priceText}>{formatPHP(item.price)}</ThemedText>
+          <ThemedText style={[
+            styles.priceText,
+            {
+              fontSize: isLargeScreen ? 16 : isTablet ? 15 : 14,
+            }
+          ]}>
+            {formatPHP(item.price)}
+          </ThemedText>
         </View>
       </View>
       <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
@@ -728,10 +738,20 @@ export default function UserHome() {
             <View style={[
               styles.priceTag,
               { 
-                backgroundColor: '#333333'
+                backgroundColor: '#333333',
+                paddingHorizontal: isLargeScreen ? 14 : isTablet ? 12 : 10,
+                paddingVertical: isLargeScreen ? 8 : isTablet ? 6 : 5,
+                borderRadius: isLargeScreen ? 8 : 6,
               }
             ]}> 
-              <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
+              <ThemedText style={[
+                styles.priceText, 
+                { 
+                  fontSize: isLargeScreen ? 16 : isTablet ? 15 : 14,
+                }
+              ]}>
+                {formatPHP(item.price)}
+              </ThemedText>
             </View>
           </View>
           <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
@@ -864,18 +884,21 @@ export default function UserHome() {
               {item.available ? 'Available' : 'Unavailable'}
             </ThemedText>
           </View>
-          <View style={[
-            styles.priceTag,
-            { 
-              backgroundColor: '#333333'
-            }
-          ]}> 
-            <ThemedText style={[styles.priceText, { fontSize: isLargeScreen ? 14 : 16 }]}>{formatPHP(item.price)}</ThemedText>
-          </View>
         </View>
         <View style={[styles.itemContent, { backgroundColor: cardBgColor }]}> 
           <ThemedText type="subtitle" style={[styles.itemTitle, { color: textColor, fontSize: isLargeScreen ? 18 : 20 }]}> 
             {item.title}
+          </ThemedText>
+          
+          {/* Price Display - Below Image */}
+          <ThemedText style={[
+            styles.priceTextBelow, 
+            { 
+              color: colorPalette.primary,
+              fontSize: isLargeScreen ? 20 : isTablet ? 18 : 16,
+            }
+          ]}>
+            {formatPHP(item.price)}
           </ThemedText>
 
           {/* Description */}
@@ -1589,6 +1612,12 @@ const styles = StyleSheet.create({
   priceText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  priceTextBelow: {
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 8,
+    // Responsive fontSize is applied inline in component
   },
   itemContent: {
     padding: 16,

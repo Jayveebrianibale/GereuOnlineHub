@@ -3,6 +3,9 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
+import android.graphics.Color
+import androidx.core.view.WindowCompat
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -16,11 +19,47 @@ class MainActivity : ReactActivity() {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.
-    setTheme(R.style.AppTheme);
+    // setTheme(R.style.AppTheme);
     // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
-    super.onCreate(null)
+    super.onCreate(savedInstanceState)
+
+    // Set status bar to white with dark icons (for light mode)
+    window?.decorView?.post {
+      setupStatusBar()
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    setupStatusBar()
+  }
+
+  private fun setupStatusBar() {
+    window?.let { window ->
+      val statusBarColor = Color.parseColor("#00B2FF")
+      
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.statusBarColor = statusBarColor
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        var flags = window.decorView.systemUiVisibility
+        flags = flags and android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+        window.decorView.systemUiVisibility = flags
+      }
+
+      try {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.isAppearanceLightStatusBars = false // Light icons on blue background
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+      } catch (e: Exception) {
+        window.statusBarColor = statusBarColor
+      }
+    }
   }
 
   /**

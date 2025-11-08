@@ -7,7 +7,7 @@
     "icon": "./assets/images/logo.png",
     "scheme": "gereuonlinehub",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.onlinegereu.hub",
@@ -25,6 +25,10 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
+      "statusBar": {
+        "backgroundColor": "#00B2FF",
+        "barStyle": "light-content"
+      },
       "package": "com.onlinegereu.hub",
       "googleServicesFile": "./google-services.json",
       "permissions": [
@@ -51,10 +55,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
-          "imageWidth": 120,
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/white.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "imageWidth": 80
         }
       ],
       "expo-secure-store",
@@ -77,7 +81,7 @@
         "publicKey": "pk_test_unHcUNnqqxMZZyLwcn9omjPz"
       },
       "eas": {
-        "projectId": "f3175a2a-5e64-4539-a28f-c0b7477ab284"
+        "projectId": "45e7a5ee-13ae-45de-bd18-91afbcd063b3"
       }
     }
   }
