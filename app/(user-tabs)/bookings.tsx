@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { RobustImage } from "../components/RobustImage";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -58,6 +58,8 @@ export default function Bookings() {
   // HOOKS AT STATE
   // ========================================
   const [activeTab, setActiveTab] = useState<'reservations' | 'bills'>('reservations'); // Active tab state
+  const [paymentDataMap, setPaymentDataMap] = useState<Record<string, any>>({}); // Payment data mapped by reservation/service ID
+  const [paymentDataLoading, setPaymentDataLoading] = useState(true); // Loading state for payment data
   const { colorScheme } = useColorScheme(); // Theme management
   const router = useRouter(); // Navigation router
   const { reservedApartments, reservedLaundryServices, reservedAutoServices, removeReservation, removeLaundryReservation, removeAutoReservation, updateApartmentStatus, updateLaundryStatus, updateAutoStatus } = useReservation(); // Reservation context
@@ -75,6 +77,76 @@ export default function Bookings() {
   const borderColor = isDark ? "#333" : "#eee";
 
   // No need for local bookings state, use reservedApartments from context
+
+  // Fetch payment data for all reservations - Optimized to fetch all at once
+  useEffect(() => {
+    const fetchPaymentData = async () => {
+      if (!user) return;
+      
+      try {
+        const allReservations = [
+          ...reservedApartments.map((apt: any) => ({ id: apt.id || apt.serviceId, serviceId: apt.serviceId || apt.id, serviceType: 'apartment' })),
+          ...reservedLaundryServices.map((svc: any) => ({ id: svc.id || svc.serviceId, serviceId: svc.serviceId || svc.id, serviceType: 'laundry' })),
+          ...reservedAutoServices.map((svc: any) => ({ id: svc.id || svc.serviceId, serviceId: svc.serviceId || svc.id, serviceType: 'auto' }))
+        ];
+
+        setPaymentDataLoading(true);
+        
+        if (allReservations.length === 0) {
+          setPaymentDataMap({});
+          setPaymentDataLoading(false);
+          return;
+        }
+
+        const paymentMap: Record<string, any> = {};
+        
+        // Optimized: Fetch all payments at once instead of one by one
+        const { get, ref } = await import('firebase/database');
+        const { db } = await import('../firebaseConfig');
+        const paymentsSnapshot = await get(ref(db, 'payments'));
+        
+        if (paymentsSnapshot.exists()) {
+          const allPayments = Object.values(paymentsSnapshot.val() || {}) as any[];
+          
+          // Filter payments for current user
+          const userPayments = allPayments.filter((p: any) => p.userId === user.uid);
+          
+          // Match payments to reservations
+          for (const reservation of allReservations) {
+            // Try to find payment by reservation ID first
+            let matchingPayments = userPayments.filter(
+              (p: any) => p.reservationId === reservation.id
+            );
+            
+            // If not found, try to find by serviceId and serviceType (fallback)
+            if (matchingPayments.length === 0) {
+              matchingPayments = userPayments.filter(
+                (p: any) => p.serviceId === reservation.serviceId && 
+                p.serviceType === reservation.serviceType
+              );
+            }
+            
+            // Get the most recent payment
+            if (matchingPayments.length > 0) {
+              const latestPayment = matchingPayments.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              paymentMap[reservation.id] = latestPayment;
+            }
+          }
+        }
+        
+        setPaymentDataMap(paymentMap);
+        setPaymentDataLoading(false);
+      } catch (error) {
+        console.error('Error fetching payment data:', error);
+        setPaymentDataMap({});
+        setPaymentDataLoading(false);
+      }
+    };
+
+    fetchPaymentData();
+  }, [reservedApartments, reservedLaundryServices, reservedAutoServices, user]);
 
   const getStatusColor = (status: string) => {
     const normalized = (status || '').toLowerCase();
@@ -314,8 +386,17 @@ export default function Bookings() {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
     
-    // For apartments, subtract the down payment to show remaining balance
+    // For apartments, check if full payment was made
     if (item?.serviceType === 'apartment' || item?.type === 'Apartment Rental') {
+      const reservationId = item?.id || item?.serviceId;
+      const paymentData = paymentDataMap[reservationId];
+      
+      // If full payment was made, no remaining balance
+      if (paymentData?.paymentAmountType === 'full') {
+        return 0; // No remaining balance for full payment
+      }
+      
+      // If down payment, calculate remaining balance
       const downPayment = calculateDownPayment(n, 'apartment');
       return n - downPayment; // Return remaining balance
     }
@@ -326,12 +407,30 @@ export default function Bookings() {
   const accepted = useMemo(() => {
     const apartments = (apartmentsSorted || [])
       .filter((i: any) => isAccepted(i?.status))
-      .map((i: any) => ({ 
-        id: i.id, 
-        title: i.serviceTitle || i.title, 
-        amount: getPrice({ ...i, serviceType: 'apartment' }), 
-        type: 'Apartment Rental' as const 
-      }));
+      .map((i: any) => {
+        const reservationId = i.id || i.serviceId;
+        const paymentData = paymentDataMap[reservationId];
+        const servicePrice = i.servicePrice ?? i.price ?? 0;
+        
+        // If full payment, show the full payment amount; otherwise show remaining balance
+        let amount;
+        if (paymentData?.paymentAmountType === 'full') {
+          // Show the full payment amount that was paid
+          amount = paymentData?.amount || servicePrice;
+        } else {
+          // Show remaining balance after down payment
+          amount = getPrice({ ...i, serviceType: 'apartment' });
+        }
+        
+        return { 
+          id: i.id, 
+          title: i.serviceTitle || i.title, 
+          amount,
+          type: 'Apartment Rental' as const,
+          paymentData,
+          servicePrice // Include service price for reference
+        };
+      });
     const laundry = (laundrySorted || [])
       .filter((i: any) => isAccepted(i?.status))
       .map((i: any) => ({ 
@@ -349,7 +448,7 @@ export default function Bookings() {
         type: 'Car & Motor Parts' as const 
       }));
     return { apartments, laundry, auto };
-  }, [apartmentsSorted, laundrySorted, autoSorted]);
+  }, [apartmentsSorted, laundrySorted, autoSorted, paymentDataMap]);
 
   const totals = useMemo(() => {
     const sum = (arr: { amount: number }[]) => arr.reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
@@ -489,24 +588,47 @@ export default function Bookings() {
                    </View>
                  )}
 
-                 {isPaymentRequired('apartment') && (
-                   <View style={styles.detailItem}>
-                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
-                       <MaterialIcons name="payment" size={18} color={colorPalette.primary} />
+                 {isPaymentRequired('apartment') && (() => {
+                   const reservationId = (apt as any).id || (apt as any).serviceId;
+                   const paymentData = paymentDataMap[reservationId];
+                   const servicePrice = (apt as any).servicePrice ?? (apt as any).price ?? 0;
+                   
+                   // Don't show payment info while loading to avoid showing wrong data
+                   if (paymentDataLoading && !paymentData) {
+                     return null; // Don't render until payment data is loaded
+                   }
+                   
+                   const isFullPayment = paymentData?.paymentAmountType === 'full';
+                   const paymentAmount = paymentData?.amount || (isFullPayment ? servicePrice : calculateDownPayment(servicePrice, 'apartment'));
+                   
+                   return (
+                     <View style={styles.detailItem}>
+                       <View style={[styles.detailIconContainer, { 
+                         backgroundColor: isFullPayment ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0, 178, 255, 0.1)' 
+                       }]}>
+                         <MaterialIcons 
+                           name={isFullPayment ? 'check-circle' : 'payment'} 
+                           size={18} 
+                           color={isFullPayment ? '#22C55E' : colorPalette.primary} 
+                         />
+                       </View>
+                       <View style={styles.detailContent}>
+                         <ThemedText style={[styles.detailLabel, { 
+                           color: isFullPayment ? '#22C55E' : subtitleColor,
+                           fontWeight: isFullPayment ? '600' : 'normal'
+                         }]}>
+                           {isFullPayment ? 'Full Payment' : 'Down Payment'}
+                         </ThemedText>
+                         <ThemedText style={[styles.detailValue, { 
+                           color: isFullPayment ? '#22C55E' : textColor,
+                           fontWeight: isFullPayment ? '700' : 'normal'
+                         }]}>
+                           {formatPHP(paymentAmount)}
+                         </ThemedText>
+                       </View>
                      </View>
-                     <View style={styles.detailContent}>
-                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Down Payment</ThemedText>
-                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
-                         {(() => {
-                           const servicePrice = (apt as any).servicePrice ?? (apt as any).price ?? 0;
-                           const downPayment = calculateDownPayment(servicePrice, 'apartment');
-                           console.log('💰 Down payment calculation:', { servicePrice, downPayment, apt: apt });
-                           return formatPHP(downPayment);
-                         })()}
-                       </ThemedText>
-                     </View>
-                   </View>
-                 )}
+                   );
+                 })()}
                </View>
 
                {/* Action Buttons */}
@@ -831,23 +953,47 @@ export default function Bookings() {
                    </View>
                  )}
 
-                 {isPaymentRequired('auto') && (
-                   <View style={styles.detailItem}>
-                     <View style={[styles.detailIconContainer, { backgroundColor: 'rgba(0, 178, 255, 0.1)' }]}>
-                       <MaterialIcons name="payment" size={18} color={colorPalette.primary} />
+                 {isPaymentRequired('auto') && (() => {
+                   const reservationId = (svc as any).id || (svc as any).serviceId;
+                   const paymentData = paymentDataMap[reservationId];
+                   const servicePrice = (svc as any).servicePrice ?? (svc as any).price ?? 0;
+                   
+                   // Don't show payment info while loading to avoid showing wrong data
+                   if (paymentDataLoading && !paymentData) {
+                     return null; // Don't render until payment data is loaded
+                   }
+                   
+                   const isFullPayment = paymentData?.paymentAmountType === 'full';
+                   const paymentAmount = paymentData?.amount || (isFullPayment ? servicePrice : calculateDownPayment(servicePrice, 'auto'));
+                   
+                   return (
+                     <View style={styles.detailItem}>
+                       <View style={[styles.detailIconContainer, { 
+                         backgroundColor: isFullPayment ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0, 178, 255, 0.1)' 
+                       }]}>
+                         <MaterialIcons 
+                           name={isFullPayment ? 'check-circle' : 'payment'} 
+                           size={18} 
+                           color={isFullPayment ? '#22C55E' : colorPalette.primary} 
+                         />
+                       </View>
+                       <View style={styles.detailContent}>
+                         <ThemedText style={[styles.detailLabel, { 
+                           color: isFullPayment ? '#22C55E' : subtitleColor,
+                           fontWeight: isFullPayment ? '600' : 'normal'
+                         }]}>
+                           {isFullPayment ? 'Full Payment' : 'Down Payment'}
+                         </ThemedText>
+                         <ThemedText style={[styles.detailValue, { 
+                           color: isFullPayment ? '#22C55E' : textColor,
+                           fontWeight: isFullPayment ? '700' : 'normal'
+                         }]}>
+                           {formatAutoPrice(paymentAmount)}
+                         </ThemedText>
+                       </View>
                      </View>
-                     <View style={styles.detailContent}>
-                       <ThemedText style={[styles.detailLabel, { color: subtitleColor }]}>Down Payment</ThemedText>
-                       <ThemedText style={[styles.detailValue, { color: textColor }]}>
-                         {(() => {
-                           const servicePrice = (svc as any).servicePrice ?? (svc as any).price ?? 0;
-                           const downPayment = calculateDownPayment(servicePrice, 'auto');
-                           return formatAutoPrice(downPayment);
-                         })()}
-                       </ThemedText>
-                     </View>
-                   </View>
-                 )}
+                   );
+                 })()}
                </View>
 
 
@@ -932,7 +1078,7 @@ export default function Bookings() {
           <View style={styles.totalCardFooter}>
             <MaterialIcons name="info-outline" size={16} color={subtitleColor} />
             <ThemedText style={[styles.totalNote, { color: subtitleColor }]}>
-              Apartment amounts show remaining balance after down payment
+              Apartment amounts show remaining balance or full payment amount if paid in full
             </ThemedText>
           </View>
         </View>
@@ -958,9 +1104,19 @@ export default function Bookings() {
                     <ThemedText style={[styles.professionalBillTitle, { color: textColor }]} numberOfLines={1}>
                       {i.title || 'Apartment Unit'}
                     </ThemedText>
-                    <ThemedText style={[styles.billItemType, { color: subtitleColor }]}>Remaining balance (after down payment)</ThemedText>
+                    <ThemedText style={[styles.billItemType, { 
+                      color: i.paymentData?.paymentAmountType === 'full' ? '#22C55E' : subtitleColor,
+                      fontWeight: i.paymentData?.paymentAmountType === 'full' ? '600' : 'normal'
+                    }]}>
+                      {i.paymentData?.paymentAmountType === 'full' 
+                        ? 'Full Payment (Paid in Full)' 
+                        : 'Remaining balance (after down payment)'}
+                    </ThemedText>
                   </View>
-                  <ThemedText style={[styles.professionalBillAmount, { color: colorPalette.primary }]}>
+                  <ThemedText style={[styles.professionalBillAmount, { 
+                    color: i.paymentData?.paymentAmountType === 'full' ? '#22C55E' : colorPalette.primary,
+                    fontWeight: i.paymentData?.paymentAmountType === 'full' ? '700' : '600'
+                  }]}>
                     {formatPHP(i.amount)}
                   </ThemedText>
                 </View>

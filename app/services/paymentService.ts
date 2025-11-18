@@ -32,6 +32,7 @@ export interface PaymentData {
   amount: number; // Payment amount
   downPaymentAmount: number; // Down payment amount
   fullAmount: number; // Full payment amount
+  paymentAmountType: 'downpayment' | 'full'; // Payment amount type: downpayment or full payment
   status: 'pending' | 'paid' | 'failed' | 'refunded'; // Payment status
   paymentMethod: 'gcash' | 'cash' | 'bank_transfer'; // Payment method
   gcashNumber?: string; // GCash number (optional)
@@ -103,14 +104,20 @@ export async function createPayment(
   serviceId: string, // Service ID
   fullAmount: number, // Full payment amount
   paymentMethod: 'gcash' | 'cash' | 'bank_transfer' = 'gcash', // Payment method (default: gcash)
-  paymentType: 'qr_code' | 'paymongo' = 'qr_code' // Payment type: QR code or PayMongo (default: qr_code)
+  paymentType: 'qr_code' | 'paymongo' = 'qr_code', // Payment type: QR code or PayMongo (default: qr_code)
+  paymentAmountType: 'downpayment' | 'full' = 'downpayment' // Payment amount type: downpayment or full payment (default: downpayment)
 ): Promise<PaymentData> {
   try {
     // ========================================
     // PAYMENT CALCULATIONS
     // ========================================
     // I-calculate ang down payment amount based sa service type
-    const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount; // 30% down payment para sa apartment
+    const calculatedDownPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount; // 30% down payment para sa apartment
+    
+    // I-determine ang actual payment amount based sa payment amount type
+    const actualPaymentAmount = paymentAmountType === 'full' ? fullAmount : calculatedDownPaymentAmount;
+    const downPaymentAmount = calculatedDownPaymentAmount; // Keep for reference
+    
     const referenceNumber = generateReferenceNumber(); // I-generate ang unique reference number
     
     // ========================================
@@ -142,9 +149,10 @@ export async function createPayment(
       reservationId,
       serviceType,
       serviceId,
-      amount: downPaymentAmount,
-      downPaymentAmount,
-      fullAmount,
+      amount: actualPaymentAmount, // Actual payment amount (downpayment or full)
+      downPaymentAmount, // Calculated down payment amount (for reference)
+      fullAmount, // Full payment amount
+      paymentAmountType, // Payment amount type: 'downpayment' or 'full'
       status: 'pending',
       paymentMethod,
       gcashNumber,
@@ -168,8 +176,8 @@ export async function createPayment(
         try {
           // I-use GCash Source directly para sa PayMongo
           const gcashRequest = {
-            amount: downPaymentAmount,
-            description: `Payment for ${serviceType} reservation - Ref: ${referenceNumber}`,
+            amount: actualPaymentAmount, // Use actual payment amount (downpayment or full)
+            description: `Payment for ${serviceType} reservation - Ref: ${referenceNumber} (${paymentAmountType === 'full' ? 'Full Payment' : 'Down Payment'})`,
             successUrl: `https://secure-authentication.paymongo.com/success?paymentId=${paymentData.id}`,
             failedUrl: `https://secure-authentication.paymongo.com/failed?paymentId=${paymentData.id}`,
             referenceNumber: referenceNumber
@@ -227,7 +235,7 @@ export async function createPayment(
         // I-generate ang QR code para sa direct payment (only for QR code payments)
         if (paymentType === 'qr_code') {
           const qrData: GCashPaymentData = {
-            amount: downPaymentAmount,
+            amount: actualPaymentAmount, // Use actual payment amount (downpayment or full)
             referenceNumber,
             qrCode: '',
             gcashNumber,

@@ -6,7 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { push, ref, set } from 'firebase/database';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Animated, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Animated, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { FullScreenImageViewer } from '../../components/FullScreenImageViewer';
 import { PaymentModal } from '../../components/PaymentModal';
 import { RobustImage } from '../../components/RobustImage';
@@ -45,6 +45,9 @@ export default function ApartmentListScreen() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { width, height } = useWindowDimensions();
+  const isSmallScreen = width < 400;
+  const isTabletScreen = width >= 768;
   const isDark = colorScheme === 'dark';
   
   const bgColor = isDark ? '#121212' : '#fff';
@@ -68,6 +71,9 @@ export default function ApartmentListScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [pendingReservation, setPendingReservation] = useState<any>(null);
+  const [paymentAmountType, setPaymentAmountType] = useState<'downpayment' | 'full'>('downpayment');
+  const [paymentSelectionModalVisible, setPaymentSelectionModalVisible] = useState(false);
+  const [paymentSelectionData, setPaymentSelectionData] = useState<{fullAmount: number; downPaymentAmount: number; title: string; isBed?: boolean; bedNumber?: number} | null>(null);
   const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'dropoff' | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -333,9 +339,19 @@ export default function ApartmentListScreen() {
     if (!isReserved) {
       // Check if payment is required for apartment reservations
       if (isPaymentRequired('apartment')) {
-        // Store the apartment data for payment flow
+        // Show payment type selection for apartment reservations
+        const fullAmount = parsePrice(apartment.price);
+        const downPaymentAmount = Math.round(fullAmount * 0.3);
+        
+        // Show professional payment selection modal
+        setPaymentSelectionData({
+          fullAmount,
+          downPaymentAmount,
+          title: apartment.title || 'Apartment',
+          isBed: false
+        });
         setPendingReservation(apartment);
-        setPaymentModalVisible(true);
+        setPaymentSelectionModalVisible(true);
         setDetailModalVisible(false);
         setSelectedApartment(null);
       } else {
@@ -388,7 +404,13 @@ export default function ApartmentListScreen() {
     // Check if payment is required for apartment reservations
     if (isPaymentRequired('apartment')) {
       console.log('💳 Payment required for bed reservation');
-      // Store the bed and apartment data for payment flow
+      
+      // Show payment type selection for bed reservations
+      const bedPrice = bed.price || selectedApartmentForBed.price;
+      const fullAmount = parsePrice(bedPrice);
+      const downPaymentAmount = Math.round(fullAmount * 0.3);
+      
+      // Show professional payment selection modal
       const bedReservationData = {
         ...selectedApartmentForBed,
         bedId: bed.id,
@@ -396,8 +418,15 @@ export default function ApartmentListScreen() {
         reservationDate: reservationDate.toISOString(),
         bedPrice: bed.price || selectedApartmentForBed.price
       };
+      setPaymentSelectionData({
+        fullAmount,
+        downPaymentAmount,
+        title: selectedApartmentForBed.title || 'Apartment',
+        isBed: true,
+        bedNumber: bed.bedNumber
+      });
       setPendingReservation(bedReservationData);
-      setPaymentModalVisible(true);
+      setPaymentSelectionModalVisible(true);
       setDateSelectionVisible(false);
       setSelectedApartmentForBed(null);
       setApartmentBeds([]);
@@ -644,6 +673,7 @@ export default function ApartmentListScreen() {
   const handlePaymentClose = () => {
     setPaymentModalVisible(false);
     setPendingReservation(null);
+    setPaymentAmountType('downpayment'); // Reset to default
   };
 
   // Handle navigation parameters - removed duplicate params declaration
@@ -1975,6 +2005,333 @@ export default function ApartmentListScreen() {
           title="Apartment Image"
         />
 
+        {/* Professional Payment Selection Modal */}
+        <Modal
+          visible={paymentSelectionModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => {
+            setPaymentSelectionModalVisible(false);
+            setPaymentSelectionData(null);
+            setPendingReservation(null);
+          }}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[
+              styles.paymentSelectionModal, 
+              { 
+                backgroundColor: cardBgColor,
+                width: isSmallScreen ? '95%' : isTabletScreen ? '70%' : '90%',
+                maxWidth: isTabletScreen ? 600 : 500,
+                maxHeight: isSmallScreen ? '90%' : '85%',
+              }
+            ]}>
+              {/* Header */}
+              <View style={[
+                styles.paymentSelectionHeader,
+                { padding: isSmallScreen ? 16 : 24 }
+              ]}>
+                <View style={styles.paymentSelectionHeaderContent}>
+                  <View style={[
+                    styles.paymentSelectionIconContainer, 
+                    { 
+                      backgroundColor: isDark ? 'rgba(0, 178, 255, 0.15)' : 'rgba(0, 178, 255, 0.1)',
+                      width: isSmallScreen ? 48 : 56,
+                      height: isSmallScreen ? 48 : 56,
+                    }
+                  ]}>
+                    <MaterialIcons name="payment" size={isSmallScreen ? 24 : 28} color={colorPalette.primary} />
+                  </View>
+                  <View style={styles.paymentSelectionHeaderText}>
+                    <ThemedText style={[
+                      styles.paymentSelectionTitle, 
+                      { 
+                        color: textColor,
+                        fontSize: isSmallScreen ? 18 : 22,
+                      }
+                    ]}>
+                      Select Payment Option
+                    </ThemedText>
+                    <ThemedText style={[
+                      styles.paymentSelectionSubtitle, 
+                      { 
+                        color: subtitleColor,
+                        fontSize: isSmallScreen ? 12 : 14,
+                      }
+                    ]}>
+                      {paymentSelectionData?.isBed 
+                        ? `${paymentSelectionData.title} - Bed ${paymentSelectionData.bedNumber}`
+                        : paymentSelectionData?.title}
+                    </ThemedText>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setPaymentSelectionModalVisible(false);
+                    setPaymentSelectionData(null);
+                    setPendingReservation(null);
+                  }}
+                  style={styles.paymentSelectionCloseButton}
+                >
+                  <MaterialIcons name="close" size={isSmallScreen ? 20 : 24} color={subtitleColor} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <ScrollView style={[
+                styles.paymentSelectionContent,
+                { padding: isSmallScreen ? 16 : 24 }
+              ]} showsVerticalScrollIndicator={false}>
+                <ThemedText style={[
+                  styles.paymentSelectionDescription, 
+                  { 
+                    color: subtitleColor,
+                    fontSize: isSmallScreen ? 13 : 15,
+                    marginBottom: isSmallScreen ? 20 : 24,
+                  }
+                ]}>
+                  Choose your preferred payment method to proceed with your reservation
+                </ThemedText>
+
+                {/* Payment Options */}
+                <View style={[
+                  styles.paymentOptionsContainer,
+                  { gap: isSmallScreen ? 12 : 16 }
+                ]}>
+                  {/* Down Payment Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentOptionCard, 
+                      { 
+                        backgroundColor: isDark ? '#2A2A2A' : '#F8F9FA',
+                        borderColor: isDark ? '#404040' : '#E5E7EB',
+                        padding: isSmallScreen ? 16 : 20,
+                        flexDirection: isSmallScreen ? 'column' : 'row',
+                      }
+                    ]}
+                    onPress={() => {
+                      setPaymentAmountType('downpayment');
+                      setPaymentSelectionModalVisible(false);
+                      setPaymentModalVisible(true);
+                      setPaymentSelectionData(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.paymentOptionHeader,
+                      { 
+                        marginRight: isSmallScreen ? 0 : 16,
+                        marginBottom: isSmallScreen ? 12 : 0,
+                        justifyContent: isSmallScreen ? 'space-between' : 'flex-start',
+                        width: isSmallScreen ? '100%' : 'auto',
+                      }
+                    ]}>
+                      <View style={[
+                        styles.paymentOptionIcon, 
+                        { 
+                          backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                          width: isSmallScreen ? 48 : 56,
+                          height: isSmallScreen ? 48 : 56,
+                        }
+                      ]}>
+                        <MaterialIcons name="account-balance-wallet" size={isSmallScreen ? 20 : 24} color="#F59E0B" />
+                      </View>
+                      <View style={styles.paymentOptionBadge}>
+                        <ThemedText style={[
+                          styles.paymentOptionBadgeText,
+                          { fontSize: isSmallScreen ? 10 : 11 }
+                        ]}>30%</ThemedText>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.paymentOptionContent,
+                      { flex: isSmallScreen ? 0 : 1 }
+                    ]}>
+                      <ThemedText style={[
+                        styles.paymentOptionTitle, 
+                        { 
+                          color: textColor,
+                          fontSize: isSmallScreen ? 16 : 18,
+                        }
+                      ]}>
+                        Down Payment
+                      </ThemedText>
+                      <ThemedText style={[
+                        styles.paymentOptionSubtitle, 
+                        { 
+                          color: subtitleColor,
+                          fontSize: isSmallScreen ? 12 : 13,
+                        }
+                      ]}>
+                        Pay 30% now, remaining balance due later
+                      </ThemedText>
+                      <View style={styles.paymentOptionAmountContainer}>
+                        <ThemedText style={[
+                          styles.paymentOptionAmount, 
+                          { 
+                            color: '#F59E0B',
+                            fontSize: isSmallScreen ? 20 : 24,
+                          }
+                        ]}>
+                          {paymentSelectionData ? formatPHP(paymentSelectionData.downPaymentAmount) : '₱0.00'}
+                        </ThemedText>
+                        {paymentSelectionData && (
+                          <ThemedText style={[
+                            styles.paymentOptionRemaining, 
+                            { 
+                              color: subtitleColor,
+                              fontSize: isSmallScreen ? 11 : 12,
+                            }
+                          ]}>
+                            Remaining: {formatPHP(paymentSelectionData.fullAmount - paymentSelectionData.downPaymentAmount)}
+                          </ThemedText>
+                        )}
+                      </View>
+                    </View>
+                    {!isSmallScreen && (
+                      <View style={styles.paymentOptionArrow}>
+                        <MaterialIcons name="chevron-right" size={24} color={subtitleColor} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Full Payment Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentOptionCard, 
+                      { 
+                        backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                        borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
+                        borderWidth: 2,
+                        padding: isSmallScreen ? 16 : 20,
+                        flexDirection: isSmallScreen ? 'column' : 'row',
+                      }
+                    ]}
+                    onPress={() => {
+                      setPaymentAmountType('full');
+                      setPaymentSelectionModalVisible(false);
+                      setPaymentModalVisible(true);
+                      setPaymentSelectionData(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.paymentOptionHeader,
+                      { 
+                        marginRight: isSmallScreen ? 0 : 16,
+                        marginBottom: isSmallScreen ? 12 : 0,
+                        justifyContent: isSmallScreen ? 'space-between' : 'flex-start',
+                        width: isSmallScreen ? '100%' : 'auto',
+                      }
+                    ]}>
+                      <View style={[
+                        styles.paymentOptionIcon, 
+                        { 
+                          backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                          width: isSmallScreen ? 48 : 56,
+                          height: isSmallScreen ? 48 : 56,
+                        }
+                      ]}>
+                        <MaterialIcons name="check-circle" size={isSmallScreen ? 20 : 24} color="#22C55E" />
+                      </View>
+                      <View style={[styles.paymentOptionBadge, { backgroundColor: '#22C55E' }]}>
+                        <MaterialIcons name="star" size={isSmallScreen ? 12 : 14} color="#fff" />
+                        <ThemedText style={[
+                          styles.paymentOptionBadgeText, 
+                          { 
+                            color: '#fff',
+                            fontSize: isSmallScreen ? 10 : 11,
+                          }
+                        ]}>Best</ThemedText>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.paymentOptionContent,
+                      { flex: isSmallScreen ? 0 : 1 }
+                    ]}>
+                      <ThemedText style={[
+                        styles.paymentOptionTitle, 
+                        { 
+                          color: '#22C55E', 
+                          fontWeight: '700',
+                          fontSize: isSmallScreen ? 16 : 18,
+                        }
+                      ]}>
+                        Full Payment
+                      </ThemedText>
+                      <ThemedText style={[
+                        styles.paymentOptionSubtitle, 
+                        { 
+                          color: subtitleColor,
+                          fontSize: isSmallScreen ? 12 : 13,
+                        }
+                      ]}>
+                        Pay in full now - No remaining balance
+                      </ThemedText>
+                      <View style={styles.paymentOptionAmountContainer}>
+                        <ThemedText style={[
+                          styles.paymentOptionAmount, 
+                          { 
+                            color: '#22C55E', 
+                            fontWeight: '700',
+                            fontSize: isSmallScreen ? 20 : 24,
+                          }
+                        ]}>
+                          {paymentSelectionData ? formatPHP(paymentSelectionData.fullAmount) : '₱0.00'}
+                        </ThemedText>
+                        <View style={[
+                          styles.paymentOptionCheckmark, 
+                          { 
+                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                            paddingHorizontal: isSmallScreen ? 8 : 10,
+                            paddingVertical: isSmallScreen ? 5 : 6,
+                          }
+                        ]}>
+                          <MaterialIcons name="check" size={isSmallScreen ? 14 : 16} color="#22C55E" />
+                          <ThemedText style={[
+                            styles.paymentOptionCheckmarkText, 
+                            { 
+                              color: '#22C55E',
+                              fontSize: isSmallScreen ? 11 : 12,
+                            }
+                          ]}>
+                            No balance due
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                    {!isSmallScreen && (
+                      <View style={styles.paymentOptionArrow}>
+                        <MaterialIcons name="chevron-right" size={24} color="#22C55E" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Info Note */}
+                <View style={[
+                  styles.paymentSelectionInfo, 
+                  { 
+                    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                    padding: isSmallScreen ? 12 : 16,
+                  }
+                ]}>
+                  <MaterialIcons name="info-outline" size={isSmallScreen ? 18 : 20} color={colorPalette.primary} />
+                  <ThemedText style={[
+                    styles.paymentSelectionInfoText, 
+                    { 
+                      color: subtitleColor,
+                      fontSize: isSmallScreen ? 12 : 13,
+                    }
+                  ]}>
+                    Your reservation will be confirmed once payment is verified
+                  </ThemedText>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* Payment Modal */}
         {pendingReservation && user && (
           <PaymentModal
@@ -1990,6 +2347,7 @@ export default function ApartmentListScreen() {
               pendingReservation.title
             }
             fullAmount={parsePrice(pendingReservation.bedPrice || pendingReservation.price)}
+            paymentAmountType={paymentAmountType}
             isDark={isDark}
           />
         )}
@@ -3007,5 +3365,146 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  // Professional Payment Selection Modal Styles
+  paymentSelectionModal: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  paymentSelectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  paymentSelectionHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  paymentSelectionIconContainer: {
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  paymentSelectionHeaderText: {
+    flex: 1,
+  },
+  paymentSelectionTitle: {
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  paymentSelectionSubtitle: {
+    opacity: 0.7,
+  },
+  paymentSelectionCloseButton: {
+    padding: 8,
+    marginLeft: 12,
+  },
+  paymentSelectionContent: {
+    paddingTop: 20,
+  },
+  paymentSelectionDescription: {
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  paymentOptionsContainer: {
+    marginBottom: 24,
+  },
+  paymentOptionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  paymentOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentOptionIcon: {
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  paymentOptionBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  paymentOptionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  paymentOptionContent: {
+    flex: 1,
+  },
+  paymentOptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  paymentOptionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  paymentOptionAmountContainer: {
+    marginTop: 4,
+  },
+  paymentOptionAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  paymentOptionRemaining: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  paymentOptionCheckmark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+  },
+  paymentOptionCheckmarkText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paymentOptionArrow: {
+    marginLeft: 12,
+  },
+  paymentSelectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  paymentSelectionInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

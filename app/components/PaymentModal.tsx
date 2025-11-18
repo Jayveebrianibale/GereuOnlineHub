@@ -42,6 +42,7 @@ interface PaymentModalProps {
   serviceId: string; // Service ID
   serviceTitle: string; // Service title
   fullAmount: number; // Full payment amount
+  paymentAmountType?: 'downpayment' | 'full'; // Payment amount type: downpayment or full payment (optional, default: downpayment)
   isDark?: boolean; // Dark mode flag (optional)
 }
 
@@ -60,6 +61,7 @@ export function PaymentModal({
   serviceId, // Service ID
   serviceTitle, // Service title
   fullAmount, // Full payment amount
+  paymentAmountType = 'downpayment', // Payment amount type (default: downpayment)
   isDark = false // Dark mode flag (default: false)
 }: PaymentModalProps) {
   // ========================================
@@ -82,8 +84,9 @@ export function PaymentModal({
   // PAYMENT CALCULATIONS
   // ========================================
   // Calculate payment amounts based sa service type
-  const downPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount; // 30% down payment para sa apartment
-  const remainingAmount = fullAmount - downPaymentAmount; // Remaining amount after down payment
+  const calculatedDownPaymentAmount = serviceType === 'apartment' ? Math.round(fullAmount * 0.3) : fullAmount; // 30% down payment para sa apartment
+  const actualPaymentAmount = paymentAmountType === 'full' ? fullAmount : calculatedDownPaymentAmount; // Actual payment amount based on selection
+  const remainingAmount = fullAmount - calculatedDownPaymentAmount; // Remaining amount after down payment
 
   // ========================================
   // THEME COLORS
@@ -144,7 +147,8 @@ export function PaymentModal({
         serviceId, // Service ID
         fullAmount, // Full amount
         'gcash', // Payment method (GCash)
-        paymentType // Payment type (QR code or PayMongo)
+        paymentType, // Payment type (QR code or PayMongo)
+        paymentAmountType // Payment amount type (downpayment or full)
       );
       
       setPayment(newPayment); // I-set ang payment sa state
@@ -172,7 +176,8 @@ export function PaymentModal({
         serviceId, // Service ID
         fullAmount, // Full amount
         'gcash', // Payment method (GCash)
-        'paymongo' // Always use PayMongo
+        'paymongo', // Always use PayMongo
+        paymentAmountType // Payment amount type (downpayment or full)
       );
       setPayment(newPayment); // I-set ang payment sa state
     } catch (error: any) {
@@ -348,7 +353,9 @@ export function PaymentModal({
           Payment Required
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: subtitleColor }]}>
-          {serviceType === 'apartment' 
+          {paymentAmountType === 'full'
+            ? 'Full payment to confirm your reservation'
+            : serviceType === 'apartment' 
             ? '30% down payment required to secure your reservation'
             : 'Complete payment to confirm your reservation'
           }
@@ -372,20 +379,29 @@ export function PaymentModal({
             <>
               <View style={styles.amountRow}>
                 <ThemedText style={[styles.amountLabel, { color: textColor }]}>
-                  Down Payment (30%):
+                  {paymentAmountType === 'full' ? 'Full Payment:' : 'Down Payment (30%):'}
                 </ThemedText>
-                <ThemedText style={[styles.downPaymentValue, { color: '#00B2FF' }]}>
-                  {formatPHP(downPaymentAmount)}
-                </ThemedText>
-              </View>
-              <View style={styles.amountRow}>
-                <ThemedText style={[styles.amountLabel, { color: textColor }]}>
-                  Remaining Balance:
-                </ThemedText>
-                <ThemedText style={[styles.amountValue, { color: subtitleColor }]}>
-                  {formatPHP(remainingAmount)}
+                <ThemedText style={[styles.downPaymentValue, { color: paymentAmountType === 'full' ? '#10B981' : '#00B2FF' }]}>
+                  {formatPHP(actualPaymentAmount)}
                 </ThemedText>
               </View>
+              {paymentAmountType === 'downpayment' && (
+                <View style={styles.amountRow}>
+                  <ThemedText style={[styles.amountLabel, { color: textColor }]}>
+                    Remaining Balance:
+                  </ThemedText>
+                  <ThemedText style={[styles.amountValue, { color: subtitleColor }]}>
+                    {formatPHP(remainingAmount)}
+                  </ThemedText>
+                </View>
+              )}
+              {paymentAmountType === 'full' && (
+                <View style={[styles.amountRow, { marginTop: 8 }]}>
+                  <ThemedText style={[styles.amountLabel, { color: '#10B981', fontSize: 14 }]}>
+                    ✓ No remaining balance
+                  </ThemedText>
+                </View>
+              )}
             </>
           )}
         </View>

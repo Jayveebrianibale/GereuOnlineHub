@@ -10,7 +10,8 @@ import { useColorScheme } from '@/components/ColorSchemeContext';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { get, ref } from 'firebase/database';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { AdminPaymentSettingsModal } from '../components/AdminPaymentSettings';
 import { RobustImage } from '../components/RobustImage';
@@ -18,6 +19,7 @@ import { getAccessibleModules, getAdminRole, isSuperAdmin } from '../config/admi
 import { useAdminReservation } from '../contexts/AdminReservationContext';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useReservation } from '../contexts/ReservationContext';
+import { db } from '../firebaseConfig';
 import { notifyUser } from '../services/notificationService';
 import { calculateDownPayment, isPaymentRequired } from '../services/paymentService';
 import { getUserReservations, removeReservationCompletely, updateAdminReservationPaymentStatus, updateUserReservationStatus } from '../services/reservationService';
@@ -78,6 +80,9 @@ export default function ReservationsScreen() {
   const [searchQuery, setSearchQuery] = useState(''); // Search query state
   const [balanceModalVisible, setBalanceModalVisible] = useState(false); // Balance modal visibility
   const [selectedReservation, setSelectedReservation] = useState<any>(null); // Selected reservation for balance view
+  const [paymentData, setPaymentData] = useState<any>(null); // Payment data for selected reservation
+  const [paymentDataMap, setPaymentDataMap] = useState<Record<string, any>>({}); // Payment data mapped by reservation ID
+  const [paymentDataLoading, setPaymentDataLoading] = useState(true); // Loading state for payment data
   
   // ========================================
   // ROLE-BASED ACCESS CONTROL
@@ -96,6 +101,62 @@ export default function ReservationsScreen() {
   const subtitleColor = isDark ? colorPalette.primaryLight : colorPalette.dark;
   const borderColor = isDark ? '#333' : '#eee';
 
+  // Fetch payment data for all reservations - Optimized to fetch all at once
+  useEffect(() => {
+    const fetchPaymentData = async () => {
+      if (!adminReservations || adminReservations.length === 0) {
+        setPaymentDataMap({});
+        setPaymentDataLoading(false);
+        return;
+      }
+      
+      try {
+        setPaymentDataLoading(true);
+        const paymentMap: Record<string, any> = {};
+        
+        // Optimized: Fetch all payments at once instead of one by one
+        const paymentsSnapshot = await get(ref(db, 'payments'));
+        
+        if (paymentsSnapshot.exists()) {
+          const allPayments = Object.values(paymentsSnapshot.val() || {}) as any[];
+          
+          // Match payments to reservations
+          for (const reservation of adminReservations) {
+            // Try to find payment by reservation ID first
+            let matchingPayments = allPayments.filter(
+              (p: any) => p.reservationId === reservation.id
+            );
+            
+            // If not found, try to find by serviceId, userId, and serviceType (fallback)
+            if (matchingPayments.length === 0) {
+              matchingPayments = allPayments.filter(
+                (p: any) => p.serviceId === reservation.serviceId && 
+                p.userId === reservation.userId &&
+                p.serviceType === reservation.serviceType
+              );
+            }
+            
+            // Get the most recent payment
+            if (matchingPayments.length > 0) {
+              const latestPayment = matchingPayments.sort(
+                (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              paymentMap[reservation.id] = latestPayment;
+            }
+          }
+        }
+        
+        setPaymentDataMap(paymentMap);
+        setPaymentDataLoading(false);
+      } catch (error) {
+        console.error('Error fetching payment data:', error);
+        setPaymentDataMap({});
+        setPaymentDataLoading(false);
+      }
+    };
+
+    fetchPaymentData();
+  }, [adminReservations]);
 
   // Responsive sizing
   const titleSize = width < 400 ? 20 : 24;
@@ -875,9 +936,16 @@ export default function ReservationsScreen() {
                         </View>
 
                         {/* Payment Information */}
-                        {isPaymentRequired(reservation.serviceType) && (
-                          <>
-                            <View style={[styles.laundryInfoItem, { 
+                        {isPaymentRequired(reservation.serviceType) && (() => {
+                          const paymentData = paymentDataMap[reservation.id];
+                          // Don't show payment info while loading to avoid showing wrong data
+                          if (paymentDataLoading && !paymentData) {
+                            return null; // Don't render until payment data is loaded
+                          }
+                          
+                          return (
+                            <>
+                              <View style={[styles.laundryInfoItem, { 
                               minWidth: width < 600 ? '100%' : '45%',
                               backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
                               borderColor: isDark ? '#404040' : '#E5E7EB',
@@ -891,16 +959,59 @@ export default function ReservationsScreen() {
                               elevation: 2,
                             }]}>
                               <View style={[styles.laundryInfoIcon, { 
-                                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                                backgroundColor: (() => {
+                                  const paymentData = paymentDataMap[reservation.id];
+                                  return paymentData?.paymentAmountType === 'full' 
+                                    ? (isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)')
+                                    : (isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)');
+                                })()
                               }]}>
-                                <MaterialIcons name="payment" size={18} color="#8B5CF6" />
+                                <MaterialIcons 
+                                  name={(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? 'check-circle' : 'payment';
+                                  })()} 
+                                  size={18} 
+                                  color={(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '#22C55E' : '#8B5CF6';
+                                  })()} 
+                                />
                               </View>
                               <View style={styles.laundryInfoContent}>
-                                <ThemedText style={[styles.laundryInfoLabel, { color: subtitleColor }]}>
-                                  Service Fee
+                                <ThemedText style={[styles.laundryInfoLabel, { 
+                                  color: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '#22C55E' : subtitleColor;
+                                  })(),
+                                  fontWeight: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '600' : 'normal';
+                                  })()
+                                }]}>
+                                  {(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    const isFullPayment = paymentData?.paymentAmountType === 'full';
+                                    return isFullPayment ? 'Full Payment' : 'Service Fee';
+                                  })()}
                                 </ThemedText>
-                                <ThemedText style={[styles.laundryInfoValue, { color: textColor }]}>
-                                  {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
+                                <ThemedText style={[styles.laundryInfoValue, { 
+                                  color: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '#22C55E' : textColor;
+                                  })(),
+                                  fontWeight: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '700' : 'normal';
+                                  })()
+                                }]}>
+                                  {(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    const servicePrice = reservation.servicePrice;
+                                    const isFullPayment = paymentData?.paymentAmountType === 'full';
+                                    const paymentAmount = paymentData?.amount || (isFullPayment ? servicePrice : calculateDownPayment(servicePrice, reservation.serviceType));
+                                    return formatPHP(paymentAmount);
+                                  })()}
                                 </ThemedText>
                               </View>
                             </View>
@@ -940,8 +1051,9 @@ export default function ReservationsScreen() {
                                 </ThemedText>
                               </View>
                             </View>
-                          </>
-                        )}
+                            </>
+                          );
+                        })()}
                       </View>
 
                       {/* Shipping Information for Laundry Services */}
@@ -1550,9 +1662,16 @@ export default function ReservationsScreen() {
                          </View>
 
                          {/* Payment Information */}
-                         {isPaymentRequired(reservation.serviceType) && (
-                           <>
-                             <View style={[styles.apartmentInfoItem, { 
+                         {isPaymentRequired(reservation.serviceType) && (() => {
+                           const paymentData = paymentDataMap[reservation.id];
+                           // Don't show payment info while loading to avoid showing wrong data
+                           if (paymentDataLoading && !paymentData) {
+                             return null; // Don't render until payment data is loaded
+                           }
+                           
+                           return (
+                             <>
+                               <View style={[styles.apartmentInfoItem, { 
                                minWidth: width < 600 ? '100%' : '45%',
                                backgroundColor: isDark ? '#2A2A2A' : '#FFFFFF',
                                borderColor: isDark ? '#404040' : '#E5E7EB',
@@ -1566,18 +1685,60 @@ export default function ReservationsScreen() {
                                elevation: 2,
                              }]}>
                                <View style={[styles.apartmentInfoIcon, { 
-                                 backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)'
+                                 backgroundColor: (() => {
+                                   const paymentData = paymentDataMap[reservation.id];
+                                   return paymentData?.paymentAmountType === 'full' 
+                                     ? (isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)')
+                                     : (isDark ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)');
+                                 })()
                                }]}>
-                                 <MaterialIcons name="payment" size={18} color="#8B5CF6" />
+                                 <MaterialIcons 
+                                   name={(() => {
+                                     const paymentData = paymentDataMap[reservation.id];
+                                     return paymentData?.paymentAmountType === 'full' ? 'check-circle' : 'payment';
+                                   })()} 
+                                   size={18} 
+                                   color={(() => {
+                                     const paymentData = paymentDataMap[reservation.id];
+                                     return paymentData?.paymentAmountType === 'full' ? '#22C55E' : '#8B5CF6';
+                                   })()} 
+                                 />
                                </View>
-                               <View style={styles.apartmentInfoContent}>
-                                 <ThemedText style={[styles.apartmentInfoLabel, { color: subtitleColor }]}>
-                                   Down Payment
-                                 </ThemedText>
-                                 <ThemedText style={[styles.apartmentInfoValue, { color: textColor }]}>
-                                   {formatPHP(calculateDownPayment(reservation.servicePrice, reservation.serviceType))}
-                                 </ThemedText>
-                               </View>
+                              <View style={styles.apartmentInfoContent}>
+                                <ThemedText style={[styles.apartmentInfoLabel, { 
+                                  color: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '#22C55E' : subtitleColor;
+                                  })(),
+                                  fontWeight: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '600' : 'normal';
+                                  })()
+                                }]}>
+                                  {(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? 'Full Payment' : 'Down Payment';
+                                  })()}
+                                </ThemedText>
+                                <ThemedText style={[styles.apartmentInfoValue, { 
+                                  color: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '#22C55E' : textColor;
+                                  })(),
+                                  fontWeight: (() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    return paymentData?.paymentAmountType === 'full' ? '700' : 'normal';
+                                  })()
+                                }]}>
+                                  {(() => {
+                                    const paymentData = paymentDataMap[reservation.id];
+                                    const servicePrice = reservation.servicePrice;
+                                    const isFullPayment = paymentData?.paymentAmountType === 'full';
+                                    const paymentAmount = paymentData?.amount || (isFullPayment ? servicePrice : calculateDownPayment(servicePrice, reservation.serviceType));
+                                    return formatPHP(paymentAmount);
+                                  })()}
+                                </ThemedText>
+                              </View>
                              </View>
 
                              <View style={[styles.apartmentInfoItem, { 
@@ -1616,7 +1777,8 @@ export default function ReservationsScreen() {
                                </View>
                              </View>
                            </>
-                         )}
+                         );
+                       })()}
                        </View>
 
                       {/* Professional Action Summary */}
@@ -1731,6 +1893,49 @@ export default function ReservationsScreen() {
                             ]}
                             onPress={() => {
                               setSelectedReservation(reservation);
+                              // Fetch payment data for this reservation
+                              const fetchPaymentData = async () => {
+                                try {
+                                  // Fetch all payments and filter
+                                  const paymentsSnapshot = await get(ref(db, 'payments'));
+                                  let payments: any[] = [];
+                                  
+                                  if (paymentsSnapshot.exists()) {
+                                    const allPayments = Object.values(paymentsSnapshot.val() || {}) as any[];
+                                    
+                                    // Try to find payment by reservation ID first
+                                    payments = allPayments.filter(
+                                      (p: any) => p.reservationId === reservation.id
+                                    );
+                                    
+                                    // If not found, try to find by serviceId, userId, and serviceType (fallback)
+                                    if (payments.length === 0) {
+                                      payments = allPayments.filter(
+                                        (p: any) => p.serviceId === reservation.serviceId && 
+                                        p.userId === reservation.userId &&
+                                        p.serviceType === reservation.serviceType
+                                      );
+                                    }
+                                    
+                                    // Sort by creation date (most recent first)
+                                    payments = payments.sort((a: any, b: any) => 
+                                      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                                    );
+                                  }
+                                  
+                                  if (payments && payments.length > 0) {
+                                    // Get the most recent payment
+                                    const latestPayment = payments[0];
+                                    setPaymentData(latestPayment);
+                                  } else {
+                                    setPaymentData(null);
+                                  }
+                                } catch (error) {
+                                  console.error('Error fetching payment data:', error);
+                                  setPaymentData(null);
+                                }
+                              };
+                              fetchPaymentData();
                               setBalanceModalVisible(true);
                             }}
                           >
@@ -1879,7 +2084,10 @@ export default function ReservationsScreen() {
               </View>
               <TouchableOpacity
                 style={styles.balanceModalCloseButton}
-                onPress={() => setBalanceModalVisible(false)}
+                onPress={() => {
+                  setBalanceModalVisible(false);
+                  setPaymentData(null); // Clear payment data when closing
+                }}
               >
                 <MaterialIcons name="close" size={24} color={subtitleColor} />
               </TouchableOpacity>
@@ -1929,61 +2137,106 @@ export default function ReservationsScreen() {
                       </ThemedText>
                     </View>
 
-                    {/* Down Payment */}
+                    {/* Payment Amount (Down Payment or Full Payment) */}
                     <View style={[styles.balancePaymentItem, { 
-                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
-                      borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'
+                      backgroundColor: paymentData?.paymentAmountType === 'full' 
+                        ? (isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)')
+                        : (isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)'),
+                      borderColor: paymentData?.paymentAmountType === 'full'
+                        ? (isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)')
+                        : (isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)')
                     }]}>
                       <View style={styles.balancePaymentItemHeader}>
-                        <MaterialIcons name="payment" size={20} color={textColor} />
+                        <MaterialIcons 
+                          name={paymentData?.paymentAmountType === 'full' ? 'check-circle' : 'payment'} 
+                          size={20} 
+                          color={paymentData?.paymentAmountType === 'full' ? '#22C55E' : textColor} 
+                        />
                         <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
-                          Down Payment
+                          {paymentData?.paymentAmountType === 'full' ? 'Full Payment' : 'Down Payment (30%)'}
                         </ThemedText>
                       </View>
-                      <ThemedText style={[styles.balancePaymentItemValue, { color: textColor }]}>
-                        {formatPHP(calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType))}
+                      <ThemedText style={[styles.balancePaymentItemValue, { 
+                        color: paymentData?.paymentAmountType === 'full' ? '#22C55E' : textColor,
+                        fontWeight: paymentData?.paymentAmountType === 'full' ? '700' : '600'
+                      }]}>
+                        {formatPHP(paymentData?.amount || calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType))}
                       </ThemedText>
                     </View>
 
-                    {/* Remaining Balance */}
-                    <View style={[styles.balancePaymentItem, { 
-                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
-                      borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'
-                    }]}>
-                      <View style={styles.balancePaymentItemHeader}>
-                        <MaterialIcons name="account-balance" size={20} color={textColor} />
-                        <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
-                          Remaining Balance
+                    {/* Remaining Balance - Only show if not full payment */}
+                    {paymentData?.paymentAmountType !== 'full' && (
+                      <View style={[styles.balancePaymentItem, { 
+                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+                        borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'
+                      }]}>
+                        <View style={styles.balancePaymentItemHeader}>
+                          <MaterialIcons name="account-balance" size={20} color={textColor} />
+                          <ThemedText style={[styles.balancePaymentItemLabel, { color: textColor }]}>
+                            Remaining Balance
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={[styles.balancePaymentItemValue, { color: textColor, fontWeight: '600' }]}>
+                          {formatPHP(selectedReservation.servicePrice - (paymentData?.amount || calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType)))}
                         </ThemedText>
                       </View>
-                      <ThemedText style={[styles.balancePaymentItemValue, { color: textColor, fontWeight: '600' }]}>
-                        {formatPHP(selectedReservation.servicePrice - calculateDownPayment(selectedReservation.servicePrice, selectedReservation.serviceType))}
-                      </ThemedText>
-                    </View>
+                    )}
+                    
+                    {/* Full Payment Indicator */}
+                    {paymentData?.paymentAmountType === 'full' && (
+                      <View style={[styles.balancePaymentItem, { 
+                        backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                        borderColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)'
+                      }]}>
+                        <View style={styles.balancePaymentItemHeader}>
+                          <MaterialIcons name="check-circle" size={20} color="#22C55E" />
+                          <ThemedText style={[styles.balancePaymentItemLabel, { color: '#22C55E', fontWeight: '600' }]}>
+                            No Remaining Balance
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={[styles.balancePaymentItemValue, { color: '#22C55E', fontWeight: '700' }]}>
+                          {formatPHP(0)}
+                        </ThemedText>
+                      </View>
+                    )}
                   </View>
                 </View>
 
                 {/* Payment Status */}
                 <View style={styles.balancePaymentStatus}>
-                  <View style={[styles.balanceStatusItem, { 
-                    backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
-                    borderColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)'
-                  }]}>
-                    <MaterialIcons name="check-circle" size={20} color={textColor} />
-                    <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
-                      Down payment received
-                    </ThemedText>
-                  </View>
-                  
-                  <View style={[styles.balanceStatusItem, { 
-                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
-                    borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'
-                  }]}>
-                    <MaterialIcons name="schedule" size={20} color={textColor} />
-                    <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
-                      Balance due on check-in
-                    </ThemedText>
-                  </View>
+                  {paymentData?.paymentAmountType === 'full' ? (
+                    <View style={[styles.balanceStatusItem, { 
+                      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                      borderColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)'
+                    }]}>
+                      <MaterialIcons name="check-circle" size={20} color="#22C55E" />
+                      <ThemedText style={[styles.balanceStatusText, { color: '#22C55E', fontWeight: '600' }]}>
+                        Full payment received - No balance due
+                      </ThemedText>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={[styles.balanceStatusItem, { 
+                        backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                        borderColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)'
+                      }]}>
+                        <MaterialIcons name="check-circle" size={20} color={textColor} />
+                        <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
+                          Down payment received
+                        </ThemedText>
+                      </View>
+                      
+                      <View style={[styles.balanceStatusItem, { 
+                        backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+                        borderColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)'
+                      }]}>
+                        <MaterialIcons name="schedule" size={20} color={textColor} />
+                        <ThemedText style={[styles.balanceStatusText, { color: textColor }]}>
+                          Balance due on check-in
+                        </ThemedText>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             )}
@@ -1996,7 +2249,10 @@ export default function ReservationsScreen() {
                   paddingHorizontal: width < 400 ? 20 : 24,
                   paddingVertical: width < 400 ? 10 : 12,
                 }]}
-                onPress={() => setBalanceModalVisible(false)}
+                onPress={() => {
+                  setBalanceModalVisible(false);
+                  setPaymentData(null); // Clear payment data when closing
+                }}
               >
                 <ThemedText style={[styles.balanceModalButtonText, { color: '#fff' }]}>
                   Close

@@ -209,6 +209,13 @@ export default function SigninScreen() {
 
       // Handle remember me functionality
       await saveRememberUserPreference(rememberMe);
+      
+      // Save or clear credentials based on remember me checkbox
+      if (rememberMe) {
+        await saveCredentials(email, password);
+      } else {
+        await clearSavedCredentials();
+      }
 
       setToast({ visible: true, message: 'Login successful!', type: 'success' });
 
@@ -444,7 +451,14 @@ export default function SigninScreen() {
               <View style={styles.rememberMeContainer}>
                 <TouchableOpacity 
                   style={styles.checkboxContainer}
-                  onPress={() => setRememberMe(!rememberMe)}
+                  onPress={async () => {
+                    const newRememberMe = !rememberMe;
+                    setRememberMe(newRememberMe);
+                    // If unchecking, clear saved credentials
+                    if (!newRememberMe) {
+                      await clearSavedCredentials();
+                    }
+                  }}
                   activeOpacity={0.7}
                 >
                   <View style={[
